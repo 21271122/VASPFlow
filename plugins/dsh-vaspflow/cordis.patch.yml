@@ -1,0 +1,16 @@
+# dsh-vaspflow bundle patch: mounts the VaspFlow plugin into the host
+# composition of a dsh profile. The host half exposes /plugins/dsh-vaspflow/*
+# HTTP routes (scan / tasks / convergence / structure / files) plus agent
+# tools (vasp_scan, vasp_convergence, vasp_structure_scene, vasp_task_files,
+# vasp_read_file); the browser half (exports "./client") mounts the sidebar
+# VASP entry and the right-dock panel.
+#
+# Install: `dsh plugin --profile <name> add <this package>` (npm or a local
+# path). The `dsh plugin` command pnpm-installs the package into the profile
+# and reconciles it into the profile's `dsh.profile.bundles` layer list.
+- insert:
+    - id: vaspflow
+      name: dsh-vaspflow
+      config:
+        # 打开项目时的默认扫描根（可选；空 = 由 UI/会话 workspace 决定）
+        defaultScanRoot: ""

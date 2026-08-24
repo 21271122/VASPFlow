@@ -1,0 +1,5 @@
+agent.cordis.yml 改编自 DeepSeek Harness 内置 Standard preset（MIT）。
+skills/ 目录内容源自本机会话技能注册表（vasp-structure-opt / vasp-zpe-setup / vesta-view），
+其中 vasp-structure-opt 附带 scripts/*.py 批量构建脚本。
+自定义工具 tools/*.mjs（incar-validate / outcar-parse）由 DSH 创造模式会话编写。
+原始 DeepSeek 版权和 MIT 许可声明见开源仓库。

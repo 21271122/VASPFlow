@@ -1,0 +1,46 @@
+# ---- dependencies ----
+node_modules/
+**/node_modules/
+plugins/dsh-vaspflow/node_modules/
+
+# ---- legacy Electron app (not part of the DSH plugin distribution) ----
+/backend/
+/frontend/
+/electron/
+/package.json
+/package-lock.json
+
+# ---- local harness metadata / agent internals ----
+/.agents/
+/.claude/
+
+# ---- python / build residue ----
+__pycache__/
+*.py[cod]
+dist/
+frontend/dist/
+
+# ---- local runtime state ----
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# ---- editor / OS noise ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# ---- plugin local artifacts (regenerated) ----
+plugins/dsh-vaspflow/package.json.bak
+
+# ---- sample VASP task data (local demo, not part of the distribution) ----
+preset-construction/build/sample-vasp/
+
+# ---- dev-only/agent guidance & internal construction docs (contain local
+#      paths; kept out of the public distribution) ----
+/AGENTS.md
+/CLAUDE.md
+/preset-construction/*.md

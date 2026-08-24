@@ -1,0 +1,3 @@
+name: VASP 计算助手
+description: 面向 VASP 第一性原理计算的编码 Agent：输入文件校验、作业管理、收敛分析与结果解读。
+order: 5
