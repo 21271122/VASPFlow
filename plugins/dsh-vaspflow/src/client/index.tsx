@@ -50,6 +50,8 @@ const CSS = [
   // Dark mode: force the 3D structure mount container to the dark background
   // even if the alias token is unresolved on some element paths.
   'body[data-ds-dark-theme] [data-vasp-structure-mount]{background:#16181f!important;border-color:#30343f!important}',
+  // File preview <pre>: dark-mode fallback when the alias token is unresolved.
+  'body[data-ds-dark-theme] .vaspflow-file-preview{background:#16181f!important;color:#e6e6e6!important;border:1px solid #30343f!important}',
   // Structure file tab bar: keyboard focus affordance (←/→ switches file).
   '[data-dsh-vaspflow-panel] .vaspflow-structure-tabs:focus-visible{border-radius:8px;box-shadow:0 0 0 2px var(--dsw-alias-brand-primary,#3964fe)}',
   // Task-list popup: menu-like floating surface with theme-adaptive colors.

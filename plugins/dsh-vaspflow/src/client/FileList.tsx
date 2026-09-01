@@ -123,8 +123,9 @@ const FileList: React.FC<{ taskId: number }> = ({ taskId }) => {
         {previewLoading ? (
           <Spin style={{ display: 'block', margin: '40px auto' }} />
         ) : (
-          <pre style={{
-            maxHeight: '60vh', overflow: 'auto', background: 'var(--dsw-alias-bg-2, #f5f5f5)',
+          <pre className="vaspflow-file-preview" style={{
+            maxHeight: '60vh', overflow: 'auto',
+            background: 'var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base, #f5f5f5))',
             padding: 12, borderRadius: 4, fontSize: 12, lineHeight: 1.5,
             whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0,
             color: 'var(--dsw-alias-label-primary, inherit)',
