@@ -98,7 +98,7 @@ ZPE/
 │   ├── POTCAR         ← 复制自 0-Bi/POTCAR
 │   ├── KPOINTS        ← 复制自 0-Bi/KPOINTS
 │   ├── POSCAR         ← 复制自 0-Bi/CONTCAR（动力学标记将修改）
-│   └── lqf.sh         ← 复制自 0-Bi/lqf.sh
+│   └── run.sh         ← 复制自 0-Bi/run.sh
 ├── 1-_NO3/
 │   └── (同上结构)
 ├── ...
@@ -110,16 +110,16 @@ ZPE/
 
 ## 节点三 · 作业脚本识别
 
-遍历源目录，查找 `.sh`、`.slurm` 结尾或 `run`、`submit`、`job`、`lqf` 开头的文件。
+遍历源目录，查找 `.sh`、`.slurm` 结尾或 `run`、`submit`、`job` 开头的文件（提交脚本名不做任何预设）。
 
 ```
 节点三 · 作业脚本识别
 ──────────────────────────────────────────────────────────
 目录        找到的脚本
 ──────────────────────────────────────────────────────────
-0-Bi        lqf.sh
-1-_NO3      lqf.sh
-2-_NO3H     lqf.sh, run_test.sh
+0-Bi        run.sh
+1-_NO3      run.sh
+2-_NO3H     run.sh, run_test.sh
 ...
 ──────────────────────────────────────────────────────────
 未找到脚本的目录：（无） / 或列出
@@ -331,7 +331,7 @@ def 找作业脚本(src):
         fp = os.path.join(src, f)
         if not os.path.isfile(fp):
             continue
-        if f.endswith((".sh", ".slurm")) or f.lower().startswith(("run", "submit", "job", "lqf")):
+        if f.endswith((".sh", ".slurm")) or f.lower().startswith(("run", "submit", "job")):
             scripts.append(f)
     return scripts
 ```

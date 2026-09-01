@@ -1,7 +1,7 @@
 """
 Scan project directories for VASP input file templates.
 Finds directories containing INCAR and extracts key parameters,
-plus presence of KPOINTS, POTCAR, lqf.sh.
+plus presence of KPOINTS, POTCAR, and a submit script.
 Usage: python scripts/scan_templates.py [target_dir] [max_depth]
 """
 import os, sys, re
@@ -22,12 +22,36 @@ def extract_incar_params(incar_path):
     return params
 
 
+SUBMIT_SCRIPT_PRIORITY = ["submit.sh", "run.sh", "job.sh"]
+SUBMIT_SCRIPT_EXTS = (".slurm", ".sbatch", ".pbs")
+
+
+def find_submit_script(d):
+    """Find a submit script in a directory: priority exact names, then
+    *.slurm / *.sbatch / *.pbs. Returns the file name or None."""
+    for name in SUBMIT_SCRIPT_PRIORITY:
+        if os.path.isfile(os.path.join(d, name)):
+            return name
+    try:
+        names = sorted(os.listdir(d))
+    except OSError:
+        return None
+    for name in names:
+        if name.lower().endswith(SUBMIT_SCRIPT_EXTS) and os.path.isfile(os.path.join(d, name)):
+            return name
+    return None
+
+
 def check_files(d):
-    """Return list of present input files in directory."""
+    """Return list of present input files in directory (submit script gets its
+    real name, not a hard-coded one)."""
     present = []
-    for fname in ["INCAR", "KPOINTS", "POTCAR", "lqf.sh"]:
+    for fname in ["INCAR", "KPOINTS", "POTCAR"]:
         if os.path.exists(os.path.join(d, fname)):
             present.append(fname)
+    sub = find_submit_script(d)
+    if sub:
+        present.append(sub)
     return present
 
 
@@ -83,7 +107,7 @@ def main():
     # Highlight "complete" templates (all 4 files present)
     complete = [d for d, files, _ in results if len(files) == 4]
     if complete:
-        print("\nComplete templates (INCAR+KPOINTS+POTCAR+lqf.sh):")
+        print("\nComplete templates (INCAR+KPOINTS+POTCAR+submit script):")
         for d in complete:
             rel = os.path.relpath(d, target)
             print(f"  {rel}")

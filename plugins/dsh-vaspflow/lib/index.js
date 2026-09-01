@@ -34,6 +34,10 @@ import {
   taskDir,
 } from './host/task-files.js';
 import { TaskStore } from './host/task-store.js';
+import { buildInputs } from './host/input-builder.js';
+import { checkInputs } from './host/input-checker.js';
+import { srcInspect } from './host/src-inspect.js';
+import { scanTemplates } from './host/scan-templates.js';
 
 export const name = 'dsh-vaspflow';
 export const inject = ['tools'];
@@ -43,6 +47,11 @@ export const Config = z.object({
 });
 
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'];
+
+/** Session workspace cwd for a tool call (same contract as dsh-tool-fs.sessionCwd). */
+function workspaceOf(exec) {
+  return exec?.agent?.session?.header?.cwd || process.cwd();
+}
 
 function json(res, status, body) {
   res.writeHead(status, {
@@ -313,6 +322,220 @@ export function apply(ctx, config) {
     presentCall: (args) => ({ card: 'generic', title: 'Read VASP file', kind: 'other', rawInput: args }),
   }));
 
+
+  ctx.tools.register(defineTool({
+    name: 'vasp_build_inputs',
+    description: '批量创建 VASP 结构优化输入文件：建目录、复制 INCAR/KPOINTS/POTCAR/POSCAR/提交脚本、按 freeAtoms 或 fixedAtoms 显式规则写 Selective dynamics（绝不按元素序推断）、INCAR 参数覆盖（缺失 tag 会追加）、POTCAR-POSCAR 等长同序校验。提交脚本必须显式给出 submitSrc（不做自动探测；缺失时应向用户询问）。dryRun=true 时仅预览不写盘。',
+    parameters: {
+      projectRoot: { type: 'string', description: '项目根目录：任务 dir 与相对源路径的基准；缺省用当前会话工作空间。' },
+      tasks: {
+        type: 'array', required: true, description: '构建任务列表。',
+        items: {
+          type: 'object', additionalProperties: true,
+          properties: {
+            dir: { type: 'string' },
+            poscarSrc: { type: 'string', description: '可选：POSCAR 源；未提供时跳过 SD/POTCAR 校验（分段构建）' },
+            template: { type: 'string' },
+            incarSrc: { type: 'string' },
+            kpointsSrc: { type: 'string' },
+            potcarSrc: { type: 'string' },
+            submitSrc: { type: 'string', description: '可选：提交脚本（不自动探测；缺失仅警告，稍后补充）' },
+            incarOverrides: { type: 'object', additionalProperties: true },
+            sources: { type: 'object', additionalProperties: true, properties: {
+              poscar: { type: 'string' }, incar: { type: 'string' }, kpoints: { type: 'string' },
+              potcar: { type: 'string' }, submit: { type: 'string' },
+            } },
+            freeAtoms: { type: 'array', items: { type: 'number' } },
+            fixedAtoms: { type: 'array', items: { type: 'number' } },
+            sdPolicy: { type: 'string', enum: ['override', 'keep'], description: "SD 策略：'override'（默认）= 必须显式 freeAtoms/fixedAtoms；'keep' = 沿用源文件旗标，源无旗标时任务报错或警告" },
+          },
+        },
+      },
+      dryRun: { type: 'boolean', description: '仅预览不写盘（默认 false）。' },
+      linkPotcar: { type: 'boolean', description: '用硬链接替代复制 POTCAR（默认 false）。' },
+    },
+    output: {
+      schema: {
+        type: 'object', additionalProperties: false, properties: {
+          results: {
+            type: 'array', items: {
+              type: 'object', additionalProperties: true, properties: {
+                dir: { type: 'string' }, status: { type: 'string' },
+                sources: { type: 'object', additionalProperties: true },
+                sd: { type: 'string' }, potcar: { type: 'string' },
+                errors: { type: 'array', items: { type: 'string' } },
+                warnings: { type: 'array', items: { type: 'string' } },
+                sdNotes: { type: 'array', items: { type: 'string' } },
+                wrote: { type: 'boolean' },
+              },
+            },
+          },
+          okCount: { type: 'number' }, warnCount: { type: 'number' }, errorCount: { type: 'number' },
+          dryRun: { type: 'boolean' }, count: { type: 'number' }, wroteCount: { type: 'number' },
+          written: { type: 'boolean' },
+        },
+      },
+      render: (_args, value) => [{
+        type: 'text',
+        text: value.results.map((r) => {
+          const prefix = value.dryRun ? '[dry-run] ' : '';
+          const line = prefix + '[' + r.status + '] ' + r.dir + ' | SD: ' + r.sd + ' | POTCAR: ' + r.potcar;
+          const notes = (r.sdNotes && r.sdNotes.length > 0) ? ' | ' + r.sdNotes.join(' | ') : '';
+          return (r.errors.length > 0 ? line + ' | ERRORS: ' + r.errors.join('; ') : line) + notes;
+        }).join('\n') + '\n' + (value.dryRun
+          ? 'DRY-RUN MODE - 未写入任何文件（' + value.count + ' 个任务，written=false）'
+          : '落盘: written=' + value.written + '，wroteCount=' + value.wroteCount + '/' + value.count + '；' + value.okCount + ' ok, ' + value.warnCount + ' warn, ' + value.errorCount + ' error'),
+      }],
+    },
+    async execute(args, exec) {
+      return buildInputs(args.projectRoot ?? workspaceOf(exec), args.tasks ?? [], { dryRun: !!args.dryRun, linkPotcar: !!args.linkPotcar });
+    },
+    presentCall: (args) => ({ card: 'generic', title: 'Build VASP inputs', kind: 'other', rawInput: args }),
+  }));
+  ctx.tools.register(defineTool({
+    name: 'vasp_check_inputs',
+    description: '校验一批已构建的 VASP 任务目录：POSCAR-POTCAR 物种匹配（等长同序）、Selective dynamics 的 F/T 旗标（无旗标坐标报 FLAG_MISSING）、关键 INCAR 参数、KPOINTS 网格。每个目录独立检查，单个目录异常不中断其余。',
+    parameters: {
+      dirs: { type: 'array', required: true, items: { type: 'string' }, description: '待校验的目录路径（相对 projectRoot 或绝对）。' },
+      projectRoot: { type: 'string', description: '项目根目录：dirs 里相对路径的解析基准（与 vasp_build_inputs 一致）；缺省用当前会话工作空间。' },
+    },
+    output: {
+      schema: {
+        type: 'object', additionalProperties: false, properties: {
+          results: {
+            type: 'array', items: {
+              type: 'object', additionalProperties: true, properties: {
+                dir: { type: 'string' },
+                resolved: { type: 'string' },
+                species: { type: 'array', items: { type: 'string' } },
+                poscarPotcar: { type: 'string' }, sd: { type: 'string' },
+                warnings: { type: 'array', items: { type: 'string' } },
+                incar: { type: 'json' }, kpoints: { type: 'string' }, error: { type: 'string' },
+              },
+            },
+          },
+          consistency: {
+            type: 'object', additionalProperties: true, properties: {
+              uniform: { type: 'boolean' },
+              groups: {
+                type: 'array', items: {
+                  type: 'object', additionalProperties: true, properties: {
+                    pattern: { type: 'string' }, count: { type: 'number' },
+                    dirs: { type: 'array', items: { type: 'string' } },
+                  },
+                },
+              },
+              note: { type: 'string' },
+            },
+          },
+        },
+      },
+      render: (_args, value) => [{
+        type: 'text',
+        text: value.results.map((r) => {
+          const inc = typeof r.incar === 'object' && r.incar ? Object.entries(r.incar).slice(0, 8).map(([k, v]) => k + '=' + v).join('; ') : (r.incar || '-');
+          const warn = (r.warnings && r.warnings.length > 0) ? ' | 警告: ' + r.warnings.join('; ') : '';
+          return (r.error ? '[CRASH] ' : '[ok] ') + r.dir + ' -> ' + r.resolved + ' | POTCAR-POSCAR: ' + r.poscarPotcar + ' | SD: ' + r.sd + ' | ' + inc + ' | ' + r.kpoints + (r.error ? ' | ' + r.error : '') + warn;
+        }).join('\n'),
+      }],
+    },
+    execute(args, exec) {
+      return checkInputs(args.dirs ?? [], { projectRoot: args.projectRoot ?? workspaceOf(exec) });
+    },
+    presentCall: (args) => ({ card: 'generic', title: 'Check VASP inputs', kind: 'other', rawInput: args }),
+  }));
+
+  ctx.tools.register(defineTool({
+    name: 'vasp_src_inspect',
+    description: '结构源文件盘点（构建前体检）：扫描目录内 *.vasp/POSCAR/CONTCAR，解析物种/数量/坐标类型/SD 旗标统计/坐标行数/尾部垃圾行，并跨文件比对一致性（物种序 + SD F/T 分布 + 坐标类型）。在 vasp_build_inputs 之前调用，用于发现源文件间的模型/旗标不一致。',
+    parameters: {
+      rootPath: { type: 'string', description: '要扫描的根目录；缺省用当前会话工作空间。' },
+      maxDepth: { type: 'number', description: '递归深度上限（默认 10）。' },
+    },
+    output: {
+      schema: {
+        type: 'object', additionalProperties: false, properties: {
+          files: {
+            type: 'array', items: {
+              type: 'object', additionalProperties: true, properties: {
+                path: { type: 'string' }, relPath: { type: 'string' },
+                elements: { type: 'array', items: { type: 'string' } },
+                counts: { type: 'array', items: { type: 'number' } },
+                nAtoms: { type: 'number' }, coordType: { type: 'string' }, hasSd: { type: 'boolean' },
+                fFlags: { type: 'number' }, tFlags: { type: 'number' },
+                nCoord: { type: 'number' }, trailingLines: { type: 'number' }, error: { type: 'string' },
+              },
+            },
+          },
+          count: { type: 'number' },
+          consistency: {
+            type: 'object', additionalProperties: true, properties: {
+              uniform: { type: 'boolean' },
+              groups: {
+                type: 'array', items: {
+                  type: 'object', additionalProperties: true, properties: {
+                    pattern: { type: 'string' }, count: { type: 'number' },
+                    files: { type: 'array', items: { type: 'string' } },
+                  },
+                },
+              },
+              note: { type: 'string' },
+            },
+          },
+        },
+      },
+      render: (_args, value) => [{
+        type: 'text',
+        text: value.count + ' 个结构文件，一致性: ' + value.consistency.note + '\n' + value.files.map((f) => {
+          const flags = f.hasSd ? (' SD ' + f.fFlags + 'F/' + f.tFlags + 'T') : ' 无SD';
+          const junk = f.trailingLines > 0 ? (' 尾行+' + f.trailingLines) : '';
+          return (f.error ? '[ERR] ' : '[ok] ') + f.relPath + ' | ' + f.elements.join('') + ' ' + f.nAtoms + '原子' + flags + junk + (f.error ? ' | ' + f.error : '');
+        }).join('\n'),
+      }],
+    },
+    execute(args, exec) {
+      return srcInspect(args.rootPath ?? workspaceOf(exec), args.maxDepth ?? 10);
+    },
+    presentCall: (args) => ({ card: 'generic', title: 'Inspect VASP sources', kind: 'other', rawInput: args }),
+  }));
+  ctx.tools.register(defineTool({
+    name: 'vasp_scan_templates',
+    description: '扫描项目中的 VASP 输入模板目录（含 INCAR 的目录），报告文件齐备情况（INCAR/KPOINTS/POTCAR/提交脚本文件名）与关键 INCAR 参数（IBRION/NSW/ENCUT/ISPIN/EDIFFG/ISMEAR...）。仅用于向用户列出候选模板供确认；模板与提交脚本的最终选择仍由用户决定。',
+    parameters: {
+      rootPath: { type: 'string', description: '要扫描的根目录；缺省用当前会话工作空间。' },
+      maxDepth: { type: 'number', description: '递归深度上限（默认 3）。' },
+    },
+    output: {
+      schema: {
+        type: 'object', additionalProperties: false, properties: {
+          templates: {
+            type: 'array', items: {
+              type: 'object', additionalProperties: true, properties: {
+                relPath: { type: 'string' }, dir: { type: 'string' },
+                files: { type: 'array', items: { type: 'string' } },
+                submit: { type: 'string' },
+                params: { type: 'json' },
+                complete: { type: 'boolean' },
+              },
+            },
+          },
+          count: { type: 'number' },
+        },
+      },
+      render: (_args, value) => [{
+        type: 'text',
+        text: value.count + ' 个候选模板:\n' + value.templates.map((t) => {
+          const p = t.params;
+          const keys = ['IBRION', 'NSW', 'ENCUT', 'ISMEAR', 'SIGMA', 'ISPIN', 'EDIFFG'].filter((k) => p[k] !== undefined).map((k) => k + '=' + p[k]).join(' ');
+          return (t.complete ? '[完整] ' : '[缺文件] ') + t.relPath + ' | 文件: ' + t.files.join(',') + ' | ' + keys;
+        }).join('\n'),
+      }],
+    },
+    execute(args, exec) {
+      return scanTemplates(args.rootPath ?? workspaceOf(exec), args.maxDepth ?? 3);
+    },
+    presentCall: (args) => ({ card: 'generic', title: 'Scan VASP templates', kind: 'other', rawInput: args }),
+  }));
   // ---- HTTP routes ------------------------------------------------------------
 
   let webRegistered = false;

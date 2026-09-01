@@ -87,7 +87,8 @@ test('apply registers all routes and five tools', () => {
   assert.ok(paths.includes('/plugins/dsh-vaspflow/task'));
   const toolNames = registered.map((t) => t.name);
   assert.deepEqual(toolNames.sort(), [
-    'vasp_convergence', 'vasp_read_file', 'vasp_scan',
+    'vasp_build_inputs', 'vasp_check_inputs', 'vasp_convergence',
+    'vasp_read_file', 'vasp_scan', 'vasp_scan_templates', 'vasp_src_inspect',
     'vasp_structure_scene', 'vasp_task_files',
   ].sort());
 });

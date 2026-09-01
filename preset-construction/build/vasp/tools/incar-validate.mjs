@@ -22,16 +22,33 @@ const JOB_RULES = {
 const TAG_PATTERN = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.+?)\s*(?:#.*)?$/;
 
 function parseTags(text) {
+  // VASP INCAR 允许同一行多个 tag = value，分号分隔（如 EDIFF = 1E-5; EDIFFG = -0.02）。
+  // 先按 ; 拆分子句，再对每子句提取 tag；= 两侧空格可有可无（\\s*）。
   const tags = {};
-  for (const line of text.split(/\r?\n/)) {
-    const m = TAG_PATTERN.exec(line);
-    if (m) tags[m[1]] = m[2].trim();
+  const warnings = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const segments = rawLine.split(';');
+    let assignsInLine = 0;
+    for (const segment of segments) {
+      const m = TAG_PATTERN.exec(segment);
+      if (!m) continue;
+      assignsInLine += 1;
+      const key = m[1];
+      const value = m[2].trim();
+      if (Object.prototype.hasOwnProperty.call(tags, key)) {
+        warnings.push('tag 重复定义: ' + key + '（先 ' + tags[key] + '，后 ' + value + '）');
+      }
+      tags[key] = value;
+    }
+    if (assignsInLine > 1) {
+      warnings.push('同一行多个赋值（分号分隔）: ' + rawLine.trim());
+    }
   }
-  return tags;
+  return { tags, warnings };
 }
 
 function validateIncar(text, jobType) {
-  const tags = parseTags(text);
+  const { tags, warnings } = parseTags(text);
   const issues = [];
   if (jobType) {
     const rules = JOB_RULES[jobType];
@@ -53,7 +70,7 @@ function validateIncar(text, jobType) {
   if (tags.EDIFFG && tags.EDIFFG.startsWith("-") && !tags.IBRION) {
     issues.push("使用力的收敛判据 EDIFFG<0 时需要 IBRION 进行离子弛豫");
   }
-  return { ok: issues.length === 0, issues, tags: Object.entries(tags).map(([k, v]) => ({ key: k, value: v })) };
+  return { ok: issues.length === 0, issues, tags: Object.entries(tags).map(([k, v]) => ({ key: k, value: v })), warnings };
 }
 
 export function apply(ctx, config) {
@@ -75,6 +92,7 @@ export function apply(ctx, config) {
         properties: {
           ok: { type: "boolean" },
           issues: { type: "array", items: { type: "string" } },
+          warnings: { type: "array", items: { type: "string" } },
           tags: {
             type: "array",
             items: {
@@ -87,14 +105,17 @@ export function apply(ctx, config) {
             }
           }
         },
-        required: ["ok", "issues", "tags"]
+        required: ["ok", "issues", "tags", "warnings"]
       },
-      render: (_args, value) => [{
-        type: "text",
-        text: value.ok
-          ? `INCAR 校验通过（解析到 ${value.tags.length} 个标签）`
-          : `INCAR 校验失败（${value.issues.length} 个问题）:\n${value.issues.join("\n")}`
-      }]
+      render: (_args, value) => {
+        const warningText = value.warnings && value.warnings.length > 0 ? '\n警告:\n' + value.warnings.join('\n') : '';
+        return [{
+          type: "text",
+          text: value.ok
+            ? 'INCAR 校验通过（解析到 ' + value.tags.length + ' 个标签' + (value.warnings && value.warnings.length > 0 ? '，' + value.warnings.length + ' 条警告' : '') + '）' + warningText
+            : 'INCAR 校验失败（' + value.issues.length + ' 个问题）：\n' + value.issues.join('\n') + warningText
+        }];
+      }
     },
     execute(args) {
       const result = validateIncar(args.incarText, args.jobType ?? undefined);
@@ -103,3 +124,5 @@ export function apply(ctx, config) {
     presentCall: (args) => ({ card: "generic", title: "Validate INCAR", kind: "other", rawInput: args })
   });
 }
+
+
