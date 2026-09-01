@@ -161,6 +161,6 @@ npm run verify     # 产物一致性检查
 
 ## 9. 与历史形态的差异
 
-- 原 `check_all_inputs.py`/`batch_build_dirs.py`/`scan_templates.py` 等 Python 脚本已**归档**（保留于技能目录，不再作为执行路径），逻辑由宿主 JS 工具取代；
+- 原 `check_all_inputs.py`/`batch_build_dirs.py`/`scan_templates.py` 等 Python 脚本已**移除**，逻辑由宿主 JS 工具（`vasp_build_inputs`/`vasp_check_inputs`/`vasp_scan_templates`）取代；
 - 原 `get_directory_structure.py`（勘察）由通用工具/`vasp_scan` 取代；
 - 提交脚本不再自动探测、SD 不再按元素序推断（较旧 Python 版行为收紧）。
