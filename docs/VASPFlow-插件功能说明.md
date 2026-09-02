@@ -74,6 +74,7 @@
 | `freeAtoms` | 注 | 1-indexed 放开原子（其余 F F F）；显式给出即按规则 |
 | `fixedAtoms` | 注 | 1-indexed 固定原子（其余 T T T）；与 freeAtoms 互斥 |
 | `sdPolicy` | ❌ | **`keep`（默认）** = 沿用源文件 SD 旗标原样；`override` = 必须显式二选一 |
+| `extraFiles` | ❌ | **自定义/任意输入文件**（如 WAVECAR、CHGCAR、DOSCAR、自建势文件）：`[{ src: 显式路径（缺失→报错）, dest: 目标名（缺省=来源名）, fromTemplate: 从模板目录取（缺失→警告跳过） }]` |
 
 > 显式给出 `freeAtoms`/`fixedAtoms` 时按显式规则；`sdPolicy: override` 且不显式 → 任务报错（绝不按元素序推断基底/吸附物）。未提供 POSCAR/提交脚本属于分段构建（警告，不中止）。
 

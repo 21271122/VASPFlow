@@ -348,6 +348,11 @@ export function apply(ctx, config) {
             freeAtoms: { type: 'array', items: { type: 'number' } },
             fixedAtoms: { type: 'array', items: { type: 'number' } },
             sdPolicy: { type: 'string', enum: ['override', 'keep'], description: "SD 策略：'override'（默认）= 必须显式 freeAtoms/fixedAtoms；'keep' = 沿用源文件旗标，源无旗标时任务报错或警告" },
+            extraFiles: { type: 'array', items: { type: 'object', additionalProperties: true, properties: {
+              src: { type: 'string', description: '显式来源路径（相对 projectRoot 或绝对）；不存在 → 任务报错' },
+              dest: { type: 'string', description: '目标文件名（缺省 = 来源文件名）' },
+              fromTemplate: { type: 'string', description: '从模板目录取该文件（不存在 → 警告跳过）' },
+            } }, description: '自定义/任意输入文件（如 WAVECAR、CHGCAR、DOSCAR、自建势文件）：任务需要的非标准输入' },
           },
         },
       },

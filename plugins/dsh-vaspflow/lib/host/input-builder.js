@@ -23,7 +23,7 @@
 import fs from 'node:fs';
 import { createReadStream } from 'node:fs';
 import readline from 'node:readline';
-import { resolve, basename } from 'node:path';
+import { resolve, basename, normalize } from 'node:path';
 
 const SCALE_HINT_LINES = 5;
 
@@ -431,9 +431,40 @@ export async function buildOneTask(task, projectRoot, opts) {
     warnings.push('未提供 submitSrc - 提交脚本稍后补充（不自动探测；用户提供或由 agent 主动询问）');
   }
 
+  // extraFiles: arbitrary named inputs (WAVECAR, CHGCAR, DOSCAR, custom
+  // pseudopotentials, ...). Each item: { src } explicit path (missing -> error),
+  // { fromTemplate } file inside the template dir (missing -> warning), optional
+  // { dest } output name (defaults to the source basename / fromTemplate name).
+  for (const ex of task.extraFiles ?? []) {
+    const dest = ex.dest || (ex.src ? basename(normalize(ex.src)) : (ex.fromTemplate || null));
+    if (!dest) {
+      warnings.push('extraFiles 项缺少目标名（需 src/dest 或 fromTemplate）');
+      continue;
+    }
+    if (ex.src) {
+      const srcPath = resolve(projectRoot, ex.src);
+      if (fs.existsSync(srcPath)) {
+        copies.set(dest, srcPath);
+      } else {
+        errors.push('额外输入文件源不存在: ' + ex.src + '（-> ' + dest + '）');
+      }
+    } else if (ex.fromTemplate) {
+      if (template && fs.existsSync(template)) {
+        const cand = resolve(template, ex.fromTemplate);
+        if (fs.existsSync(cand)) {
+          copies.set(dest, cand);
+        } else {
+          warnings.push('模板目录中未找到额外输入文件: ' + ex.fromTemplate + '（跳过）');
+        }
+      } else {
+        warnings.push('未提供 template，无法取额外输入文件: ' + ex.fromTemplate + '（跳过）');
+      }
+    }
+  }
+
   // nothing at all to build?
   if (copies.size === 0) {
-    errors.push('任务未提供任何输入文件来源（poscarSrc/incarSrc/kpointsSrc/potcarSrc/submitSrc/sources 均缺）');
+    errors.push('任务未提供任何输入文件来源（poscarSrc/incarSrc/kpointsSrc/potcarSrc/submitSrc/sources/extraFiles 均缺）');
   }
 
   // in-memory SD plan (works for dry-run AND real run)

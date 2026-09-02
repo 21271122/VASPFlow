@@ -435,3 +435,52 @@ test('projectRoot/rootPath default to session workspace when omitted', async () 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('extraFiles: explicit src copy with custom dest name', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vfp-xf-'));
+  try {
+    sdFixture(dir, true);
+    writeFileSync(join(dir, 'WAVECAR-src'), 'wave data\n');
+    const result = await builder.execute({ projectRoot: dir, tasks: [{
+      dir: 'o1', poscarSrc: 's.vasp', template: 'tpl', submitSrc: 'tpl/submit.sh',
+      extraFiles: [{ src: 'WAVECAR-src', dest: 'WAVECAR' }],
+    }], dryRun: true }, {});
+    assert.equal(result.results[0].status, 'ok', JSON.stringify(result.results[0].errors));
+    assert.ok(result.results[0].sources.WAVECAR, 'WAVECAR must be staged: ' + JSON.stringify(result.results[0].sources));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('extraFiles: fromTemplate copies when present, warns when absent', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vfp-xf2-'));
+  try {
+    sdFixture(dir, true);
+    writeFileSync(join(dir, 'tpl/DOSCAR'), 'dos\n');
+    const result = await builder.execute({ projectRoot: dir, tasks: [{
+      dir: 'o1', poscarSrc: 's.vasp', template: 'tpl', submitSrc: 'tpl/submit.sh',
+      extraFiles: [{ fromTemplate: 'DOSCAR' }, { fromTemplate: 'EIGENVAL' }],
+    }], dryRun: true }, {});
+    assert.equal(result.results[0].status, 'warn');
+    assert.equal(result.results[0].errors.length, 0);
+    assert.ok(result.results[0].sources.DOSCAR, 'DOSCAR from template must be staged');
+    assert.ok(result.results[0].warnings.some((w) => w.includes('EIGENVAL')), JSON.stringify(result.results[0].warnings));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('extraFiles: missing explicit src is an error', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vfp-xf3-'));
+  try {
+    sdFixture(dir, true);
+    const result = await builder.execute({ projectRoot: dir, tasks: [{
+      dir: 'o1', poscarSrc: 's.vasp', template: 'tpl', submitSrc: 'tpl/submit.sh',
+      extraFiles: [{ src: 'nope/WAVECAR', dest: 'WAVECAR' }],
+    }], dryRun: true }, {});
+    assert.equal(result.results[0].status, 'error');
+    assert.ok(result.results[0].errors.some((e) => e.includes('额外输入文件')), JSON.stringify(result.results[0].errors));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
