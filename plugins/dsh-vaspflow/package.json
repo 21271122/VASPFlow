@@ -1,6 +1,6 @@
 {
   "name": "dsh-vaspflow",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "VaspFlow for DeepSeek Harness: right-dock VASP task panel plus a shared Node data service whose vasp_* tools are available only in the bundled VASP Agent preset.",
   "type": "module",
   "main": "./lib/index.js",
@@ -45,7 +45,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
-    "@deepseek-ai/dsh-tools": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-tools": "0.1.0-rc.6",
     "@deepseek-ai/schemastery": "^3.18.0",
     "antd": "^5.29.3",
     "recharts": "^2.15.4",

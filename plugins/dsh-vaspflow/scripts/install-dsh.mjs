@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const pluginRoot = resolve(scriptDir, '..');
 const pkg = JSON.parse(readFileSync(resolve(pluginRoot, 'package.json'), 'utf8'));
+const supportedDshVersion = '0.1.0-rc.6';
 
 const args = process.argv.slice(2);
 let profile = null;
@@ -24,6 +25,17 @@ function usage() {
   console.log('');
   console.log('Installs the VASPFlow DSH bundle and its bundled VASP Agent preset.');
   console.log('Existing presets are kept unless --replace is supplied.');
+}
+
+function readDshVersion(command, env) {
+  const result = spawnSync(command, ['--version'], {
+    env,
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+  });
+  const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.trim();
+  const version = output.match(/\b\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\b/)?.[0] ?? null;
+  return { ok: result.status === 0 && version !== null, version };
 }
 
 if (args[0] === '--help' || args[0] === '-h') {
@@ -85,31 +97,41 @@ if (process.exitCode === undefined) {
     : spawnSync('sh', ['-c', `command -v ${dshCommand}`], { stdio: 'ignore' }).status === 0;
 
   if (!dshAvailable) {
-    console.error('DSH was not found on PATH. Install @deepseek-ai/dsh@0.1.0-rc.6, then restart the terminal and run this command again.');
+    console.error(`DSH was not found on PATH. Install @deepseek-ai/dsh@${supportedDshVersion}, then restart the terminal and run this command again.`);
     process.exitCode = 1;
   } else {
-    console.log(`Installing ${packageSpec} into DSH profile "${profile}"...`);
-    const pluginResult = spawnSync(dshCommand, ['plugin', '--profile', profile, 'add', packageSpec], {
-      cwd: process.cwd(),
-      env,
-      shell: process.platform === 'win32',
-      stdio: 'inherit',
-    });
-
-    if (pluginResult.error) {
-      console.error(`DSH could not be started: ${pluginResult.error.message}`);
+    const dshVersion = readDshVersion(dshCommand, env);
+    if (!dshVersion.ok) {
+      console.error('Could not determine the installed DSH version. Run "dsh --version" and make sure it works before installing VASPFlow.');
       process.exitCode = 1;
-    } else if (pluginResult.status !== 0) {
-      process.exitCode = pluginResult.status ?? 1;
+    } else if (dshVersion.version !== supportedDshVersion) {
+      console.error(`VASPFlow ${pkg.version} supports DSH ${supportedDshVersion}; found ${dshVersion.version}.`);
+      console.error(`Install the supported version with: npm install -g @deepseek-ai/dsh@${supportedDshVersion}`);
+      process.exitCode = 1;
     } else {
-      const presetArgs = [resolve(scriptDir, 'install-preset.mjs')];
-      if (dshHome) presetArgs.push('--dsh-home', resolve(dshHome));
-      if (replace) presetArgs.push('--replace');
+      console.log(`DSH ${supportedDshVersion} detected. Installing ${packageSpec} into profile "${profile}"...`);
+      const pluginResult = spawnSync(dshCommand, ['plugin', '--profile', profile, 'add', packageSpec], {
+        cwd: process.cwd(),
+        env,
+        shell: process.platform === 'win32',
+        stdio: 'inherit',
+      });
 
-      const presetResult = spawnSync(process.execPath, presetArgs, { env, stdio: 'inherit' });
-      process.exitCode = presetResult.status ?? 1;
-      if (presetResult.status === 0) {
-        console.log('VASPFlow installation complete. Restart DSH, then choose “VASP 计算助手” for a new session.');
+      if (pluginResult.error) {
+        console.error(`DSH could not be started: ${pluginResult.error.message}`);
+        process.exitCode = 1;
+      } else if (pluginResult.status !== 0) {
+        process.exitCode = pluginResult.status ?? 1;
+      } else {
+        const presetArgs = [resolve(scriptDir, 'install-preset.mjs')];
+        if (dshHome) presetArgs.push('--dsh-home', resolve(dshHome));
+        if (replace) presetArgs.push('--replace');
+
+        const presetResult = spawnSync(process.execPath, presetArgs, { env, stdio: 'inherit' });
+        process.exitCode = presetResult.status ?? 1;
+        if (presetResult.status === 0) {
+          console.log('VASPFlow installation complete. Restart DSH, then choose “VASP 计算助手” for a new session.');
+        }
       }
     }
   }

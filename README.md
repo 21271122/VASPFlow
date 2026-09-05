@@ -48,7 +48,7 @@
 
 - **Node.js ≥ 18** —— 官网 [nodejs.org](https://nodejs.org) 下载安装；
 - **pnpm** —— 在终端执行 `corepack enable`（Node 自带）；若不行则 `npm i -g pnpm`；
-- **DSH（DeepSeek Harness）`0.1.0-rc.6`** —— 已安装且 `dsh` CLI 在 PATH 中（命令行执行 `dsh --version` 能输出版本即就绪）；
+- **DSH（DeepSeek Harness）`0.1.0-rc.6`** —— 已安装且 `dsh` CLI 在 PATH 中（命令行执行 `dsh --version` 必须输出该版本）；
 - **一个运行中的 DSH Web GUI**（后续面板加载目标）。
 
 ### 2. 克隆并安装插件
@@ -61,7 +61,7 @@ cd VASPFlow
 node ./plugins/dsh-vaspflow/scripts/install-dsh.mjs install --profile web --package ./plugins/dsh-vaspflow
 ```
 
-这条命令会先让 DSH 安装插件；只有成功后才复制 VASP Agent 预设。已有预设默认不会被覆盖。
+这条命令会先确认 DSH 是已验证的 `0.1.0-rc.6`，再安装插件；只有成功后才复制 VASP Agent 预设。已有预设默认不会被覆盖。
 
 > **npm 发布后的更简短用法**：用户无需克隆仓库，直接运行：
 >
