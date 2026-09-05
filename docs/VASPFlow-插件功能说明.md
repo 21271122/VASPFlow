@@ -1,6 +1,6 @@
 # dsh-vaspflow 插件功能说明
 
-> 面向 DeepSeek Harness (DSH) 的 VASP 科研助手插件。右侧面板（任务列表 / 收敛曲线 / 3D 结构 / 文件浏览）+ 宿主 Node 数据服务 + 9 个 `vasp_*` Agent 工具 + 配套 `vasp` Agent 预设。
+> 面向 DeepSeek Harness (DSH) 的 VASP 科研助手插件。右侧面板（任务列表 / 收敛曲线 / 3D 结构 / 文件浏览）+ 宿主 Node 数据服务 + 11 个仅由配套 `vasp` Agent 预设暴露的 `vasp_*` 工具。
 
 ## 1. 定位
 
@@ -17,8 +17,8 @@
 ┌─────────────────────┐     ┌───────────────────────┐     ┌────────────────────────┐
 │ L1 右侧面板 (React)  │────▶│ L2 数据服务             │────▶│ L3 vasp Agent 预设      │
 │ 任务树/表、收敛图、   │  ▶ │ /plugins/dsh-vaspflow/* │  ▶ │ persona + skills       │
-│ 3D 结构、文件浏览、    │  │ │ TaskStore（内存态）      │  │ │ incar_validate        │
-│ 一键分析、自动刷新    │◀──│ vasp_* × 9 个 Agent 工具 │◀──│ outcar_parse           │
+│ 3D 结构、文件浏览、    │  │ │ TaskStore（内存态）      │  │ │ vasp_incar_validate   │
+│ 一键分析、自动刷新    │◀──│ vasp_* × 11 个 Agent 工具│◀──│ vasp_outcar_parse      │
 └─────────────────────┘     └───────────────────────┘     └────────────────────────┘
 ```
 
@@ -26,9 +26,9 @@
 |------|------|------|
 | L1 客户端 | `src/client/` + `lib/client.js`（bundle） | 侧边栏 VASP 入口 + 右侧 dock 面板 |
 | L2 宿主 | `lib/index.js` + `lib/host/*` | HTTP 路由 + Agent 工具注册 + 数据层 |
-| L3 预设 | `preset-construction/build/vasp` | 科研助手 persona、3 个 skills、2 个文本工具 |
+| L3 预设 | `plugins/dsh-vaspflow/preset/vasp` | 科研助手 persona、3 个 skills；通过预设专属 bridge 注册全部 11 个工具 |
 
-## 3. Agent 工具（9 个，均以 `vasp_` 前缀暴露）
+## 3. Agent 工具（11 个，均以 `vasp_` 前缀暴露）
 
 所有工具的输出都经宿主 JSON-Schema 校验器校验（`additionalProperties` 收紧、必填字段声明），调用失败有统一形如 `{ error: "string" }` 的契约。
 
@@ -98,6 +98,13 @@
 
 **顶层 `consistency`（批次一致性）**：跨目录比对 POTCAR-POSCAR / SD / K 点 / 物种 / 关键 INCAR（不含 SYSTEM）；`uniform=false` 时按模式分组列出差异目录——抓"单看都对、合起来不一致"的批次问题。
 
+### 3.5 裸文本判定
+
+| 工具 | 用途 | 关键参数 |
+|------|------|----------|
+| `vasp_incar_validate` | 校验 INCAR 文本的任务类型必需/禁用标签与常见组合矛盾；支持分号分隔的同行多标签 | `incarText`, `jobType` |
+| `vasp_outcar_parse` | 解析 OUTCAR 文本的收敛标志、最新总能、离子步、常见错误签名与受力漂移 | `outcarText` |
+
 ## 4. HTTP 路由（面板数据服务，`/plugins/dsh-vaspflow/*`）
 
 | 方法/路径 | 说明 |
@@ -125,15 +132,15 @@
 - **一键分析**：任务行「分析此任务」→ 任务上下文预填聊天输入框（可编辑）并聚焦；
 - **反向联动**：Agent 调用 `vasp_scan` 等工具后面板自动刷新（TaskStore 版本轮询）。
 
-## 6. 配套 vasp Agent 预设（L3，`preset-construction/build/vasp`）
+## 6. 配套 vasp Agent 预设（L3，`plugins/dsh-vaspflow/preset/vasp`）
 
 | 部件 | 内容 |
 |------|------|------|
 | persona | VASP 计算助手身份 + 硬规则（建作业前校验 INCAR/POTCAR 顺序、不覆盖 CONTCAR/WAVECAR、收敛判定与 VASP 错误签名识别、优先用 `vasp_*` 工具；构建用 `vasp_build_inputs`/`vasp_check_inputs`，不按元素序推断 SD，不自动探测模板/提交脚本） |
 | skills | `vasp-structure-opt`（工具驱动协议：源体检→模板候选→dry-run→构建→校验→汇报）、`vasp-zpe-setup`（Plan 模式五节点确认→执行→验证）、`vesta-view` |
-| 文本工具 | `incar_validate`（按任务类型校验必需/禁用标签 + 组合矛盾；**分号感知**；`warnings` 报告重复 tag/同行多赋值）、`outcar_parse` |
+| 工具 bridge | 仅在该预设作用域注册全部 `vasp_*` 工具；其中 `vasp_incar_validate` 和 `vasp_outcar_parse` 处理裸文本 |
 
-职责分工：宿主插件的 `vasp_*` 处理任务级数据（扫描/文件/结构）；预设工具处理裸文本（INCAR/OUTCAR 判定）。
+职责分工：宿主插件持有任务数据和全部工具实现；预设只在选择“VASP 计算助手”的会话中注册工具。这样普通 Agent 不会得到 VASP 工具，而面板和 VASP Agent 始终共用同一 TaskStore。
 
 ## 7. 关键设计决策（约定）
 
@@ -147,14 +154,14 @@
 ## 8. 安装 / 构建 / 测试 / 验证
 
 ```bash
-# 安装到 DSH profile
-dsh plugin --profile <name> add ./plugins/dsh-vaspflow
+# 从源码安装插件与预设（仅支持 DSH 0.1.0-rc.6）
+node scripts/install-dsh.mjs install --profile web --package .
 
 # 开发
 cd plugins/dsh-vaspflow
-npm install
+pnpm install --frozen-lockfile
 npm run build      # 构建浏览器 bundle → lib/client.js
-npm test           # 宿主单元 + 端到端 schema 校验测试（44 项）
+npm test           # 宿主单元 + schema 校验测试（52 项）
 npm run verify     # 产物一致性检查
 ```
 

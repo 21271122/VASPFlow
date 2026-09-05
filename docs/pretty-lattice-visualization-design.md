@@ -1,5 +1,7 @@
 # VASPFlow Visualization Upgrade Design
 
+> 状态说明（2026-09）：本文最初以已移除的 Electron/Python 后端为目标，因此其中 `backend/`、`frontend/` 路径和 pymatgen 依赖建议均为历史设计，不应直接照搬。当前实现位于 `plugins/dsh-vaspflow/lib/host/structure.js` 与 `src/client/StructureViewer.tsx`，并已提供 `structure-scene` 路由、键、周期像和结构摘要。本文保留为后续视觉质量、导出与交互设计的参考。
+
 ## Summary
 
 Pretty Lattice can be a strong reference for VASPFlow's visualization layer, but it should not be imported wholesale. Pretty Lattice is a dedicated crystal figure-making application; VASPFlow is a VASP workflow manager with structure viewing as one panel. The right approach is to borrow its data-contract and rendering ideas while keeping VASPFlow's existing task/file workflow intact.
