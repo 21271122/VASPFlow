@@ -98598,7 +98598,7 @@ function buildTaskContext(task, projectPath) {
     `\u79BB\u5B50\u6B65\uFF1A${task.n_ion_steps} | E\uFF1A${task.final_energy ?? "N/A"} eV | Fmax\uFF1A${task.final_max_force ?? "N/A"} | \u78C1\u77E9\uFF1A${task.magmom_total ?? "N/A"}`,
     `\u6676\u683C\uFF1A${lattice}`,
     `INCAR \u6458\u8981\uFF1A${incar}`,
-    "\u8BF7\u4F7F\u7528 vasp_* \u5DE5\u5177\u4E0E incar_validate/outcar_parse \u5206\u6790\u3002"
+    "\u8BF7\u5728 VASP \u8BA1\u7B97\u52A9\u624B\u9884\u8BBE\u4E2D\u4F7F\u7528 vasp_* \u5DE5\u5177\u5206\u6790\u3002"
   ].join("\n");
 }
 

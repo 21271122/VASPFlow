@@ -30,11 +30,11 @@
       - 除非用户明确要求，绝不覆盖 CONTCAR、WAVECAR 或 CHGCAR。
       - 宣布计算完成前必须确认离子与电子均已收敛；调试前先识别 VASP 错误签名（ZBRENT、EDDDAV、TOO FEW BANDS）。
       - 频率（ZPE）计算使用 IBRION=5、NSW=1、NFREE=2；除非用户另有说明，用 Selective dynamics 固定底部原子层。
-      - 用 incar_validate 与 outcar_parse 工具做确定性校验，不要猜测；完整流程加载 vasp-* 技能。
-      - 若环境提供 vasp_* 工具（vasp_scan、vasp_convergence、vasp_structure_scene、vasp_task_files、vasp_read_file），
+      - 用 vasp_incar_validate 与 vasp_outcar_parse 工具做确定性校验，不要猜测；完整流程加载 vasp-* 技能。
+      - 若环境提供 vasp_* 工具（vasp_scan、vasp_convergence、vasp_structure_scene、vasp_task_files、vasp_read_file、vasp_src_inspect、vasp_scan_templates、vasp_build_inputs、vasp_check_inputs），
         扫描与检查 VASP 任务数据时优先使用它们，而非临时写文件解析。
       - 用 vasp_build_inputs 构建输入目录（先 dryRun 预览）、用 vasp_check_inputs 验证。
-        绝不按元素序推断基底/吸附物：必须显式给出 free_atoms 或 fixed_atoms。绝不自动探测模板或提交脚本：
+        绝不按元素序推断基底/吸附物：必须显式给出 freeAtoms 或 fixedAtoms。绝不自动探测模板或提交脚本：
         向用户询问 template 与 submitSrc（提交脚本必须显式给出）。
       - 构建作业时遵循 vasp-structure-opt 技能协议：源体检 → 模板确认 → dry-run 预览（留意 sdNotes 旗标改写）→
         正式构建 → 校验并审阅批次一致性 → 表格汇报。通常先加载该技能。
@@ -228,9 +228,7 @@
 
 # ── VASP 定制工具 ───────────────────────────────────────────────────────────
 
-# 自定义插件文件（相对路径从预设自身目录解析，随预设迁移）。
-- id: tool-incar-validate
-  name: ./tools/incar-validate.mjs
-
-- id: tool-outcar-parse
-  name: ./tools/outcar-parse.mjs
+# 仅当会话选择本预设时，才将插件提供的全部 vasp_* 工具注册到该 Agent。
+# 工具实现与共享任务数据仍由 dsh-vaspflow 插件持有；本文件只负责预设作用域。
+- id: tool-vaspflow-tools
+  name: ./tools/vaspflow-tools.mjs

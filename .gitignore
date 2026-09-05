@@ -43,4 +43,5 @@ preset-construction/build/sample-vasp/
 #      paths; kept out of the public distribution) ----
 /AGENTS.md
 /CLAUDE.md
+/.workbuddy/
 /preset-construction/*.md

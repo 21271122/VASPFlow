@@ -1,16 +1,6 @@
 // OUTCAR 解析工具：对 OUTCAR 文本做确定性解析，返回收敛状态、
 // 最新总能、离子步数与检测到的 VASP 错误签名。
 // 纯文本输入，不依赖文件系统，因此无 fs 服务需求。
-// 注意：预设自定义 .mjs 由 loader 以相对路径导入，文件内部 import 走 Node 原生
-// 解析（用户预设根下找不到 harness 的 node_modules），因此本文件零外部依赖，
-// 直接构造 ctx.tools.register 接受的 registry-ready 工具定义。
-
-/** Cordis 插件名（loader 诊断用）。 */
-export const name = "tool-outcar-parse";
-
-/** 需要的宿主服务：tools 注册表。 */
-export const inject = ["tools"];
-
 const CONVERGED = /reached required accuracy/;                    // 离子步收敛标志
 const ERRORS = [/\bZBRENT\b/, /\bEDDDAV\b/, /TOO FEW BANDS/, /\bEDWAV\b/];
 const ENERGY = /free  energy\s+\(TOTEN\)\s*=\s*([-\d.]+)/g;       // 最后匹配 = 最新总能
@@ -41,9 +31,9 @@ function parseOutcar(text) {
   };
 }
 
-export function apply(ctx, config) {
+export function registerOutcarParse(ctx) {
   ctx.tools.register({
-    name: "outcar_parse",
+    name: "vasp_outcar_parse",
     description: "解析 VASP OUTCAR 文本：返回是否收敛、最新总能（eV）、最后离子步号、检测到的错误签名（ZBRENT/EDDDAV/TOO FEW BANDS/EDWAV）与受力漂移。分析计算结果、判断计算是否成功时调用。",
     parameters: {
       type: "object",

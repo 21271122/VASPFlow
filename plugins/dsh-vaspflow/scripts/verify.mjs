@@ -31,6 +31,13 @@ for (const [sub, spec] of Object.entries(pkg.exports ?? {})) {
   }
 }
 
+// 1b) the published npx command must be included in the package.
+for (const target of Object.values(pkg.bin ?? {})) {
+  if (typeof target === 'string' && !existsSync(resolve(root, '..', target))) {
+    fail(`bin target missing: ${target}`);
+  }
+}
+
 // 2) client bundle header
 const clientPath = resolve(root, '../lib/client.js');
 if (!existsSync(clientPath)) {

@@ -6,6 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { apply } from '../index.js';
+import * as vaspPresetTools from '../../preset/vasp/tools/vaspflow-tools.mjs';
 
 /** Minimal fake Cordis context + webServer that captures registered routes. */
 function makeFakeCtx() {
@@ -13,6 +14,7 @@ function makeFakeCtx() {
   const exact = new Map();
   const prefixes = new Map();
   const registered = [];
+  const services = new Map();
   const tools = {
     register(def) {
       registered.push(def);
@@ -40,6 +42,10 @@ function makeFakeCtx() {
       fn();
       return () => {};
     },
+    provide(key, value) {
+      services.set(key, value);
+      return () => services.delete(key);
+    },
     logger: { info: () => {}, warn: () => {}, error: () => {} },
     tools,
   };
@@ -51,7 +57,7 @@ function makeFakeCtx() {
     },
     match,
   };
-  return { ctx, routes, match, registered };
+  return { ctx, routes, match, registered, services };
 }
 
 /** Drive a route handler with a request and return the parsed JSON body. */
@@ -75,8 +81,8 @@ async function callRoute(matchFn, url, method = 'GET') {
 
 const SAMPLE_ROOT = 'D:\\Projects\\VASPFlow\\preset-construction\\build\\sample-vasp';
 
-test('apply registers all routes and five tools', () => {
-  const { ctx, routes, registered } = makeFakeCtx();
+test('apply registers routes globally and VASP tools only through the preset service', () => {
+  const { ctx, routes, registered, services } = makeFakeCtx();
   apply(ctx, { defaultScanRoot: '' });
   const paths = [...routes.keys()];
   assert.ok(paths.includes('/plugins/dsh-vaspflow/ping'));
@@ -85,9 +91,14 @@ test('apply registers all routes and five tools', () => {
   assert.ok(paths.includes('/plugins/dsh-vaspflow/tasks'));
   assert.ok(paths.includes('/plugins/dsh-vaspflow/task/open-by-path'));
   assert.ok(paths.includes('/plugins/dsh-vaspflow/task'));
+  assert.deepEqual(registered, [], 'host startup must not expose VASP tools globally');
+  const vaspflowTools = services.get('vaspflowTools');
+  assert.ok(vaspflowTools, 'host must provide the VASP preset service');
+  vaspflowTools.register(ctx);
   const toolNames = registered.map((t) => t.name);
   assert.deepEqual(toolNames.sort(), [
     'vasp_build_inputs', 'vasp_check_inputs', 'vasp_convergence',
+    'vasp_incar_validate', 'vasp_outcar_parse',
     'vasp_read_file', 'vasp_scan', 'vasp_scan_templates', 'vasp_src_inspect',
     'vasp_structure_scene', 'vasp_task_files',
   ].sort());
@@ -165,9 +176,10 @@ test('files and file-content routes', async () => {
   assert.equal(content.body.truncated, false);
 });
 
-test('vasp_scan tool returns the same data as the scan route', async () => {
-  const { ctx, match, registered } = makeFakeCtx();
+test('preset-scoped vasp_scan returns the same data as the scan route', async () => {
+  const { ctx, match, registered, services } = makeFakeCtx();
   apply(ctx, { defaultScanRoot: '' });
+  services.get('vaspflowTools').register(ctx);
   const tool = registered.find((t) => t.name === 'vasp_scan');
   const out = await tool.execute({ rootPath: SAMPLE_ROOT });
   assert.equal(out.tasks.length, 1);
@@ -176,4 +188,34 @@ test('vasp_scan tool returns the same data as the scan route', async () => {
   const scanUrl = `/plugins/dsh-vaspflow/scan?root_path=${encodeURIComponent(SAMPLE_ROOT)}`;
   const routeOut = await callRoute(match, scanUrl, 'POST');
   assert.equal(out.tasks[0].label, routeOut.body.tasks[0].label);
+});
+
+test('VASP preset bridge registers the host service only in its own scope', () => {
+  const { ctx, registered, services } = makeFakeCtx();
+  apply(ctx, { defaultScanRoot: '' });
+
+  const presetCtx = {
+    tools: ctx.tools,
+    vaspflowTools: services.get('vaspflowTools'),
+  };
+  vaspPresetTools.apply(presetCtx);
+
+  assert.equal(registered.length, 11);
+  assert.ok(registered.some((tool) => tool.name === 'vasp_incar_validate'));
+  assert.ok(registered.some((tool) => tool.name === 'vasp_outcar_parse'));
+});
+
+test('migrated deterministic tools keep their INCAR and OUTCAR behaviour', async () => {
+  const { ctx, services, registered } = makeFakeCtx();
+  apply(ctx, { defaultScanRoot: '' });
+  services.get('vaspflowTools').register(ctx);
+
+  const validate = registered.find((tool) => tool.name === 'vasp_incar_validate');
+  const parse = registered.find((tool) => tool.name === 'vasp_outcar_parse');
+  const incar = await validate.execute({ incarText: 'IBRION = 2\nNSW = 30\nEDIFF = 1E-5\nEDIFFG = -0.02\nENCUT = 400\n', jobType: 'relax' });
+  const outcar = await parse.execute({ outcarText: 'free  energy   (TOTEN) =      -12.345678 eV\nreached required accuracy\n' });
+
+  assert.equal(incar.ok, true);
+  assert.equal(outcar.converged, true);
+  assert.equal(outcar.energy, -12.345678);
 });

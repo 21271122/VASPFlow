@@ -6,12 +6,26 @@
 
 ---
 
+## 兼容性
+
+当前开发和运行基线如下：
+
+| 项目 | 已验证版本 |
+|---|---|
+| DSH | `0.1.0-rc.6` |
+| Node.js | `18` 或更高版本 |
+| 插件依赖安装器 | `pnpm` |
+
+本插件尚未适配 DSH `0.1.2-rc.1` 的新版客户端模块体系。开发时请保持 DSH `0.1.0-rc.6`，并使用 `pnpm install --frozen-lockfile`，不要直接执行依赖升级命令。
+
+---
+
 ## 组成
 
 | 模块 | 路径 | 说明 |
 |---|---|---|
-| **dsh-vaspflow 插件** | [`plugins/dsh-vaspflow`](plugins/dsh-vaspflow) | 右侧任务面板 + Node 数据服务 + 5 个 `vasp_*` Agent 工具 |
-| **vasp Agent 预设** | [`preset-construction/build/vasp`](preset-construction/build/vasp) | "VASP 计算助手"预设：persona、专属 skills 与校验工具 |
+| **dsh-vaspflow 插件** | [`plugins/dsh-vaspflow`](plugins/dsh-vaspflow) | 右侧任务面板 + Node 数据服务；不向普通 Agent 暴露 VASP 工具 |
+| **vasp Agent 预设** | [`plugins/dsh-vaspflow/preset/vasp`](plugins/dsh-vaspflow/preset/vasp) | 随插件发布的“VASP 计算助手”预设：persona、专属 skills 与全部 `vasp_*` 工具 |
 | **设计文档** | [`docs/`](docs/) | 插件设计文档 |
 
 ---
@@ -22,7 +36,7 @@
 - **收敛趋势看板** —— 每个离子步的能量与最大力曲线；
 - **晶体结构看板** —— 3D 查看 `POSCAR` / `CONTCAR` / `*.vasp`，VESTA 式旋转、周期边界成键；
 - **一键 AI 分析** —— 选中任务后「分析此任务」，自动生成 AI 辅助分析提示词送入对话；
-- **Agent 工具** —— `vasp_scan` / `vasp_convergence` / `vasp_structure_scene` / `vasp_task_files` / `vasp_read_file`，面板与 Agent 共用同一数据层。
+- **VASP Agent 工具** —— 仅选择“VASP 计算助手”预设后可用：扫描、收敛、结构、文件、输入构建与校验，以及 `vasp_incar_validate` / `vasp_outcar_parse`；面板与 Agent 共用同一数据层。
 
 ---
 
@@ -34,7 +48,7 @@
 
 - **Node.js ≥ 18** —— 官网 [nodejs.org](https://nodejs.org) 下载安装；
 - **pnpm** —— 在终端执行 `corepack enable`（Node 自带）；若不行则 `npm i -g pnpm`；
-- **DSH（DeepSeek Harness）** —— 已安装且 `dsh` CLI 在 PATH 中（命令行执行 `dsh --version` 能输出版本即就绪）；
+- **DSH（DeepSeek Harness）`0.1.0-rc.6`** —— 已安装且 `dsh` CLI 在 PATH 中（命令行执行 `dsh --version` 能输出版本即就绪）；
 - **一个运行中的 DSH Web GUI**（后续面板加载目标）。
 
 ### 2. 克隆并安装插件
@@ -43,11 +57,17 @@
 git clone https://github.com/21271122/VASPFlow.git
 cd VASPFlow
 
-# 安装到 DSH profile（<name> 换成你的 profile 名，常见为 web）
-dsh plugin --profile <name> add ./plugins/dsh-vaspflow
+# 一次安装插件和预设。web 是 DSH 最常用的 profile 名。
+node ./plugins/dsh-vaspflow/scripts/install-dsh.mjs install --profile web --package ./plugins/dsh-vaspflow
 ```
 
-`dsh plugin` 会自动安装插件依赖，并把插件写入该 profile 的插件列表。
+这条命令会先让 DSH 安装插件；只有成功后才复制 VASP Agent 预设。已有预设默认不会被覆盖。
+
+> **npm 发布后的更简短用法**：用户无需克隆仓库，直接运行：
+>
+> ```bash
+> npx --yes dsh-vaspflow install --profile web
+> ```
 
 ### 3. 重启并打开面板
 
@@ -67,15 +87,19 @@ dsh plugin --profile <name> add ./plugins/dsh-vaspflow
    - **文件** —— 浏览任务目录与文件内容；
 4. 点「**分析此任务**」把任务上下文送入对话，让 Agent 协助分析。
 
-### 5.（可选）安装 vasp Agent 预设
+### 5. 使用 VASP Agent 预设
 
-把 vasp 预设复制到 DSH 的用户预设根：
+上一步的安装器会将随插件发布的 `vasp` 预设放入 DSH 用户预设目录，且默认不覆盖已有文件。重启 DSH 后，新建会话时选择 **VASP 计算助手** 预设即可；只有该预设会显示和调用全部 `vasp_*` 工具。
+
+若你已修改本地预设，并希望用仓库版本替换它，可显式执行：
 
 ```bash
-cp -r preset-construction/build/vasp "$HOME/.dsh/.agent-presets/vasp"
+node ./plugins/dsh-vaspflow/scripts/install-dsh.mjs install --profile web --package ./plugins/dsh-vaspflow --replace
 ```
 
-之后新建会话时选择 **VASP 计算助手** 预设即可；也可把 `agent-presets.default` 设为 `vasp` 使其成为默认。
+脚本会把旧预设重命名为带时间戳的备份目录，而不是直接删除。
+
+> 从 VASPFlow `0.1.x` 升级到 `0.2.0` 时，必须执行一次带 `--replace` 的命令。`0.2.0` 起全部 `vasp_*` 工具只由新版 VASP 预设注册；旧预设不能启用它们。
 
 ### 常见问题
 
@@ -95,10 +119,11 @@ cp -r preset-construction/build/vasp "$HOME/.dsh/.agent-presets/vasp"
 
 ```bash
 cd plugins/dsh-vaspflow
-npm install
+pnpm install --frozen-lockfile
 npm run build    # 构建浏览器 bundle
 npm test         # 宿主单元测试
 npm run verify   # 校验发布产物
+npm run install-dsh -- install --profile web --package . # 本地测试一键安装器
 ```
 
 **目录结构**
@@ -110,8 +135,8 @@ VASPFlow/
 │   ├── lib/client.js           # 浏览器 bundle
 │   ├── lib/host/               # 数据层（scanner/parser/structure/...）
 │   ├── lib/types/              # TypeScript 声明
-│   └── src/client/             # 前端源码（React + three.js）
-├── preset-construction/build/vasp/   # vasp Agent 预设（可安装）
+│   ├── src/client/             # 前端源码（React + three.js）
+│   └── preset/vasp/            # 随插件发布的 vasp Agent 预设
 └── docs/                       # 设计文档
 ```
 

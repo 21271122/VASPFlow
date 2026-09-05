@@ -1,15 +1,5 @@
 // INCAR 校验工具：按任务类型检查必需/禁用标签与常见组合矛盾。
 // 纯文本输入，不依赖文件系统，因此无 fs 服务需求。
-// 注意：预设自定义 .mjs 由 loader 以相对路径导入，文件内部 import 走 Node 原生
-// 解析（用户预设根下找不到 harness 的 node_modules），因此本文件零外部依赖，
-// 直接构造 ctx.tools.register 接受的 registry-ready 工具定义。
-
-/** Cordis 插件名（loader 诊断用）。 */
-export const name = "tool-incar-validate";
-
-/** 需要的宿主服务：tools 注册表。 */
-export const inject = ["tools"];
-
 /** 各任务类型的硬性标签要求（示例规则表，按实际计算体系扩展）。 */
 const JOB_RULES = {
   relax:  { required: ["IBRION", "NSW", "EDIFF", "EDIFFG", "ENCUT"], forbidden: [] },
@@ -73,9 +63,9 @@ function validateIncar(text, jobType) {
   return { ok: issues.length === 0, issues, tags: Object.entries(tags).map(([k, v]) => ({ key: k, value: v })), warnings };
 }
 
-export function apply(ctx, config) {
+export function registerIncarValidate(ctx) {
   ctx.tools.register({
-    name: "incar_validate",
+    name: "vasp_incar_validate",
     description: "校验 VASP INCAR 文本：按任务类型检查必需/禁用标签与常见组合矛盾，返回问题清单与解析出的标签表。创建或修改输入文件前调用。",
     parameters: {
       type: "object",
@@ -124,5 +114,4 @@ export function apply(ctx, config) {
     presentCall: (args) => ({ card: "generic", title: "Validate INCAR", kind: "other", rawInput: args })
   });
 }
-
 

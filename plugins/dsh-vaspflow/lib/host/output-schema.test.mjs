@@ -21,14 +21,21 @@ import { apply } from '../index.js';
 
 // Register every tool with a minimal ctx (the same shape apply() expects).
 const registered = [];
+const services = new Map();
 const ctx = {
   tools: { register: (t) => registered.push(t) },
   logger: { info() {}, warn() {}, error() {} },
   on() {},
   effect() { return () => {}; },
   get() { return undefined; },
+  provide(key, value) {
+    services.set(key, value);
+    return () => services.delete(key);
+  },
 };
 apply(ctx, {});
+assert.deepEqual(registered, [], 'host startup must not register VASP tools globally');
+services.get('vaspflowTools').register(ctx);
 
 const builder = registered.find((t) => t.name === 'vasp_build_inputs');
 const checker = registered.find((t) => t.name === 'vasp_check_inputs');

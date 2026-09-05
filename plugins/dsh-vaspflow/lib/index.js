@@ -13,8 +13,9 @@
  *   GET  /plugins/dsh-vaspflow/task/{id}/file-content?name=
  *   GET  /plugins/dsh-vaspflow/ping                       → {ok:true}
  *
- * Agent tools (port plan §4.4), registered on ctx.tools:
- *   vasp_scan / vasp_convergence / vasp_structure_scene / vasp_task_files / vasp_read_file
+ * The VASP Agent preset registers the model-facing `vasp_*` tools through
+ * the shared `vaspflowTools` service. The host itself never exposes them to
+ * every Agent.
  *
  * Routes register lazily once the Web server service binds, mirroring
  * dsh-token-panel.
@@ -38,9 +39,11 @@ import { buildInputs } from './host/input-builder.js';
 import { checkInputs } from './host/input-checker.js';
 import { srcInspect } from './host/src-inspect.js';
 import { scanTemplates } from './host/scan-templates.js';
+import { registerIncarValidate } from './host/incar-validate.js';
+import { registerOutcarParse } from './host/outcar-parse.js';
 
 export const name = 'dsh-vaspflow';
-export const inject = ['tools'];
+export const inject = [];
 
 export const Config = z.object({
   defaultScanRoot: z.string().default(''),
@@ -75,10 +78,15 @@ function parseQuery(url) {
   return out;
 }
 
-export function apply(ctx, config) {
-  const store = new TaskStore();
-
-  // ---- agent tools ----------------------------------------------------------
+/**
+ * Register the model-facing VASP tools into one Agent's scoped tool catalog.
+ *
+ * The host plugin deliberately does not call this at startup: the VASP Agent
+ * preset injects the shared service and calls it only for sessions that chose
+ * that preset. `store` remains host-owned so agent scans and the dock panel
+ * still observe the same task ids and task data.
+ */
+export function registerVaspTools(ctx, store) {
 
   ctx.tools.register(defineTool({
     name: 'vasp_scan',
@@ -541,6 +549,21 @@ export function apply(ctx, config) {
     },
     presentCall: (args) => ({ card: 'generic', title: 'Scan VASP templates', kind: 'other', rawInput: args }),
   }));
+  registerIncarValidate(ctx);
+  registerOutcarParse(ctx);
+}
+
+export function apply(ctx, config) {
+  const store = new TaskStore();
+
+  // This service is consumed only by preset/vasp/tools/vaspflow-tools.mjs.
+  // Its tool definitions close over this store, preserving panel/Agent state.
+  ctx.provide('vaspflowTools', {
+    register(toolCtx) {
+      registerVaspTools(toolCtx, store);
+    },
+  });
+
   // ---- HTTP routes ------------------------------------------------------------
 
   let webRegistered = false;

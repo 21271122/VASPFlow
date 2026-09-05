@@ -427,6 +427,6 @@ export function buildTaskContext(task: Task, projectPath: string): string {
     `离子步：${task.n_ion_steps} | E：${task.final_energy ?? 'N/A'} eV | Fmax：${task.final_max_force ?? 'N/A'} | 磁矩：${(task as any).magmom_total ?? 'N/A'}`,
     `晶格：${lattice}`,
     `INCAR 摘要：${incar}`,
-    '请使用 vasp_* 工具与 incar_validate/outcar_parse 分析。',
+    '请在 VASP 计算助手预设中使用 vasp_* 工具分析。',
   ].join('\n');
 }
