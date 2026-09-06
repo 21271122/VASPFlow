@@ -5,8 +5,8 @@
  * its bundled Agent preset. This is the command exposed through `npx`.
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -27,11 +27,62 @@ function usage() {
   console.log('Existing presets are kept unless --replace is supplied.');
 }
 
-function readDshVersion(command, env) {
-  const result = spawnSync(command, ['--version'], {
+function isDshOnPath() {
+  return process.platform === 'win32'
+    ? spawnSync('where.exe', ['dsh'], { stdio: 'ignore' }).status === 0
+    : spawnSync('sh', ['-c', 'command -v dsh'], { stdio: 'ignore' }).status === 0;
+}
+
+function findCachedDsh() {
+  if (process.platform !== 'win32' || !process.env.LOCALAPPDATA) return null;
+
+  const cacheRoot = join(process.env.LOCALAPPDATA, 'npm-cache', '_npx');
+  if (!existsSync(cacheRoot)) return null;
+
+  const candidates = [];
+  for (const entry of readdirSync(cacheRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const root = join(cacheRoot, entry.name, 'node_modules', '@deepseek-ai', 'dsh');
+    const manifest = join(root, 'package.json');
+    const bin = join(root, 'lib', 'bin.js');
+    if (!existsSync(manifest) || !existsSync(bin)) continue;
+
+    try {
+      const version = JSON.parse(readFileSync(manifest, 'utf8')).version;
+      if (version === supportedDshVersion) {
+        candidates.push({ bin, modifiedMs: statSync(bin).mtimeMs });
+      }
+    } catch {
+      // Ignore incomplete or unreadable npx cache entries.
+    }
+  }
+
+  candidates.sort((left, right) => right.modifiedMs - left.modifiedMs);
+  return candidates[0]?.bin ?? null;
+}
+
+function findDshLauncher() {
+  if (isDshOnPath()) return { command: 'dsh', args: [], source: 'PATH' };
+
+  const cachedBin = findCachedDsh();
+  if (cachedBin !== null) {
+    return { command: process.execPath, args: [cachedBin], source: 'npm npx cache' };
+  }
+
+  return null;
+}
+
+function runDsh(launcher, args, options = {}) {
+  return spawnSync(launcher.command, [...launcher.args, ...args], {
+    shell: launcher.command === 'dsh' && process.platform === 'win32',
+    ...options,
+  });
+}
+
+function readDshVersion(launcher, env) {
+  const result = runDsh(launcher, ['--version'], {
     env,
     encoding: 'utf8',
-    shell: process.platform === 'win32',
   });
   const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.trim();
   const version = output.match(/\b\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\b/)?.[0] ?? null;
@@ -91,16 +142,13 @@ if (process.exitCode === undefined && !/^[A-Za-z0-9@._/:#-]+$/.test(packageSpec)
 if (process.exitCode === undefined) {
   const env = { ...process.env };
   if (dshHome) env.DSH_HOME = resolve(dshHome);
-  const dshCommand = 'dsh';
-  const dshAvailable = process.platform === 'win32'
-    ? spawnSync('where.exe', [dshCommand], { stdio: 'ignore' }).status === 0
-    : spawnSync('sh', ['-c', `command -v ${dshCommand}`], { stdio: 'ignore' }).status === 0;
+  const launcher = findDshLauncher();
 
-  if (!dshAvailable) {
-    console.error(`DSH was not found on PATH. Install @deepseek-ai/dsh@${supportedDshVersion}, then restart the terminal and run this command again.`);
+  if (launcher === null) {
+    console.error(`DSH ${supportedDshVersion} was not found. Install @deepseek-ai/dsh@${supportedDshVersion}, then start DSH once before installing VASPFlow.`);
     process.exitCode = 1;
   } else {
-    const dshVersion = readDshVersion(dshCommand, env);
+    const dshVersion = readDshVersion(launcher, env);
     if (!dshVersion.ok) {
       console.error('Could not determine the installed DSH version. Run "dsh --version" and make sure it works before installing VASPFlow.');
       process.exitCode = 1;
@@ -109,11 +157,10 @@ if (process.exitCode === undefined) {
       console.error(`Install the supported version with: npm install -g @deepseek-ai/dsh@${supportedDshVersion}`);
       process.exitCode = 1;
     } else {
-      console.log(`DSH ${supportedDshVersion} detected. Installing ${packageSpec} into profile "${profile}"...`);
-      const pluginResult = spawnSync(dshCommand, ['plugin', '--profile', profile, 'add', packageSpec], {
+      console.log(`DSH ${supportedDshVersion} detected via ${launcher.source}. Installing ${packageSpec} into profile "${profile}"...`);
+      const pluginResult = runDsh(launcher, ['plugin', '--profile', profile, 'add', packageSpec], {
         cwd: process.cwd(),
         env,
-        shell: process.platform === 'win32',
         stdio: 'inherit',
       });
 

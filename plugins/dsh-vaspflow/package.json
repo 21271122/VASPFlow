@@ -1,6 +1,6 @@
 {
   "name": "dsh-vaspflow",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "VaspFlow for DeepSeek Harness: right-dock VASP task panel plus a shared Node data service whose vasp_* tools are available only in the bundled VASP Agent preset.",
   "type": "module",
   "main": "./lib/index.js",
