@@ -789,6 +789,7 @@ var require_zh_CN7 = __commonJS({
 // src/client/api.ts
 var api_exports = {};
 __export(api_exports, {
+  checkTaskInputs: () => checkTaskInputs,
   fetchConvergence: () => fetchConvergence,
   fetchFileContent: () => fetchFileContent,
   fetchStructureFiles: () => fetchStructureFiles,
@@ -796,6 +797,7 @@ __export(api_exports, {
   fetchTaskFiles: () => fetchTaskFiles,
   openTaskByPath: () => openTaskByPath,
   scanProject: () => scanProject,
+  scanProjectEvents: () => scanProjectEvents,
   structureSceneToViewerStructure: () => structureSceneToViewerStructure
 });
 async function request(path3, init) {
@@ -817,8 +819,25 @@ async function request(path3, init) {
 function scanProject(rootPath) {
   return request(`/plugins/dsh-vaspflow/scan?root_path=${encodeURIComponent(rootPath)}`, { method: "POST" });
 }
+function scanProjectEvents(rootPath, handlers) {
+  const stream = new EventSource(`/plugins/dsh-vaspflow/scan-events?root_path=${encodeURIComponent(rootPath)}`);
+  const parse2 = (type5) => (message) => {
+    try {
+      const event = JSON.parse(message.data);
+      if (type5 === "scan-start") handlers.onStart(event);
+      else handlers.onEvent(type5, event);
+    } catch {
+    }
+  };
+  ["scan-start", "directory-discovered", "directory-scanned", "directory-failed", "scan-complete", "scan-failed"].forEach((type5) => stream.addEventListener(type5, parse2(type5)));
+  stream.onerror = () => handlers.onError();
+  return () => stream.close();
+}
 function openTaskByPath(rootPath, relPath) {
   return request(`/plugins/dsh-vaspflow/task/open-by-path?root_path=${encodeURIComponent(rootPath)}&rel_path=${encodeURIComponent(relPath)}`, { method: "POST" });
+}
+function checkTaskInputs(taskId, profileId) {
+  return request(`/plugins/dsh-vaspflow/task/${taskId}/input-check?profile_id=${encodeURIComponent(profileId)}`, { method: "POST" });
 }
 function fetchConvergence(taskId) {
   return request(`/plugins/dsh-vaspflow/task/${taskId}/convergence`);
@@ -826,8 +845,11 @@ function fetchConvergence(taskId) {
 function fetchTaskFiles(taskId) {
   return request(`/plugins/dsh-vaspflow/task/${taskId}/files`);
 }
-function fetchFileContent(taskId, name) {
-  return request(`/plugins/dsh-vaspflow/task/${taskId}/file-content?name=${encodeURIComponent(name)}`);
+function fetchFileContent(taskId, name, options = {}) {
+  const params = new URLSearchParams({ name });
+  if (options.offset !== void 0) params.set("offset", String(options.offset));
+  if (options.length !== void 0) params.set("length", String(options.length));
+  return request(`/plugins/dsh-vaspflow/task/${taskId}/file-content?${params.toString()}`);
 }
 function fetchStructureFiles(taskId) {
   return request(`/plugins/dsh-vaspflow/task/${taskId}/structure-files`).then((data) => data?.files || []);
@@ -56643,9 +56665,9 @@ var CopyBtn = ({
   const iconNodes = toList2(icon);
   const {
     copied: copiedText,
-    copy: copyText
+    copy: copyText2
   } = locale8 !== null && locale8 !== void 0 ? locale8 : {};
-  const systemStr = copied ? copiedText : copyText;
+  const systemStr = copied ? copiedText : copyText2;
   const copyTitle = getNode(tooltipNodes[copied ? 1 : 0], systemStr);
   const ariaLabel = typeof copyTitle === "string" ? copyTitle : systemStr;
   return /* @__PURE__ */ React369.createElement(tooltip_default, {
@@ -57383,8 +57405,28 @@ if (false) {
 }
 var MessageOutlined_default2 = RefIcon36;
 
-// node_modules/.pnpm/@ant-design+icons@5.6.1_rea_e7698d4cd1fc8436afad1b188c3665aa/node_modules/@ant-design/icons/es/icons/UnorderedListOutlined.js
+// node_modules/.pnpm/@ant-design+icons@5.6.1_rea_e7698d4cd1fc8436afad1b188c3665aa/node_modules/@ant-design/icons/es/icons/QuestionCircleFilled.js
 var React381 = __toESM(require("react"));
+
+// node_modules/.pnpm/@ant-design+icons-svg@4.5.0/node_modules/@ant-design/icons-svg/es/asn/QuestionCircleFilled.js
+var QuestionCircleFilled = { "icon": { "tag": "svg", "attrs": { "viewBox": "64 64 896 896", "focusable": "false" }, "children": [{ "tag": "path", "attrs": { "d": "M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 708c-22.1 0-40-17.9-40-40s17.9-40 40-40 40 17.9 40 40-17.9 40-40 40zm62.9-219.5a48.3 48.3 0 00-30.9 44.8V620c0 4.4-3.6 8-8 8h-48c-4.4 0-8-3.6-8-8v-21.5c0-23.1 6.7-45.9 19.9-64.9 12.9-18.6 30.9-32.8 52.1-40.9 34-13.1 56-41.6 56-72.7 0-44.1-43.1-80-96-80s-96 35.9-96 80v7.6c0 4.4-3.6 8-8 8h-48c-4.4 0-8-3.6-8-8V420c0-39.3 17.2-76 48.4-103.3C430.4 290.4 470 276 512 276s81.6 14.5 111.6 40.7C654.8 344 672 380.7 672 420c0 57.8-38.1 109.8-97.1 132.5z" } }] }, "name": "question-circle", "theme": "filled" };
+var QuestionCircleFilled_default = QuestionCircleFilled;
+
+// node_modules/.pnpm/@ant-design+icons@5.6.1_rea_e7698d4cd1fc8436afad1b188c3665aa/node_modules/@ant-design/icons/es/icons/QuestionCircleFilled.js
+var QuestionCircleFilled2 = function QuestionCircleFilled3(props, ref) {
+  return /* @__PURE__ */ React381.createElement(AntdIcon_default, _extends({}, props, {
+    ref,
+    icon: QuestionCircleFilled_default
+  }));
+};
+var RefIcon37 = /* @__PURE__ */ React381.forwardRef(QuestionCircleFilled2);
+if (false) {
+  RefIcon37.displayName = "QuestionCircleFilled";
+}
+var QuestionCircleFilled_default2 = RefIcon37;
+
+// node_modules/.pnpm/@ant-design+icons@5.6.1_rea_e7698d4cd1fc8436afad1b188c3665aa/node_modules/@ant-design/icons/es/icons/UnorderedListOutlined.js
+var React382 = __toESM(require("react"));
 
 // node_modules/.pnpm/@ant-design+icons-svg@4.5.0/node_modules/@ant-design/icons-svg/es/asn/UnorderedListOutlined.js
 var UnorderedListOutlined = { "icon": { "tag": "svg", "attrs": { "viewBox": "64 64 896 896", "focusable": "false" }, "children": [{ "tag": "path", "attrs": { "d": "M912 192H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 284H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 284H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM104 228a56 56 0 10112 0 56 56 0 10-112 0zm0 284a56 56 0 10112 0 56 56 0 10-112 0zm0 284a56 56 0 10112 0 56 56 0 10-112 0z" } }] }, "name": "unordered-list", "theme": "outlined" };
@@ -57392,16 +57434,16 @@ var UnorderedListOutlined_default = UnorderedListOutlined;
 
 // node_modules/.pnpm/@ant-design+icons@5.6.1_rea_e7698d4cd1fc8436afad1b188c3665aa/node_modules/@ant-design/icons/es/icons/UnorderedListOutlined.js
 var UnorderedListOutlined2 = function UnorderedListOutlined3(props, ref) {
-  return /* @__PURE__ */ React381.createElement(AntdIcon_default, _extends({}, props, {
+  return /* @__PURE__ */ React382.createElement(AntdIcon_default, _extends({}, props, {
     ref,
     icon: UnorderedListOutlined_default
   }));
 };
-var RefIcon37 = /* @__PURE__ */ React381.forwardRef(UnorderedListOutlined2);
+var RefIcon38 = /* @__PURE__ */ React382.forwardRef(UnorderedListOutlined2);
 if (false) {
-  RefIcon37.displayName = "UnorderedListOutlined";
+  RefIcon38.displayName = "UnorderedListOutlined";
 }
-var UnorderedListOutlined_default2 = RefIcon37;
+var UnorderedListOutlined_default2 = RefIcon38;
 
 // src/client/store.ts
 var import_react124 = require("react");
@@ -57417,6 +57459,9 @@ var initial = {
   projectId: null,
   tasks: [],
   directories: [],
+  pendingDirectories: [],
+  failedDirectories: [],
+  scanProgress: null,
   loading: false,
   selectedTask: null,
   viewTab: "chart",
@@ -57458,6 +57503,13 @@ var PanelStore = class {
   setSelectedTask(task) {
     this.set({ selectedTask: task });
   }
+  setTaskInputCheck(taskId, inputCheck) {
+    const patchTask = (task) => task?.id === taskId ? { ...task, input_check: inputCheck } : task;
+    this.set({
+      tasks: this.state.tasks.map(patchTask),
+      selectedTask: patchTask(this.state.selectedTask)
+    });
+  }
   setViewTab(tab) {
     this.set({ viewTab: tab });
   }
@@ -57486,6 +57538,45 @@ var PanelStore = class {
   reset() {
     this.set({ ...initial });
   }
+  beginIncrementalScan(batchId) {
+    this.set({ projectId: null, tasks: [], directories: [], pendingDirectories: [], failedDirectories: [], selectedTask: null, scanProgress: { batchId, scannedDirectories: 0, discoveredDirectories: 0 }, loading: true });
+  }
+  recordScanEvent(type5, event) {
+    const progress = this.state.scanProgress;
+    if (!progress || event.batchId !== progress.batchId) return;
+    const rel = event.directory?.rel_path;
+    if (type5 === "directory-discovered" && event.directory) {
+      if (this.state.directories.some((item) => item.rel_path === rel) || this.state.pendingDirectories.some((item) => item.rel_path === rel)) return;
+      this.set({ pendingDirectories: [...this.state.pendingDirectories, event.directory], scanProgress: { ...progress, discoveredDirectories: progress.discoveredDirectories + 1 } });
+      return;
+    }
+    if (type5 === "directory-scanned" && event.directory) {
+      const nextDirectories = rel === "." || this.state.directories.some((item) => item.rel_path === rel) ? this.state.directories : [...this.state.directories, event.directory];
+      const nextTasks = event.task ? [...this.state.tasks.filter((item) => item.rel_path !== event.task.rel_path), event.task] : this.state.tasks;
+      this.set({
+        directories: nextDirectories,
+        tasks: nextTasks,
+        pendingDirectories: this.state.pendingDirectories.filter((item) => item.rel_path !== rel),
+        scanProgress: { ...progress, scannedDirectories: progress.scannedDirectories + 1 }
+      });
+      return;
+    }
+    if (type5 === "directory-failed" && event.directory) {
+      this.set({
+        pendingDirectories: this.state.pendingDirectories.filter((item) => item.rel_path !== rel),
+        failedDirectories: [...this.state.failedDirectories.filter((item) => item.rel_path !== rel), { ...event.directory, reason: event.reason || "\u65E0\u6CD5\u8BFB\u53D6\u76EE\u5F55" }]
+      });
+      return;
+    }
+    if (type5 === "scan-complete") {
+      this.applyScan(event);
+      this.set({ pendingDirectories: [], failedDirectories: event.failedDirectories || [], scanProgress: null, loading: false });
+    }
+  }
+  failIncrementalScan(batchId) {
+    if (batchId && this.state.scanProgress?.batchId !== batchId) return;
+    this.set({ pendingDirectories: [], scanProgress: null, loading: false });
+  }
   /**
    * Merge a scan result into the store.
    * @param preserveSelection - keep the currently selected task when true
@@ -57502,6 +57593,9 @@ var PanelStore = class {
       projectId: result.project_id,
       tasks: result.tasks || [],
       directories: result.directories || [],
+      pendingDirectories: [],
+      failedDirectories: result.failedDirectories || [],
+      scanProgress: null,
       selectedTask: nextSelected
     });
   }
@@ -57517,17 +57611,31 @@ init_api();
 // src/client/components.tsx
 var import_react125 = __toESM(require("react"), 1);
 var import_jsx_runtime = require("react/jsx-runtime");
-function TaskStatusDot({ task }) {
-  const color2 = task.status === "finished" ? task.is_converged ? "#52c41a" : "#13c2c2" : task.status === "error" ? "#ff4d4f" : "#faad14";
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: {
-    display: "inline-block",
-    width: 7,
-    height: 7,
-    borderRadius: "50%",
-    background: color2,
-    marginRight: -2,
-    flexShrink: 0
-  } });
+var STATUS_META = {
+  NO_OUTPUT_EVIDENCE: { label: "\u672A\u53D1\u73B0\u8BA1\u7B97\u8F93\u51FA", color: "#faad14", tag: "gold", icon: FileOutlined_default2 },
+  TASK_COMPLETED: { label: "\u4EFB\u52A1\u5B8C\u6210", color: "#52c41a", tag: "green", icon: CheckCircleFilled_default2 },
+  ERROR_DETECTED: { label: "\u68C0\u6D4B\u5230\u9519\u8BEF", color: "#ff4d4f", tag: "red", icon: CloseCircleFilled_default2 },
+  RUNNING: { label: "\u6B63\u5728\u8FD0\u884C", color: "#1677ff", tag: "blue", icon: LoadingOutlined_default2 },
+  UNKNOWN: { label: "\u5F85\u68C0\u67E5", color: "#8c8c8c", tag: "default", icon: QuestionCircleFilled_default2 }
+};
+function taskStatusCode(task) {
+  if (task.status_record?.code && task.status_record.code in STATUS_META) return task.status_record.code;
+  if (task.status === "finished") return "TASK_COMPLETED";
+  if (task.status === "error") return "ERROR_DETECTED";
+  return "UNKNOWN";
+}
+function StatusBadge({ task, compact = false }) {
+  const code = taskStatusCode(task);
+  const meta = STATUS_META[code];
+  const Icon3 = meta.icon;
+  const title = task.status_record?.reason || meta.label;
+  if (compact) {
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(tooltip_default, { title: `${meta.label}\uFF1A${title}`, mouseEnterDelay: 0.4, children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, color: meta.color }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 6, height: 6, borderRadius: "50%", background: meta.color } }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon3, { spin: code === "RUNNING", style: { fontSize: 12 } })
+    ] }) });
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(tooltip_default, { title, mouseEnterDelay: 0.4, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(tag_default, { color: meta.tag, style: { marginInlineEnd: 0 }, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon3, { spin: code === "RUNNING" }), children: meta.label }) });
 }
 function normalizePath(path3) {
   return path3.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "") || ".";
@@ -57548,7 +57656,7 @@ function sortNodes(nodes) {
     children: node2.children ? sortNodes(node2.children) : void 0
   }));
 }
-function buildProjectTree(directories, tasks) {
+function buildProjectTree(directories, tasks, pendingDirectories = [], failedDirectories = []) {
   const nodeMap = /* @__PURE__ */ new Map();
   const roots = [];
   const ensureDir = (relPath, label) => {
@@ -57583,7 +57691,22 @@ function buildProjectTree(directories, tasks) {
     node2.title = task.label;
     node2.__task = task;
     node2.__rel_path = normalizePath(task.rel_path);
-    node2.icon = task.is_vasp_task === false ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderOutlined_default2, { style: { color: "#8c8c8c" } }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TaskStatusDot, { task });
+    node2.icon = task.is_vasp_task === false ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderOutlined_default2, { style: { color: "#8c8c8c" } }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(StatusBadge, { task, compact: true });
+  });
+  pendingDirectories.forEach((dir) => {
+    const node2 = ensureDir(dir.rel_path, dir.label);
+    if (node2.__task) return;
+    node2.__pending = true;
+    node2.title = `\u6B63\u5728\u68C0\u67E5\u76EE\u5F55 ${dir.label}`;
+    node2.icon = /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoadingOutlined_default2, { spin: true, style: { color: "#1677ff" } });
+  });
+  failedDirectories.forEach((dir) => {
+    const node2 = ensureDir(dir.rel_path, dir.label);
+    if (node2.__task) return;
+    node2.__pending = false;
+    node2.__failedReason = dir.reason || "\u65E0\u6CD5\u8BFB\u53D6\u76EE\u5F55";
+    node2.title = `\u65E0\u6CD5\u626B\u63CF\u76EE\u5F55 ${dir.label}`;
+    node2.icon = /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CloseCircleFilled_default2, { style: { color: "#ff4d4f" } });
   });
   return sortNodes(roots);
 }
@@ -57592,7 +57715,7 @@ function filterTaskTree(nodes, filterStatus, filterConverged, searchText) {
   if (!filterStatus && filterConverged === null && !kw) return nodes;
   const taskMatches = (task) => {
     if (task.is_vasp_task === false) return !filterStatus && filterConverged === null;
-    if (filterStatus && task.status !== filterStatus) return false;
+    if (filterStatus && taskStatusCode(task) !== filterStatus) return false;
     if (filterConverged !== null && task.is_converged !== filterConverged) return false;
     if (kw) {
       return task.label.toLowerCase().includes(kw) || task.system.toLowerCase().includes(kw) || task.rel_path.toLowerCase().includes(kw);
@@ -57605,7 +57728,7 @@ function filterTaskTree(nodes, filterStatus, filterConverged, searchText) {
       const task = node2.__task;
       const children = node2.children ? walk(node2.children) : [];
       const selfMatchesSearch = !kw || String(node2.title).toLowerCase().includes(kw) || (node2.__rel_path || "").toLowerCase().includes(kw);
-      const selfMatches = task ? taskMatches(task) : selfMatchesSearch && !filterStatus && filterConverged === null;
+      const selfMatches = node2.__pending ? !filterStatus && filterConverged === null && !kw : task ? taskMatches(task) : selfMatchesSearch && !filterStatus && filterConverged === null;
       if (selfMatches || children.length > 0) {
         result.push({ ...node2, children });
       }
@@ -57625,11 +57748,11 @@ function collectKeys(nodes) {
   walk(nodes);
   return keys3;
 }
-function TaskTable({ onAnalyze, onTaskSelected }) {
+function TaskTable({ onTaskSelected }) {
   const { tasks, loading, filterStatus, filterConverged, searchText, selectedTask } = usePanelStore();
   const filteredTasks = import_react125.default.useMemo(() => {
     let result = tasks;
-    if (filterStatus) result = result.filter((t) => t.status === filterStatus);
+    if (filterStatus) result = result.filter((t) => taskStatusCode(t) === filterStatus);
     if (filterConverged !== null) result = result.filter((t) => t.is_converged === filterConverged);
     if (searchText.trim()) {
       const kw = searchText.trim().toLowerCase();
@@ -57658,6 +57781,7 @@ function TaskTable({ onAnalyze, onTaskSelected }) {
       sorter: (a2, b) => a2.label.localeCompare(b.label),
       render: (v, record) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("a", { onClick: () => {
         panelStore.setSelectedTask(record);
+        panelStore.setViewTab("status");
         onTaskSelected?.(record);
       }, children: v })
     },
@@ -57670,20 +57794,21 @@ function TaskTable({ onAnalyze, onTaskSelected }) {
     },
     {
       title: "\u72B6\u6001",
-      dataIndex: "status",
+      dataIndex: "status_record",
       key: "status",
-      width: 80,
+      width: 145,
       filters: [
-        { text: "\u5DF2\u5B8C\u6210", value: "finished" },
-        { text: "\u9519\u8BEF", value: "error" },
-        { text: "\u672A\u77E5", value: "unknown" }
+        { text: "\u672A\u53D1\u73B0\u8BA1\u7B97\u8F93\u51FA", value: "NO_OUTPUT_EVIDENCE" },
+        { text: "\u4EFB\u52A1\u5B8C\u6210", value: "TASK_COMPLETED" },
+        { text: "\u68C0\u6D4B\u5230\u9519\u8BEF", value: "ERROR_DETECTED" },
+        { text: "\u6B63\u5728\u8FD0\u884C", value: "RUNNING" },
+        { text: "\u5F85\u68C0\u67E5", value: "UNKNOWN" }
       ],
-      onFilter: (value, record) => record.status === value,
-      render: (v) => {
-        const color2 = v === "finished" ? "green" : v === "error" ? "red" : "orange";
-        const label = v === "finished" ? "\u5B8C\u6210" : v === "error" ? "\u9519\u8BEF" : "\u672A\u77E5";
-        return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(tag_default, { color: color2, children: label });
-      }
+      onFilter: (value, record) => taskStatusCode(record) === value,
+      render: (_, record) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(space_default, { direction: "vertical", size: 2, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(StatusBadge, { task: record }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "#8c8c8c", fontSize: 10 }, children: record.input_check?.label ?? "\u672A\u6307\u5B9A\u68C0\u67E5\u89C4\u5219" })
+      ] })
     },
     {
       title: "\u6536\u655B",
@@ -57737,15 +57862,6 @@ function TaskTable({ onAnalyze, onTaskSelected }) {
             icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(EyeOutlined_default2, {}),
             onClick: () => handleStructure(record)
           }
-        ) }),
-        onAnalyze && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(tooltip_default, { title: "\u5206\u6790\u6B64\u4EFB\u52A1", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          button_default2,
-          {
-            type: "link",
-            size: "small",
-            onClick: () => onAnalyze(record),
-            children: "\u5206\u6790"
-          }
         ) })
       ] })
     }
@@ -57760,7 +57876,10 @@ function TaskTable({ onAnalyze, onTaskSelected }) {
       size: "small",
       loading,
       onRow: (record) => ({
-        onClick: () => panelStore.setSelectedTask(record),
+        onClick: () => {
+          panelStore.setSelectedTask(record);
+          panelStore.setViewTab("status");
+        },
         style: {
           background: selectedTask?.id === record.id ? "var(--dsw-specific-sidebar-nav-item-active, #e6f4ff)" : void 0,
           cursor: "pointer"
@@ -57775,11 +57894,13 @@ function TaskTable({ onAnalyze, onTaskSelected }) {
     }
   );
 }
-function TreeView({ onAnalyze, onTaskSelected }) {
+function TreeView({ onTaskSelected }) {
   const {
     projectPath,
     tasks,
     directories,
+    pendingDirectories,
+    failedDirectories,
     loading,
     selectedTask,
     filterStatus,
@@ -57787,7 +57908,7 @@ function TreeView({ onAnalyze, onTaskSelected }) {
     searchText
   } = usePanelStore();
   const [expandedKeys, setExpandedKeys] = import_react125.default.useState([]);
-  const fullTree = import_react125.default.useMemo(() => buildProjectTree(directories, tasks), [directories, tasks]);
+  const fullTree = import_react125.default.useMemo(() => buildProjectTree(directories, tasks, pendingDirectories, failedDirectories), [directories, tasks, pendingDirectories, failedDirectories]);
   const visibleTree = import_react125.default.useMemo(
     () => filterTaskTree(fullTree, filterStatus, filterConverged, searchText),
     [fullTree, filterStatus, filterConverged, searchText]
@@ -57805,7 +57926,7 @@ function TreeView({ onAnalyze, onTaskSelected }) {
     const task = info.node.__task;
     if (task) {
       panelStore.setSelectedTask(task);
-      panelStore.setViewTab(task.is_vasp_task === false ? "files" : "chart");
+      panelStore.setViewTab(task.is_vasp_task === false ? "files" : "status");
       onTaskSelected?.(task);
     }
   };
@@ -57815,7 +57936,7 @@ function TreeView({ onAnalyze, onTaskSelected }) {
     const existing = tasks.find((task) => normalizePath(task.rel_path) === normalizePath(relPath));
     if (existing) {
       panelStore.setSelectedTask(existing);
-      panelStore.setViewTab(existing.is_vasp_task === false ? "files" : "chart");
+      panelStore.setViewTab(existing.is_vasp_task === false ? "files" : "status");
       onTaskSelected?.(existing);
       return;
     }
@@ -57825,7 +57946,7 @@ function TreeView({ onAnalyze, onTaskSelected }) {
       const newTask = await openTaskByPath3(projectPath, relPath);
       panelStore.setTasks([...tasks, newTask]);
       panelStore.setSelectedTask(newTask);
-      panelStore.setViewTab(newTask.is_vasp_task === false ? "files" : "chart");
+      panelStore.setViewTab(newTask.is_vasp_task === false ? "files" : "status");
       onTaskSelected?.(newTask);
     } catch {
     } finally {
@@ -57835,10 +57956,16 @@ function TreeView({ onAnalyze, onTaskSelected }) {
   const titleRender = (node2) => {
     const treeNode = node2;
     const task = treeNode.__task;
+    if (treeNode.__pending) {
+      return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "#1677ff" }, children: node2.title });
+    }
+    if (treeNode.__failedReason) {
+      return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(tooltip_default, { title: treeNode.__failedReason, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "#ff4d4f" }, children: node2.title }) });
+    }
     const content = task && task.is_vasp_task !== false ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
       tooltip_default,
       {
-        title: `\u4F53\u7CFB: ${task.system} | \u72B6\u6001: ${task.status} | ${task.n_ion_steps}\u6B65 | E: ${task.final_energy?.toFixed(4) ?? "N/A"} eV`,
+        title: `\u4F53\u7CFB: ${task.system} | ${task.status_record?.label ?? task.status}\uFF1A${task.status_record?.reason ?? ""} | \u6700\u8FD1\u89C2\u5BDF: ${task.status_record?.observedAt ?? "-"} `,
         mouseEnterDelay: 0.5,
         children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { fontSize: 12 }, children: [
           node2.title,
@@ -57849,7 +57976,7 @@ function TreeView({ onAnalyze, onTaskSelected }) {
         ] })
       }
     ) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: task ? "var(--dsw-alias-label-secondary, #555)" : "var(--dsw-alias-label-tertiary, #666)" }, children: node2.title });
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
       "span",
       {
         style: { userSelect: "none" },
@@ -57857,22 +57984,7 @@ function TreeView({ onAnalyze, onTaskSelected }) {
           e.stopPropagation();
           handleDoubleClick(treeNode);
         },
-        children: [
-          content,
-          task && task.is_vasp_task !== false && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            button_default2,
-            {
-              type: "link",
-              size: "small",
-              style: { fontSize: 11, padding: 0, marginLeft: 6 },
-              onClick: (e) => {
-                e.stopPropagation();
-                onAnalyze?.(task);
-              },
-              children: "\u5206\u6790"
-            }
-          )
-        ]
+        children: content
       }
     );
   };
@@ -67820,7 +67932,7 @@ var Sector = function Sector2(sectorProps) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Curve.js
-var React397 = __toESM(require("react"));
+var React398 = __toESM(require("react"));
 var import_upperFirst3 = __toESM(require_upperFirst());
 var import_isFunction8 = __toESM(require_isFunction());
 function _typeof21(o) {
@@ -67967,7 +68079,7 @@ var Curve = function Curve2(props) {
     return null;
   }
   var realPath = points && points.length ? getPath(props) : path3;
-  return /* @__PURE__ */ React397.createElement("path", _extends12({}, filterProps(props, false), adaptEventHandlers(props), {
+  return /* @__PURE__ */ React398.createElement("path", _extends12({}, filterProps(props, false), adaptEventHandlers(props), {
     className: clsx_default("recharts-curve", className),
     d: realPath,
     ref: pathRef
@@ -69734,7 +69846,7 @@ var Rectangle = function Rectangle2(rectangleProps) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Dot.js
-var React400 = __toESM(require("react"));
+var React401 = __toESM(require("react"));
 function _extends14() {
   _extends14 = Object.assign ? Object.assign.bind() : function(target) {
     for (var i = 1; i < arguments.length; i++) {
@@ -69753,7 +69865,7 @@ var Dot = function Dot2(props) {
   var cx = props.cx, cy = props.cy, r2 = props.r, className = props.className;
   var layerClass = clsx_default("recharts-dot", className);
   if (cx === +cx && cy === +cy && r2 === +r2) {
-    return /* @__PURE__ */ React400.createElement("circle", _extends14({}, filterProps(props, false), adaptEventHandlers(props), {
+    return /* @__PURE__ */ React401.createElement("circle", _extends14({}, filterProps(props, false), adaptEventHandlers(props), {
       className: layerClass,
       cx,
       cy,
@@ -74483,7 +74595,7 @@ _defineProperty37(Line, "getComposedData", function(_ref4) {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/XAxis.js
-var React414 = __toESM(require("react"));
+var React415 = __toESM(require("react"));
 function _typeof42(o) {
   "@babel/helpers - typeof";
   return _typeof42 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
@@ -74607,7 +74719,7 @@ function XAxisImpl(_ref) {
   }
   return (
     // @ts-expect-error the axisOptions type is not exactly what CartesianAxis is expecting.
-    /* @__PURE__ */ React414.createElement(CartesianAxis, _extends26({}, axisOptions, {
+    /* @__PURE__ */ React415.createElement(CartesianAxis, _extends26({}, axisOptions, {
       className: clsx_default("recharts-".concat(axisOptions.axisType, " ").concat(axisOptions.axisType), axisOptions.className),
       viewBox: {
         x: 0,
@@ -74630,10 +74742,10 @@ var XAxis = /* @__PURE__ */ (function(_React$Component) {
   return _createClass17(XAxis2, [{
     key: "render",
     value: function render2() {
-      return /* @__PURE__ */ React414.createElement(XAxisImpl, this.props);
+      return /* @__PURE__ */ React415.createElement(XAxisImpl, this.props);
     }
   }]);
-})(React414.Component);
+})(React415.Component);
 _defineProperty38(XAxis, "displayName", "XAxis");
 _defineProperty38(XAxis, "defaultProps", {
   allowDecimals: true,
@@ -74656,7 +74768,7 @@ _defineProperty38(XAxis, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/YAxis.js
-var React415 = __toESM(require("react"));
+var React416 = __toESM(require("react"));
 function _typeof43(o) {
   "@babel/helpers - typeof";
   return _typeof43 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
@@ -74780,7 +74892,7 @@ var YAxisImpl = function YAxisImpl2(_ref) {
   }
   return (
     // @ts-expect-error the axisOptions type is not exactly what CartesianAxis is expecting.
-    /* @__PURE__ */ React415.createElement(CartesianAxis, _extends27({}, axisOptions, {
+    /* @__PURE__ */ React416.createElement(CartesianAxis, _extends27({}, axisOptions, {
       className: clsx_default("recharts-".concat(axisOptions.axisType, " ").concat(axisOptions.axisType), axisOptions.className),
       viewBox: {
         x: 0,
@@ -74803,10 +74915,10 @@ var YAxis = /* @__PURE__ */ (function(_React$Component) {
   return _createClass18(YAxis2, [{
     key: "render",
     value: function render2() {
-      return /* @__PURE__ */ React415.createElement(YAxisImpl, this.props);
+      return /* @__PURE__ */ React416.createElement(YAxisImpl, this.props);
     }
   }]);
-})(React415.Component);
+})(React416.Component);
 _defineProperty39(YAxis, "displayName", "YAxis");
 _defineProperty39(YAxis, "defaultProps", {
   allowDuplicatedCategory: true,
@@ -77079,12 +77191,15 @@ var ConvergenceChart = ({ taskId }) => {
         return;
       }
       const { ion_steps, energies, max_forces, _source } = response;
-      setSource(_source || `${ion_steps.length} \u4E2A\u79BB\u5B50\u6B65`);
-      const chartData = ion_steps.map((step, i) => ({
-        step,
-        energy: energies[i] ?? null,
-        force: max_forces[i] ?? null
-      }));
+      setSource(_source || `${ion_steps.length} \u6761\u79BB\u5B50\u6B65\u8BB0\u5F55`);
+      const chartData = ion_steps.flatMap((step, i) => {
+        const previous = ion_steps[i - 1];
+        const gap = i > 0 && step > previous + 1;
+        return [
+          ...gap ? [{ step: previous + 1, energy: null, force: null }] : [],
+          { step, energy: energies[i] ?? null, force: max_forces[i] ?? null }
+        ];
+      });
       setData(chartData);
     }).catch(() => setData([])).finally(() => setLoading(false));
   }, [taskId]);
@@ -77116,6 +77231,8 @@ var ConvergenceChart = ({ taskId }) => {
         XAxis,
         {
           dataKey: "step",
+          type: "number",
+          domain: ["dataMin", "dataMax"],
           label: { value: "\u79BB\u5B50\u6B65", position: "insideBottomRight", offset: -4 }
         }
       ),
@@ -77156,8 +77273,7 @@ var ConvergenceChart = ({ taskId }) => {
           stroke: "#8884d8",
           strokeWidth: 2,
           dot: { r: 3 },
-          name: energyLabel,
-          connectNulls: true
+          name: energyLabel
         }
       ),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
@@ -77169,8 +77285,7 @@ var ConvergenceChart = ({ taskId }) => {
           stroke: "#82ca9d",
           strokeWidth: 2,
           dot: { r: 3 },
-          name: "\u6700\u5927\u529B",
-          connectNulls: true
+          name: "\u6700\u5927\u529B"
         }
       )
     ] }) }) })
@@ -98046,14 +98161,14 @@ function formatSize(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-function getExtIcon(ext) {
-  const extUpper = ext.toUpperCase();
+function getExtIcon(ext, name) {
+  const extUpper = (ext || `.${name}`).toUpperCase();
   if ([".POSCAR", ".CONTCAR", ".VASP", ".XDATCAR"].includes(extUpper)) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FileTextOutlined_default2, { style: { color: "#1677ff" } });
   if ([".OUTCAR", ".OSZICAR", ".INCAR", ".KPOINTS", ".POTCAR"].includes(extUpper)) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FileTextOutlined_default2, { style: { color: "#52c41a" } });
   if ([".EIGENVAL", ".DOSCAR", ".CHGCAR", ".PROCAR"].includes(extUpper)) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FileTextOutlined_default2, { style: { color: "#faad14" } });
   return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FileOutlined_default2, { style: { color: "#999" } });
 }
-function isTextFile(ext) {
+function isTextFile(ext, name) {
   const textExts = [
     ".txt",
     ".log",
@@ -98082,7 +98197,9 @@ function isTextFile(ext) {
     ".IBZKPT",
     ".vasp"
   ];
-  return textExts.includes(ext.toUpperCase()) || ext.length <= 5;
+  const upperName = name.toUpperCase();
+  const standardTextNames = /* @__PURE__ */ new Set(["INCAR", "KPOINTS", "POSCAR", "CONTCAR", "POTCAR", "OUTCAR", "OSZICAR", "EIGENVAL", "DOSCAR", "XDATCAR", "CHGCAR", "PROCAR", "REPORT", "PCDAT", "IBZKPT"]);
+  return textExts.includes(ext.toUpperCase()) || standardTextNames.has(upperName) || Boolean(ext && ext.length <= 5);
 }
 var FileList = ({ taskId }) => {
   const [files, setFiles] = (0, import_react162.useState)([]);
@@ -98093,7 +98210,10 @@ var FileList = ({ taskId }) => {
   const [previewContent, setPreviewContent] = (0, import_react162.useState)("");
   const [previewLoading, setPreviewLoading] = (0, import_react162.useState)(false);
   const [previewTruncated, setPreviewTruncated] = (0, import_react162.useState)(false);
+  const [previewMeta, setPreviewMeta] = (0, import_react162.useState)(null);
+  const previewCache = (0, import_react162.useRef)(/* @__PURE__ */ new Map());
   (0, import_react162.useEffect)(() => {
+    previewCache.current.clear();
     setLoading(true);
     fetchTaskFiles(taskId).then((data) => {
       setFiles(data.files || []);
@@ -98103,22 +98223,37 @@ var FileList = ({ taskId }) => {
       setDirs([]);
     }).finally(() => setLoading(false));
   }, [taskId]);
-  const handleFileClick = (0, import_react162.useCallback)(async (f) => {
-    if (!isTextFile(f.ext)) return;
-    setPreviewName(f.name);
-    setPreviewOpen(true);
+  const loadPreview = (0, import_react162.useCallback)(async (name, offset3) => {
+    const key = `${name}:${offset3 ?? "tail"}`;
+    const cached2 = previewCache.current.get(key);
+    if (cached2) {
+      setPreviewContent(cached2.content || "");
+      setPreviewTruncated(cached2.truncated || false);
+      setPreviewMeta(cached2);
+      return;
+    }
     setPreviewLoading(true);
-    setPreviewContent("");
     try {
-      const data = await fetchFileContent(taskId, f.name);
+      const data = await fetchFileContent(taskId, name, offset3 === void 0 ? {} : { offset: offset3 });
+      previewCache.current.set(key, data);
       setPreviewContent(data.content || "");
       setPreviewTruncated(data.truncated || false);
+      setPreviewMeta(data);
     } catch {
       setPreviewContent("[\u65E0\u6CD5\u8BFB\u53D6\u6587\u4EF6\u5185\u5BB9]");
+      setPreviewMeta(null);
     } finally {
       setPreviewLoading(false);
     }
   }, [taskId]);
+  const handleFileClick = (0, import_react162.useCallback)(async (f) => {
+    if (!isTextFile(f.ext, f.name)) return;
+    setPreviewName(f.name);
+    setPreviewOpen(true);
+    setPreviewContent("");
+    setPreviewMeta(null);
+    await loadPreview(f.name);
+  }, [loadPreview]);
   if (loading) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(spin_default, { style: { display: "block", margin: "60px auto" } });
   if (files.length === 0 && dirs.length === 0) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(empty_default2, { description: "\u65E0\u6CD5\u83B7\u53D6\u6587\u4EF6\u5217\u8868" });
   return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { padding: "4px 0" }, children: [
@@ -98153,13 +98288,13 @@ var FileList = ({ taskId }) => {
         renderItem: (f) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
           list_default.Item,
           {
-            style: { padding: "2px 8px", cursor: isTextFile(f.ext) ? "pointer" : "default" },
+            style: { padding: "2px 8px", cursor: isTextFile(f.ext, f.name) ? "pointer" : "default" },
             onClick: () => handleFileClick(f),
             children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(tooltip_default, { title: f.name, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, maxWidth: "100%" }, children: [
-              getExtIcon(f.ext),
+              getExtIcon(f.ext, f.name),
               /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Text4, { ellipsis: true, style: { flex: 1, fontSize: 12 }, children: f.name }),
               /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Text4, { type: "secondary", style: { fontSize: 10, flexShrink: 0 }, children: formatSize(f.size) }),
-              isTextFile(f.ext) && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(EyeOutlined_default2, { style: { fontSize: 11, color: "#bbb", flexShrink: 0 } })
+              isTextFile(f.ext, f.name) && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(EyeOutlined_default2, { style: { fontSize: 11, color: "#bbb", flexShrink: 0 } })
             ] }) })
           }
         )
@@ -98171,7 +98306,34 @@ var FileList = ({ taskId }) => {
         title: previewName,
         open: previewOpen,
         onCancel: () => setPreviewOpen(false),
-        footer: null,
+        footer: previewMeta ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(space_default, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(Text4, { type: "secondary", style: { fontSize: 11 }, children: [
+            "\u7B2C ",
+            previewMeta.offset + 1,
+            "\u2013",
+            previewMeta.offset + previewMeta.length,
+            " \u5B57\u8282 / \u5171 ",
+            formatSize(previewMeta.totalSize)
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            button_default2,
+            {
+              size: "small",
+              disabled: !previewMeta.hasBefore || previewLoading,
+              onClick: () => loadPreview(previewName, Math.max(0, previewMeta.offset - previewMeta.length)),
+              children: "\u8BFB\u53D6\u66F4\u65E9\u5185\u5BB9"
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            button_default2,
+            {
+              size: "small",
+              disabled: !previewMeta.hasAfter || previewLoading,
+              onClick: () => loadPreview(previewName, previewMeta.offset + previewMeta.length),
+              children: "\u8BFB\u53D6\u66F4\u665A\u5185\u5BB9"
+            }
+          )
+        ] }) : null,
         width: 800,
         destroyOnClose: true,
         children: previewLoading ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(spin_default, { style: { display: "block", margin: "40px auto" } }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("pre", { className: "vaspflow-file-preview", style: {
@@ -98188,7 +98350,7 @@ var FileList = ({ taskId }) => {
           color: "var(--dsw-alias-label-primary, inherit)"
         }, children: [
           previewContent,
-          previewTruncated && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: { color: "#faad14", marginTop: 8, fontWeight: "bold" }, children: "\u26A0 \u6587\u4EF6\u8FC7\u5927\uFF0C\u4EC5\u663E\u793A\u5C3E\u90E8 500KB" })
+          previewTruncated && /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: { color: "#faad14", marginTop: 8, fontWeight: "bold" }, children: "\u26A0 \u6B64\u5904\u53EA\u663E\u793A\u6587\u4EF6\u7684\u4E00\u4E2A\u7247\u6BB5\uFF1B\u53EF\u7528\u4E0B\u65B9\u6309\u94AE\u7EE7\u7EED\u8BFB\u53D6" })
         ] })
       }
     )
@@ -98199,6 +98361,42 @@ var FileList_default = FileList;
 // src/client/Panel.tsx
 var import_jsx_runtime5 = require("react/jsx-runtime");
 var { Text: Text5 } = typography_default;
+function formatDateTime(value) {
+  if (!value) return "\u2014";
+  const date5 = new Date(value);
+  if (Number.isNaN(date5.getTime())) return value;
+  return date5.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+function absoluteTaskPath(rootPath, relPath) {
+  const root = rootPath.replace(/[\\/]+$/, "");
+  const relative = (relPath || ".").replace(/^[\\/]+/, "");
+  return !relative || relative === "." ? root : `${root}\\${relative.replace(/[\\/]+/g, "\\")}`;
+}
+function immediateParent(relPath) {
+  const parts = relPath.split(/[\\/]+/).filter((part) => part && part !== ".");
+  return parts.length > 1 ? parts[parts.length - 2] : "";
+}
+async function copyText(value) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("\u6D4F\u89C8\u5668\u672A\u5141\u8BB8\u590D\u5236\u5230\u526A\u8D34\u677F");
+}
 var PanelResizeHandle = ({ onResize: onResize2, getWidth: getWidth2 }) => {
   const [active, setActive] = import_react163.default.useState(false);
   const rafRef = import_react163.default.useRef(0);
@@ -98268,6 +98466,7 @@ function Panel3(props) {
     tasks,
     directories,
     loading,
+    scanProgress,
     selectedTask,
     viewTab,
     filterStatus,
@@ -98279,44 +98478,128 @@ function Panel3(props) {
   const [viewMode, setViewMode] = (0, import_react163.useState)("tree");
   const [workspaceOpen, setWorkspaceOpen] = (0, import_react163.useState)(false);
   const [listOpen, setListOpen] = (0, import_react163.useState)(false);
-  const handleOpen = async () => {
+  const [copiedPath, setCopiedPath] = (0, import_react163.useState)("");
+  const [, setInputTargetRevision] = (0, import_react163.useState)(0);
+  const [checkingInput, setCheckingInput] = (0, import_react163.useState)(false);
+  const [inputCheckError, setInputCheckError] = (0, import_react163.useState)("");
+  const closeScanRef = (0, import_react163.useRef)(null);
+  const startIncrementalScan = () => {
     if (!projectPath.trim()) return;
-    panelStore.setLoading(true);
-    try {
-      const data = await scanProject(projectPath.trim());
-      if (data?.error) {
-        panelStore.setProjectId(null);
-        return;
+    closeScanRef.current?.();
+    const pendingBatchId = `pending-${Date.now()}`;
+    panelStore.beginIncrementalScan(pendingBatchId);
+    let closeStream = null;
+    let started = false;
+    let fallbackStarted = false;
+    let fallbackTimer = 0;
+    const fallbackToCompleteScan = async () => {
+      if (started || fallbackStarted) return;
+      fallbackStarted = true;
+      closeStream?.();
+      try {
+        const data = await scanProject(projectPath.trim());
+        if (data && !data.error) panelStore.applyScan(data);
+      } catch {
+        panelStore.failIncrementalScan();
+      } finally {
+        panelStore.setLoading(false);
+        if (closeScanRef.current === closeStream) closeScanRef.current = null;
       }
-      panelStore.applyScan(data);
+    };
+    try {
+      closeStream = scanProjectEvents(projectPath.trim(), {
+        onStart: (event) => {
+          started = true;
+          window.clearTimeout(fallbackTimer);
+          panelStore.beginIncrementalScan(event.batchId);
+        },
+        onEvent: (type5, event) => {
+          panelStore.recordScanEvent(type5, event);
+          if (type5 === "scan-complete" || type5 === "scan-failed") {
+            closeStream?.();
+            if (closeScanRef.current === closeStream) closeScanRef.current = null;
+          }
+        },
+        onError: () => {
+          if (!started) void fallbackToCompleteScan();
+          else if (panelStore.getSnapshot().scanProgress) panelStore.failIncrementalScan();
+        }
+      });
+      closeScanRef.current = closeStream;
+      fallbackTimer = window.setTimeout(() => {
+        void fallbackToCompleteScan();
+      }, 2e3);
     } catch {
-      panelStore.setTasks([]);
-      panelStore.setDirectories([]);
-    } finally {
-      panelStore.setLoading(false);
+      void fallbackToCompleteScan();
     }
   };
-  const handleRefresh = async () => {
-    if (!projectPath.trim()) return;
-    panelStore.setLoading(true);
-    try {
-      const data = await scanProject(projectPath.trim());
-      if (data && !data.error) {
-        panelStore.applyScan(data);
-      }
-    } catch {
-    } finally {
-      panelStore.setLoading(false);
-    }
-  };
+  const handleOpen = startIncrementalScan;
+  const handleRefresh = startIncrementalScan;
+  (0, import_react163.useEffect)(() => () => closeScanRef.current?.(), []);
   const vaspTasks = tasks.filter((t) => t.is_vasp_task !== false);
   const stats = (0, import_react163.useMemo)(() => ({
     total: vaspTasks.length,
-    finished: vaspTasks.filter((t) => t.status === "finished").length,
-    converged: vaspTasks.filter((t) => t.is_converged).length,
-    errors: vaspTasks.filter((t) => t.status === "error").length
+    NO_OUTPUT_EVIDENCE: vaspTasks.filter((t) => taskStatusCode(t) === "NO_OUTPUT_EVIDENCE").length,
+    TASK_COMPLETED: vaspTasks.filter((t) => taskStatusCode(t) === "TASK_COMPLETED").length,
+    ERROR_DETECTED: vaspTasks.filter((t) => taskStatusCode(t) === "ERROR_DETECTED").length,
+    RUNNING: vaspTasks.filter((t) => taskStatusCode(t) === "RUNNING").length,
+    UNKNOWN: vaspTasks.filter((t) => taskStatusCode(t) === "UNKNOWN").length
   }), [vaspTasks]);
   const selectedIsVaspTask = selectedTask?.is_vasp_task !== false;
+  const selectedPath = selectedTask ? absoluteTaskPath(projectPath, selectedTask.rel_path) : "";
+  const selectedParent = selectedTask ? immediateParent(selectedTask.rel_path) : "";
+  const selectedInputTarget = selectedTask ? declaredInputTarget(projectPath, selectedTask.rel_path) : null;
+  const inferredInputProfile = selectedTask ? inputFeatureProfile(selectedTask) : "basic-inputs";
+  const activeInputProfile = selectedInputTarget?.profileId ?? inferredInputProfile;
+  const inputProfileIsAutomatic = !selectedInputTarget;
+  (0, import_react163.useEffect)(() => {
+    setCheckingInput(false);
+    setInputCheckError("");
+  }, [selectedTask?.id]);
+  const copySelectedPath = async () => {
+    if (!selectedPath) return;
+    try {
+      await copyText(selectedPath);
+      setCopiedPath(selectedPath);
+      window.setTimeout(() => setCopiedPath((value) => value === selectedPath ? "" : value), 1600);
+    } catch {
+      setCopiedPath("\u590D\u5236\u5931\u8D25");
+    }
+  };
+  const runInputCheck = async (profileId) => {
+    if (!selectedTask || !selectedIsVaspTask) return;
+    setCheckingInput(true);
+    setInputCheckError("");
+    try {
+      const result = await checkTaskInputs(selectedTask.id, profileId);
+      panelStore.setTaskInputCheck(selectedTask.id, result.input_check);
+    } catch (error) {
+      setInputCheckError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCheckingInput(false);
+    }
+  };
+  const handleInputMenu = (key) => {
+    if (!selectedTask || !selectedIsVaspTask) return;
+    if (key === "basic") {
+      void runInputCheck("basic-inputs");
+      return;
+    }
+    if (key === "inferred") {
+      void runInputCheck(inferredInputProfile);
+      return;
+    }
+    if (key === "clear-target") {
+      writeInputTarget(projectPath, "task", selectedTask.rel_path, null);
+      setInputTargetRevision((revision) => revision + 1);
+      return;
+    }
+    const [scope, profileId] = key.split(":");
+    if (scope !== "task" && scope !== "folder" || !INPUT_CHECK_OPTIONS.some((option) => option.value === profileId)) return;
+    writeInputTarget(projectPath, scope, selectedTask.rel_path, profileId);
+    setInputTargetRevision((revision) => revision + 1);
+    void runInputCheck(profileId);
+  };
   const lastVersionRef = (0, import_react163.useRef)(null);
   (0, import_react163.useEffect)(() => {
     if (!projectId || !projectPath.trim()) return;
@@ -98327,7 +98610,7 @@ function Panel3(props) {
         const response = await fetch("/plugins/dsh-vaspflow/version", { cache: "no-store" });
         const body = await response.json();
         if (body && typeof body.version === "number") {
-          if (lastVersionRef.current !== null && lastVersionRef.current !== body.version) {
+          if (!closeScanRef.current && lastVersionRef.current !== null && lastVersionRef.current !== body.version) {
             try {
               const data = await scanProject(projectPath.trim());
               if (data && !data.error) panelStore.applyScan(data, true);
@@ -98354,6 +98637,12 @@ function Panel3(props) {
   }, [selectedTask, selectedIsVaspTask, viewTab]);
   const tabItems = [
     {
+      key: "status",
+      label: "\u72B6\u6001",
+      disabled: !selectedTask || !selectedIsVaspTask,
+      children: selectedTask && selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TaskStatusEvidence, { task: selectedTask }) : null
+    },
+    {
       key: "chart",
       label: "\u6536\u655B\u56FE\u8868",
       disabled: !selectedTask || !selectedIsVaspTask,
@@ -98375,20 +98664,75 @@ function Panel3(props) {
       children: selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FileList_default, { taskId: selectedTask.id }) : null
     }
   ];
-  const handleAnalyze = (0, import_react163.useCallback)((task) => {
+  const handleAiAction = (0, import_react163.useCallback)((task, instruction) => {
+    const draft = `${buildTaskContext(task, projectPath)}
+
+[\u534F\u4F5C\u8BF7\u6C42]
+${instruction}`;
     if (props.onAnalyzeTask) {
-      props.onAnalyzeTask(task);
+      props.onAnalyzeTask(task, draft);
       return;
     }
-    const context = buildTaskContext(task, projectPath);
-    try {
-      navigator.clipboard.writeText(context).then(() => {
-        window.alert("\u4EFB\u52A1\u4E0A\u4E0B\u6587\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F\uFF0C\u7C98\u8D34\u5230\u804A\u5929\u8F93\u5165\u6846\u5373\u53EF\u5206\u6790");
-      });
-    } catch {
-    }
+    copyText(draft).then(() => {
+      window.alert("\u534F\u4F5C\u8BF7\u6C42\u5DF2\u590D\u5236\u5230\u526A\u8D34\u677F\uFF0C\u7C98\u8D34\u5230\u804A\u5929\u8F93\u5165\u6846\u5373\u53EF\u7EE7\u7EED\u3002");
+    }).catch(() => {
+    });
   }, [props.onAnalyzeTask, projectPath]);
-  const hasTree = tasks.length > 0 || directories.length > 0;
+  const inputMenuItems = [
+    { key: "inferred", label: `\u6309\u8F93\u5165\u7279\u5F81\u68C0\u67E5\uFF1A${inputProfileLabel(inferredInputProfile)}` },
+    { key: "basic", label: "\u4EC5\u505A\u57FA\u7840\u81EA\u68C0\uFF08\u56DB\u4E2A\u8F93\u5165\u6587\u4EF6\uFF09" },
+    { type: "divider" },
+    {
+      key: "task-target",
+      label: "\u6539\u4E3A\u5176\u4ED6\u7C7B\u578B\uFF08\u4EC5\u6B64\u4EFB\u52A1\uFF09",
+      children: INPUT_CHECK_OPTIONS.map((option) => ({ key: `task:${option.value}`, label: option.label }))
+    },
+    {
+      key: "folder-target",
+      label: "\u8BBE\u4E3A\u672C\u76EE\u5F55\u9ED8\u8BA4\u7C7B\u578B",
+      children: INPUT_CHECK_OPTIONS.map((option) => ({ key: `folder:${option.value}`, label: option.label }))
+    },
+    ...selectedInputTarget?.scope === "task" ? [{ type: "divider" }, { key: "clear-target", label: "\u6E05\u9664\u672C\u4EFB\u52A1\u7684\u68C0\u67E5\u76EE\u6807" }] : []
+  ];
+  const aiMenuItems = [
+    {
+      type: "group",
+      label: "\u5F53\u524D\u4EFB\u52A1",
+      children: [
+        { key: "diagnose", label: "\u8BCA\u65AD\u5F02\u5E38\u4E0E\u6392\u67E5" },
+        { key: "report", label: "\u751F\u6210\u53EF\u8BFB\u6C47\u62A5" }
+      ]
+    },
+    {
+      type: "group",
+      label: "\u5F53\u524D\u76EE\u5F55",
+      children: [
+        { key: "batch-check", label: "\u6279\u91CF\u5DE1\u68C0\u4EFB\u52A1\u72B6\u6001" }
+      ]
+    },
+    {
+      type: "group",
+      label: "\u68C0\u67E5\u6807\u51C6",
+      children: [
+        { key: "draft-check-plan", label: "\u8D77\u8349\u8F93\u5165\u68C0\u67E5\u6807\u51C6" }
+      ]
+    }
+  ];
+  const handleAiMenu = (key) => {
+    if (!selectedTask) return;
+    const path3 = absoluteTaskPath(projectPath, selectedTask.rel_path);
+    const instructions = {
+      diagnose: "\u8BF7\u8BFB\u53D6\u4E0E\u5F53\u524D\u72B6\u6001\u76F8\u5173\u7684 VASP \u8F93\u51FA\u548C\u65E5\u5FD7\uFF0C\u8BCA\u65AD\u5F02\u5E38\u539F\u56E0\u3002\u5148\u533A\u5206\u786E\u5B9A\u6027\u8BC1\u636E\u4E0E\u9700\u8981\u4EBA\u5DE5\u5224\u65AD\u7684\u90E8\u5206\uFF0C\u518D\u7ED9\u51FA\u53EF\u6267\u884C\u7684\u6392\u67E5\u987A\u5E8F\u3002",
+      "batch-check": `\u8BF7\u626B\u63CF\u5E76\u5DE1\u68C0\u76EE\u5F55\u201C${path3}\u201D\u53CA\u5176\u5B50\u76EE\u5F55\u4E2D\u7684 VASP \u4EFB\u52A1\uFF1B\u6C47\u603B\u72B6\u6001\u3001\u786E\u5B9A\u6027\u9519\u8BEF\u548C\u9700\u8981\u4EBA\u5DE5\u590D\u6838\u7684\u9879\u76EE\u3002`,
+      report: "\u8BF7\u628A\u73B0\u6709\u4EFB\u52A1\u4FE1\u606F\u6574\u7406\u6210\u4E00\u4EFD\u9762\u5411\u7814\u7A76\u8005\u7684\u7B80\u6D01\u6C47\u62A5\uFF1A\u8FDB\u5C55\u3001\u5173\u952E\u6570\u636E\u3001\u98CE\u9669\u548C\u4E0B\u4E00\u6B65\u3002\u4E0D\u8981\u91CD\u65B0\u8BCA\u65AD\u672A\u8BFB\u53D6\u7684\u6587\u4EF6\u3002",
+      "draft-check-plan": "\u8BF7\u6839\u636E\u6B64\u4EFB\u52A1\u7684\u8F93\u5165\u7279\u5F81\u548C\u7814\u7A76\u76EE\u7684\uFF0C\u8D77\u8349\u4E00\u4EFD\u8F93\u5165\u68C0\u67E5\u6807\u51C6\u3002\u5148\u8BF4\u660E\u5047\u8BBE\uFF0C\u518D\u5217\u51FA\u53EF\u7531\u7A0B\u5E8F\u786E\u5B9A\u6027\u6267\u884C\u7684\u89C4\u5219\uFF1B\u4E0D\u8981\u76F4\u63A5\u4FEE\u6539\u4EFB\u4F55\u89C4\u5219\u3002"
+    };
+    const targetNote = selectedInputTarget ? `\u7528\u6237\u5DF2\u8BBE\u7F6E\u7684\u8F93\u5165\u68C0\u67E5\u76EE\u6807\uFF1A${inputProfileLabel(selectedInputTarget.profileId)}\uFF08${selectedInputTarget.scope === "folder" ? "\u7EE7\u627F\u76EE\u5F55\u9ED8\u8BA4" : "\u672C\u4EFB\u52A1\u8BBE\u7F6E"}\uFF09\u3002` : `\u7A0B\u5E8F\u6309\u8F93\u5165\u7279\u5F81\u6682\u9009\u68C0\u67E5\u7C7B\u578B\uFF1A${inputProfileLabel(inferredInputProfile)}\uFF1B\u8FD9\u4E0D\u662F\u7528\u6237\u5DF2\u786E\u8BA4\u7684\u7814\u7A76\u610F\u56FE\u3002`;
+    if (instructions[key]) handleAiAction(selectedTask, `${targetNote}
+
+${instructions[key]}`);
+  };
+  const hasTree = tasks.length > 0 || directories.length > 0 || Boolean(scanProgress);
   return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, position: "relative" }, children: [
     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(PanelResizeHandle, { onResize: props.onResizeWidth, getWidth: props.getPanelWidth }),
     /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: {
@@ -98400,7 +98744,7 @@ function Panel3(props) {
       height: 44,
       borderBottom: "1px solid var(--dsw-alias-border-l2, #e5e6eb)"
     }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontSize: 14, fontWeight: 600, whiteSpace: "nowrap" }, children: "VASP" }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontSize: 16, fontWeight: 600, whiteSpace: "nowrap" }, children: "VASP" }),
       workspaceItems.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         select_default,
         {
@@ -98438,9 +98782,9 @@ function Panel3(props) {
       alignItems: "center",
       gap: 6,
       flexWrap: "wrap",
-      padding: "6px 10px",
+      padding: "7px 10px",
       borderBottom: "1px solid var(--dsw-alias-border-l2, #e5e6eb)",
-      fontSize: 12
+      fontSize: 14
     }, children: [
       /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "#1677ff", fontWeight: 600 }, children: [
         "\u4EFB\u52A1 ",
@@ -98450,18 +98794,34 @@ function Panel3(props) {
         "\u76EE\u5F55 ",
         directories.length
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "#52c41a" }, children: [
-        "\u5B8C\u6210 ",
-        stats.finished
+      scanProgress && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "#1677ff", fontSize: 13 }, children: [
+        "\u5DF2\u626B\u63CF ",
+        stats.total,
+        " \u4E2A\u4EFB\u52A1\uFF0C\u4ECD\u5728\u68C0\u67E5 ",
+        Math.max(0, scanProgress.discoveredDirectories - scanProgress.scannedDirectories),
+        " \u4E2A\u76EE\u5F55"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "#13c2c2" }, children: [
-        "\u6536\u655B ",
-        stats.converged
-      ] }),
-      stats.errors > 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "#ff4d4f" }, children: [
-        "\u9519\u8BEF ",
-        stats.errors
-      ] }),
+      [
+        ["NO_OUTPUT_EVIDENCE", "\u672A\u8F93\u51FA", "#faad14"],
+        ["TASK_COMPLETED", "\u5B8C\u6210", "#52c41a"],
+        ["RUNNING", "\u8FD0\u884C\u4E2D", "#1677ff"],
+        ["ERROR_DETECTED", "\u9519\u8BEF", "#ff4d4f"],
+        ["UNKNOWN", "\u5F85\u68C0\u67E5", "#8c8c8c"]
+      ].map(([code, label, color2]) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+        button_default2,
+        {
+          type: "text",
+          size: "small",
+          style: { color: color2, padding: 0, height: 22, fontSize: 14 },
+          onClick: () => panelStore.setFilterStatus(filterStatus === code ? null : code),
+          children: [
+            label,
+            " ",
+            stats[code]
+          ]
+        },
+        code
+      )),
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { flex: 1 } }),
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         popover_default,
@@ -98495,9 +98855,11 @@ function Panel3(props) {
                   value: filterStatus,
                   onChange: (v) => panelStore.setFilterStatus(v ?? null),
                   options: [
-                    { value: "finished", label: "\u5B8C\u6210" },
-                    { value: "error", label: "\u9519\u8BEF" },
-                    { value: "unknown", label: "\u672A\u77E5" }
+                    { value: "NO_OUTPUT_EVIDENCE", label: "\u672A\u8F93\u51FA" },
+                    { value: "TASK_COMPLETED", label: "\u5B8C\u6210" },
+                    { value: "RUNNING", label: "\u8FD0\u884C\u4E2D" },
+                    { value: "ERROR_DETECTED", label: "\u9519\u8BEF" },
+                    { value: "UNKNOWN", label: "\u5F85\u68C0\u67E5" }
                   ]
                 }
               ),
@@ -98529,51 +98891,84 @@ function Panel3(props) {
                 }
               )
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { maxHeight: "min(55vh, 480px)", overflowY: "auto", minHeight: 120 }, children: viewMode === "tree" ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TreeView, { onAnalyze: handleAnalyze, onTaskSelected: () => setListOpen(false) }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TaskTable, { onAnalyze: handleAnalyze, onTaskSelected: () => setListOpen(false) }) })
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { maxHeight: "min(55vh, 480px)", overflowY: "auto", minHeight: 120 }, children: viewMode === "tree" ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TreeView, { onTaskSelected: () => setListOpen(false) }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TaskTable, { onTaskSelected: () => setListOpen(false) }) })
           ] }),
           children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(MenuOutlined_default2, {}), children: "\u4EFB\u52A1\u5217\u8868" })
         }
       )
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { flex: 1, minHeight: 0, overflow: "auto", padding: "8px 10px" }, children: !selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(empty_default2, { style: { marginTop: 30 }, description: "\u70B9\u51FB\u300C\u4EFB\u52A1\u5217\u8868\u300D\u9009\u62E9\u4EFB\u52A1" }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginBottom: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { strong: true, style: { fontSize: 14 }, children: selectedTask.label }),
-        selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", style: { fontSize: 12 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginBottom: 8 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, minWidth: 0 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { placement: "top", title: copiedPath === selectedPath ? "\u5DF2\u590D\u5236\u7EDD\u5BF9\u8DEF\u5F84" : selectedPath, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+            "span",
+            {
+              role: "button",
+              tabIndex: 0,
+              "aria-label": "\u590D\u5236\u4EFB\u52A1\u7EDD\u5BF9\u8DEF\u5F84",
+              onClick: () => {
+                void copySelectedPath();
+              },
+              onKeyDown: (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  void copySelectedPath();
+                }
+              },
+              style: { fontSize: 16, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "1 1 160px", cursor: "pointer" },
+              children: [
+                selectedParent && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
+                  selectedParent,
+                  " / "
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { strong: true, children: selectedTask.label })
+              ]
+            }
+          ) }),
+          selectedIsVaspTask && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StatusBadge, { task: selectedTask }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { display: "flex", gap: 6, marginLeft: "auto" }, children: [
+            selectedIsVaspTask && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { title: selectedTask.input_check?.profileId ? `\u4E0A\u6B21\u6309\u201C${inputProfileLabel(selectedTask.input_check.profileId)}\u201D\u68C0\u67E5` : `${inputProfileIsAutomatic ? "\u6309\u8F93\u5165\u7279\u5F81\u81EA\u52A8\u9009\u62E9" : selectedInputTarget?.scope === "folder" ? "\u7EE7\u627F\u76EE\u5F55\u9ED8\u8BA4\u7C7B\u578B" : "\u672C\u4EFB\u52A1\u8BBE\u7F6E"}\uFF1A${inputProfileLabel(activeInputProfile)}`, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+              dropdown_default3.Button,
+              {
+                size: "small",
+                icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(DownOutlined_default2, {}),
+                loading: checkingInput,
+                menu: { items: inputMenuItems, onClick: ({ key }) => handleInputMenu(String(key)) },
+                onClick: () => {
+                  void runInputCheck(activeInputProfile);
+                },
+                children: selectedTask.input_check?.profileId ? `\u8F93\u5165\u68C0\u67E5 \xB7 ${compactInputCheckLabel(selectedTask.input_check.code)}` : `\u8F93\u5165\u68C0\u67E5 \xB7 ${inputProfileLabel(activeInputProfile)}`
+              }
+            ) }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(dropdown_default3, { menu: { items: aiMenuItems, onClick: ({ key }) => handleAiMenu(String(key)) }, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(button_default2, { size: "small", type: "primary", ghost: true, icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(MessageOutlined_default2, {}), "aria-label": "AI \u64CD\u4F5C", children: [
+              "AI ",
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(DownOutlined_default2, {})
+            ] }) })
+          ] })
+        ] }),
+        selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", gap: "4px 10px", flexWrap: "wrap", marginTop: 6, fontSize: 14 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
             "\u4F53\u7CFB\uFF1A",
             selectedTask.system
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", style: { fontSize: 12 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
+            "\u7C7B\u578B\uFF1A",
+            selectedTask.task_type?.label ?? "\u2014"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
             "\u79BB\u5B50\u6B65\uFF1A",
             selectedTask.n_ion_steps
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", style: { fontSize: 12 }, children: [
-            "E\uFF1A",
-            selectedTask.final_energy?.toFixed(6) ?? "N/A",
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
+            "\u6700\u7EC8\u80FD\u91CF\uFF1A",
+            selectedTask.final_energy?.toFixed(6) ?? "\u2014",
             " eV"
-          ] }),
-          selectedTask.lattice_consts && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", style: { fontSize: 12 }, children: [
-            "a=",
-            selectedTask.lattice_consts[0]?.toFixed(3),
-            " b=",
-            selectedTask.lattice_consts[1]?.toFixed(3),
-            " c=",
-            selectedTask.lattice_consts[2]?.toFixed(3)
           ] })
         ] }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { type: "secondary", children: "\u666E\u901A\u76EE\u5F55" }),
-        selectedIsVaspTask && selectedTask.is_converged !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tag_default, { color: selectedTask.is_converged ? "green" : "red", children: selectedTask.is_converged ? "\u5DF2\u6536\u655B" : "\u672A\u6536\u655B" }),
-        selectedIsVaspTask && selectedTask.status === "error" && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tag_default, { color: "red", children: "\u9519\u8BEF" }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-          button_default2,
-          {
-            size: "small",
-            type: "primary",
-            ghost: true,
-            icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(MessageOutlined_default2, {}),
-            onClick: () => handleAnalyze(selectedTask),
-            children: "\u5206\u6790\u6B64\u4EFB\u52A1"
-          }
-        )
+        inputCheckError && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginTop: 6, color: "#ff4d4f", fontSize: 14 }, children: [
+          "\u8F93\u5165\u68C0\u67E5\u672A\u5B8C\u6210\uFF1A",
+          inputCheckError
+        ] })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         tabs_default,
@@ -98588,13 +98983,147 @@ function Panel3(props) {
     ] }) })
   ] });
 }
+var INPUT_CHECK_OPTIONS = [
+  { value: "basic-inputs", label: "\u57FA\u7840 VASP \u8F93\u5165" },
+  { value: "static-scf", label: "\u9759\u6001\u5355\u70B9 / SCF" },
+  { value: "structure-optimization", label: "\u7ED3\u6784\u4F18\u5316" },
+  { value: "frequency-zpe", label: "\u9891\u7387 / ZPE" },
+  { value: "aimd", label: "AIMD" },
+  { value: "neb", label: "NEB / CI-NEB" }
+];
+var inputTargetMemory = /* @__PURE__ */ new Map();
+var INPUT_TARGET_STORAGE_PREFIX = "dsh-vaspflow:input-target:";
+function normalizedRelPath(relPath) {
+  return relPath.split(/[\\/]+/).filter((part) => part && part !== ".").join("/");
+}
+function inputTargetKey(rootPath, scope, relPath) {
+  return `${INPUT_TARGET_STORAGE_PREFIX}${rootPath.toLowerCase()}|${scope}|${normalizedRelPath(relPath).toLowerCase()}`;
+}
+function readStoredInputTarget(key) {
+  const memory = inputTargetMemory.get(key);
+  if (memory) return memory;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!INPUT_CHECK_OPTIONS.some((option) => option.value === parsed.profileId)) return null;
+    if (parsed.scope !== "task" && parsed.scope !== "folder") return null;
+    inputTargetMemory.set(key, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+function writeInputTarget(rootPath, scope, relPath, profileId) {
+  const key = inputTargetKey(rootPath, scope, relPath);
+  if (!profileId) {
+    inputTargetMemory.delete(key);
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+    }
+    return;
+  }
+  const target = { profileId, scope };
+  inputTargetMemory.set(key, target);
+  try {
+    window.localStorage.setItem(key, JSON.stringify(target));
+  } catch {
+  }
+}
+function declaredInputTarget(rootPath, relPath) {
+  const own = readStoredInputTarget(inputTargetKey(rootPath, "task", relPath));
+  if (own) return own;
+  const parts = normalizedRelPath(relPath).split("/").filter(Boolean);
+  for (let length2 = parts.length; length2 >= 0; length2 -= 1) {
+    const folder = readStoredInputTarget(inputTargetKey(rootPath, "folder", parts.slice(0, length2).join("/")));
+    if (folder) return folder;
+  }
+  return null;
+}
+function inputProfileLabel(profileId) {
+  return INPUT_CHECK_OPTIONS.find((option) => option.value === profileId)?.label ?? "\u57FA\u7840 VASP \u8F93\u5165";
+}
+function inputFeatureProfile(task) {
+  switch (task.task_type?.code) {
+    case "RELAXATION":
+      return "structure-optimization";
+    case "FREQUENCY_ZPE":
+      return "frequency-zpe";
+    case "AIMD":
+      return "aimd";
+    case "NEB":
+      return "neb";
+    case "STATIC_SCF":
+      return "static-scf";
+    default:
+      return "basic-inputs";
+  }
+}
+function compactInputCheckLabel(code) {
+  if (code === "PASS") return "\u901A\u8FC7";
+  if (code === "WARN") return "\u6CE8\u610F";
+  if (code === "FAIL") return "\u672A\u901A\u8FC7";
+  return "\u672A\u68C0\u67E5";
+}
+function inputTagColor(code) {
+  if (code === "PASS") return "green";
+  if (code === "WARN") return "gold";
+  if (code === "FAIL") return "red";
+  return "default";
+}
+function TaskStatusEvidence({ task }) {
+  const status = task.status_record;
+  const input = task.input_check;
+  const inputEvidence = input?.evidence ?? [];
+  const statusEvidence = status?.evidence ?? [];
+  const primaryEvidence = statusEvidence.find((item) => item.severity === "error") ?? statusEvidence[0];
+  const extraEvidence = statusEvidence.filter((item) => item !== primaryEvidence && item.message !== status?.reason);
+  const statusColor = status?.code === "ERROR_DETECTED" ? "#ff4d4f" : status?.code === "TASK_COMPLETED" ? "#52c41a" : status?.code === "RUNNING" ? "#1677ff" : status?.code === "NO_OUTPUT_EVIDENCE" ? "#faad14" : "#8c8c8c";
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { fontSize: 15, lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { padding: "12px 14px", border: "1px solid #30384d", borderLeft: `4px solid ${statusColor}`, borderRadius: 8, background: "#171f32" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { strong: true, style: { fontSize: 16 }, children: status?.label ?? "\u5F85\u68C0\u67E5" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", style: { fontSize: 13, whiteSpace: "nowrap" }, children: [
+          "\u626B\u63CF\u4E8E ",
+          formatDateTime(status?.observedAt)
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { marginTop: 5, fontSize: 16 }, children: status?.reason ?? "\u65E7\u7248\u4EFB\u52A1\u8BB0\u5F55\u5C1A\u65E0\u72B6\u6001\u7406\u7531\uFF1B\u8BF7\u5237\u65B0\u9879\u76EE\u3002" }),
+      primaryEvidence?.file ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", style: { display: "block", marginTop: 5, fontSize: 13 }, children: [
+        "\u4F9D\u636E\uFF1A",
+        primaryEvidence.file
+      ] }) : null,
+      primaryEvidence?.excerpt ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { marginTop: 5, padding: "5px 8px", color: "#b7c1d8", background: "#101726", borderRadius: 4, fontFamily: "monospace", fontSize: 13, whiteSpace: "pre-wrap" }, children: primaryEvidence.excerpt }) : null,
+      extraEvidence.length ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginTop: 7, color: "#b7c1d8", fontSize: 13 }, children: [
+        "\u5176\u4ED6\u53D1\u73B0\uFF1A",
+        extraEvidence.map((item) => item.message).join("\uFF1B")
+      ] }) : null
+    ] }),
+    input?.profileId ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 8px", padding: "2px 2px 0" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { type: "secondary", children: "\u8F93\u5165\u68C0\u67E5" }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(tag_default, { color: inputTagColor(input.code), children: [
+        inputProfileLabel(input.profileId),
+        " \xB7 ",
+        compactInputCheckLabel(input.code)
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { type: "secondary", style: { fontSize: 13 }, children: formatDateTime(input.observedAt) }),
+      input.code !== "PASS" && inputEvidence.length ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { style: { width: "100%", fontSize: 14 }, children: [
+        "\u53D1\u73B0\uFF1A",
+        inputEvidence.map((item) => item.message).join("\uFF1B")
+      ] }) : null
+    ] }) : null
+  ] });
+}
 function buildTaskContext(task, projectPath) {
   const lattice = task.lattice_consts ? `a=${task.lattice_consts[0]?.toFixed(3)} b=${task.lattice_consts[1]?.toFixed(3)} c=${task.lattice_consts[2]?.toFixed(3)}` : "-";
   const incar = task.incar_summary ? Object.entries(task.incar_summary).slice(0, 8).map(([k2, v]) => `${k2}=${v}`).join(", ") : "-";
   return [
     "[VASP \u4EFB\u52A1\u4E0A\u4E0B\u6587]",
     `\u8DEF\u5F84\uFF1A${projectPath}/${task.rel_path}`,
-    `\u4F53\u7CFB\uFF1A${task.system} | \u72B6\u6001\uFF1A${task.status} | \u6536\u655B\uFF1A${task.is_converged}`,
+    `\u4F53\u7CFB\uFF1A${task.system} | \u4EFB\u52A1\u7C7B\u578B\uFF1A${task.task_type?.label ?? "-"} | \u72B6\u6001\uFF1A${task.status_record?.label ?? task.status}`,
+    `\u72B6\u6001\u7406\u7531\uFF1A${task.status_record?.reason ?? "-"} | \u6700\u8FD1\u89C2\u5BDF\uFF1A${task.status_record?.observedAt ?? "-"}`,
+    `\u8F93\u5165\u68C0\u67E5\uFF1A${task.input_check?.label ?? "\u672A\u6307\u5B9A\u68C0\u67E5\u89C4\u5219"}${task.input_check?.profileId ? `\uFF08${task.input_check.profileId}@${task.input_check.profileVersion}\uFF09` : ""}`,
     `\u79BB\u5B50\u6B65\uFF1A${task.n_ion_steps} | E\uFF1A${task.final_energy ?? "N/A"} eV | Fmax\uFF1A${task.final_max_force ?? "N/A"} | \u78C1\u77E9\uFF1A${task.magmom_total ?? "N/A"}`,
     `\u6676\u683C\uFF1A${lattice}`,
     `INCAR \u6458\u8981\uFF1A${incar}`,
@@ -98791,12 +99320,14 @@ var PANEL_ATTR = "data-dsh-vaspflow-panel";
 var ENTRY_LABEL = "VASP";
 var ICON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><ellipse cx="8" cy="8" rx="7" ry="2.8" transform="rotate(-30 8 8)"/><path d="M8 4.8v6.4"/></svg>';
 var CSS = [
-  `[${PANEL_ATTR}]{display:flex;flex-direction:column;min-width:0;overflow:hidden;border-left:1px solid var(--dsw-alias-border-l2,#e5e6eb);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);font-family:var(--dsw-font-family,sans-serif);font-size:13px}`,
-  `[${ENTRY_ATTR}]{width:100%;height:32px;display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--dsw-alias-label-secondary,#454d5f);background:none;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;font-size:13px}`,
+  `[${PANEL_ATTR}]{display:flex;flex-direction:column;min-width:0;overflow:hidden;border-left:1px solid var(--dsw-alias-border-l2,#e5e6eb);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);font-family:var(--dsw-font-family,sans-serif);font-size:16px}`,
+  `[${ENTRY_ATTR}]{width:100%;height:34px;display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--dsw-alias-label-secondary,#454d5f);background:none;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;font-size:14px}`,
   `[${ENTRY_ATTR}]:hover{background:var(--dsw-specific-sidebar-nav-item-hover,rgba(0,0,0,.04));color:var(--dsw-alias-label-primary,#1f2329)}`,
   `[${ENTRY_ATTR}][data-active]{background:var(--dsw-specific-sidebar-nav-item-active,rgba(22,93,255,.1));color:var(--dsw-alias-label-primary,#1f2329);font-weight:600}`,
+  `[${ENTRY_ATTR}] .vfp-dev-badge{display:none;margin-left:auto;padding:1px 5px;border-radius:8px;background:#fa8c16;color:#fff;font-size:10px;font-weight:600;line-height:16px}`,
+  `[${ENTRY_ATTR}][data-development] .vfp-dev-badge{display:inline-block}`,
   "[data-dsh-frame][data-sidebar-collapsed] [" + ENTRY_ATTR + "]{justify-content:center;width:100%;padding:0}",
-  "[data-dsh-frame][data-sidebar-collapsed] [" + ENTRY_ATTR + "] .vfp-entry-label{display:none}",
+  "[data-dsh-frame][data-sidebar-collapsed] [" + ENTRY_ATTR + "] .vfp-entry-label,[data-dsh-frame][data-sidebar-collapsed] [" + ENTRY_ATTR + "] .vfp-dev-badge{display:none}",
   // Compact task tree (panel + popup): tighter rows, smaller indent, arrow
   // close to the name. The popup renders on <body>, OUTSIDE the panel, so it
   // needs its own scope.
@@ -98804,15 +99335,15 @@ var CSS = [
   `[${PANEL_ATTR}] .ant-tree-node-content-wrapper, .vaspflow-task-popover .ant-tree-node-content-wrapper{padding:0 4px!important;min-height:20px!important;line-height:20px!important}`,
   `[${PANEL_ATTR}] .ant-tree-switcher, .vaspflow-task-popover .ant-tree-switcher{width:14px!important;margin-right:0!important}`,
   `[${PANEL_ATTR}] .ant-tree-indent-unit, .vaspflow-task-popover .ant-tree-indent-unit{width:12px!important}`,
-  `[${PANEL_ATTR}] .ant-tree-title, .vaspflow-task-popover .ant-tree-title{font-size:12px!important}`,
+  `[${PANEL_ATTR}] .ant-tree-title, .vaspflow-task-popover .ant-tree-title{font-size:14px!important}`,
   `[${PANEL_ATTR}] .ant-tree, .vaspflow-task-popover .ant-tree{margin-top:2px}`,
   // Popup controls row: compact height and gaps.
-  ".vaspflow-task-popover .ant-input-affix-wrapper, .vaspflow-task-popover .ant-select-selector{font-size:12px!important}",
-  ".vaspflow-task-popover .ant-segmented{font-size:12px}",
+  ".vaspflow-task-popover .ant-input-affix-wrapper, .vaspflow-task-popover .ant-select-selector{font-size:14px!important}",
+  ".vaspflow-task-popover .ant-segmented{font-size:14px}",
   // Compact popup table rows + tighten popover body padding.
   ".vaspflow-task-popover .ant-popover-inner{padding:6px!important}",
-  ".vaspflow-task-popover .ant-table-cell{padding-top:4px!important;padding-bottom:4px!important;font-size:12px!important}",
-  ".vaspflow-task-popover .ant-table-thead > tr > th{padding-top:4px!important;padding-bottom:4px!important;font-size:12px!important}",
+  ".vaspflow-task-popover .ant-table-cell{padding-top:4px!important;padding-bottom:4px!important;font-size:14px!important}",
+  ".vaspflow-task-popover .ant-table-thead > tr > th{padding-top:4px!important;padding-bottom:4px!important;font-size:14px!important}",
   ".vaspflow-task-popover .ant-table-tbody > tr > td{padding-top:4px!important;padding-bottom:4px!important}",
   // Dark mode: force the 3D structure mount container to the dark background
   // even if the alias token is unresolved on some element paths.
@@ -98823,7 +99354,11 @@ var CSS = [
   "[data-dsh-vaspflow-panel] .vaspflow-structure-tabs:focus-visible{border-radius:8px;box-shadow:0 0 0 2px var(--dsw-alias-brand-primary,#3964fe)}",
   // Task-list popup: menu-like floating surface with theme-adaptive colors.
   ".vaspflow-task-popover .ant-popover-inner{background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);border:1px solid var(--dsw-alias-border-l2,#e5e6eb);box-shadow:0 6px 24px rgba(0,0,0,.18);border-radius:10px}",
-  ".vaspflow-task-popover .ant-popover-arrow{display:none}"
+  ".vaspflow-task-popover .ant-popover-arrow{display:none}",
+  // The host panel is intentionally readable at the same scale as a normal
+  // conversation reply. Ant Design controls otherwise keep their 14px default.
+  `[${PANEL_ATTR}] .ant-btn,[${PANEL_ATTR}] .ant-input,[${PANEL_ATTR}] .ant-input-affix-wrapper input,[${PANEL_ATTR}] .ant-select-selection-item,[${PANEL_ATTR}] .ant-select-selection-placeholder,[${PANEL_ATTR}] .ant-tabs-tab,[${PANEL_ATTR}] .ant-tag{font-size:15px!important}`,
+  `[${PANEL_ATTR}] .ant-btn-sm{min-height:28px}`
 ].join("\n");
 var cssInjected = false;
 function injectCss() {
@@ -98852,7 +99387,7 @@ function createEntry(onClick) {
   entry.type = "button";
   entry.setAttribute(ENTRY_ATTR, "");
   entry.setAttribute("aria-label", ENTRY_LABEL);
-  entry.innerHTML = `<span style="display:inline-flex;flex:none;justify-content:center;align-items:center">${ICON}</span><span class="vfp-entry-label">${ENTRY_LABEL}</span>`;
+  entry.innerHTML = `<span style="display:inline-flex;flex:none;justify-content:center;align-items:center">${ICON}</span><span class="vfp-entry-label">${ENTRY_LABEL}</span><span class="vfp-dev-badge">\u5F00\u53D1\u6D4B\u8BD5</span>`;
   entry.addEventListener("click", onClick);
   return entry;
 }
@@ -98906,6 +99441,10 @@ function mountSidebarEntry(toggle, isOpen, subscribe) {
   const unsub = subscribe(applyActive);
   applyActive();
   tryPlace();
+  void fetch("/plugins/dsh-vaspflow/ping", { cache: "no-store" }).then((response) => response.ok ? response.json() : void 0).then((body) => {
+    if (body?.development === true) entry.setAttribute("data-development", "");
+  }).catch(() => {
+  });
   return () => {
     waitObserver.disconnect();
     rootObserver?.disconnect();
@@ -99004,9 +99543,9 @@ function apply(ctx) {
     }
   };
   const toggle = () => panelStore.toggleOpen();
-  const handleAnalyzeTask = (task) => {
+  const handleAnalyzeTask = (task, draft) => {
     const rootPath = panelRootPath();
-    const context = buildTaskContext(task, rootPath);
+    const context = draft ?? buildTaskContext(task, rootPath);
     if (!prefillConversationInput(context)) {
       try {
         navigator.clipboard.writeText(context);

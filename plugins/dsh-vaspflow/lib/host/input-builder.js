@@ -69,7 +69,10 @@ export function parsePoscarHeader(lines) {
     }
     if (elements !== null && counts !== null) {
       const lower = line.toLowerCase();
-      if (lower === 'selective dynamics') {
+      // VASP enables Selective dynamics from the first character alone.
+      // Keep the original spelling for generated files, but accept `S`, `s`,
+      // and longer variants such as "Selective Dyn" while reading.
+      if (line[0] === 'S' || line[0] === 's') {
         sdIdx = i;
         continue;
       }

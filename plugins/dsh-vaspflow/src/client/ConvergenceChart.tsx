@@ -27,12 +27,15 @@ const ConvergenceChart: React.FC<{ taskId: number }> = ({ taskId }) => {
           return;
         }
         const { ion_steps, energies, max_forces, _source } = response;
-        setSource(_source || `${ion_steps.length} 个离子步`);
-        const chartData = ion_steps.map((step: number, i: number) => ({
-          step,
-          energy: energies[i] ?? null,
-          force: max_forces[i] ?? null,
-        }));
+        setSource(_source || `${ion_steps.length} 条离子步记录`);
+        const chartData = ion_steps.flatMap((step: number, i: number) => {
+          const previous = ion_steps[i - 1];
+          const gap = i > 0 && step > previous + 1;
+          return [
+            ...(gap ? [{ step: previous + 1, energy: null, force: null }] : []),
+            { step, energy: energies[i] ?? null, force: max_forces[i] ?? null },
+          ];
+        });
         setData(chartData);
       })
       .catch(() => setData([]))
@@ -72,6 +75,8 @@ const ConvergenceChart: React.FC<{ taskId: number }> = ({ taskId }) => {
             <CartesianGrid strokeDasharray="3 3" stroke="var(--dsw-alias-border-l2, #f0f0f0)" />
             <XAxis
               dataKey="step"
+              type="number"
+              domain={['dataMin', 'dataMax']}
               label={{ value: '离子步', position: 'insideBottomRight', offset: -4 }}
             />
             <YAxis
@@ -101,7 +106,6 @@ const ConvergenceChart: React.FC<{ taskId: number }> = ({ taskId }) => {
               strokeWidth={2}
               dot={{ r: 3 }}
               name={energyLabel}
-              connectNulls
             />
             <Line
               yAxisId="force"
@@ -111,7 +115,6 @@ const ConvergenceChart: React.FC<{ taskId: number }> = ({ taskId }) => {
               strokeWidth={2}
               dot={{ r: 3 }}
               name="最大力"
-              connectNulls
             />
           </LineChart>
         </ResponsiveContainer>

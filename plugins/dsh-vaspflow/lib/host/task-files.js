@@ -7,7 +7,8 @@ import { readdirSync, statSync, openSync, readSync, closeSync, realpathSync } fr
 import { join, resolve } from 'node:path';
 
 const STRUCTURE_FILE_PRIORITY = { POSCAR: 0, CONTCAR: 1 };
-const MAX_TEXT_PREVIEW_SIZE = 500 * 1024;
+const DEFAULT_PREVIEW_CHUNK_SIZE = 256 * 1024;
+const MAX_PREVIEW_CHUNK_SIZE = 512 * 1024;
 
 export function taskDir(taskInfo) {
   return join(taskInfo.root_path, taskInfo.rel_path);
@@ -21,9 +22,10 @@ export function resolveTaskFile(taskInfo, fileName) {
 
   if (!isDir(directory)) return null;
 
-  for (const candidate of readdirSync(directory)) {
-    if (candidate.toUpperCase() === fileName.toUpperCase()) {
-      const candidatePath = join(directory, candidate);
+  for (const candidate of readdirSync(directory, { withFileTypes: true })) {
+    if (!candidate.isFile()) continue;
+    if (candidate.name.toUpperCase() === fileName.toUpperCase()) {
+      const candidatePath = join(directory, candidate.name);
       if (isFile(candidatePath)) return candidatePath;
     }
   }
@@ -34,14 +36,13 @@ export function resolveTaskFile(taskInfo, fileName) {
 export function listFilesAndDirs(directory) {
   const files = [];
   const dirs = [];
-  for (const entry of readdirSync(directory)) {
-    const fullPath = join(directory, entry);
-    if (isFile(fullPath)) {
-      const dot = entry.lastIndexOf('.');
-      const ext = dot >= 0 ? entry.slice(dot) : '';
-      files.push({ name: entry, size: statSync(fullPath).size, ext });
-    } else if (isDir(fullPath)) {
-      dirs.push({ name: entry });
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (entry.isFile()) {
+      const dot = entry.name.lastIndexOf('.');
+      const ext = dot >= 0 ? entry.name.slice(dot) : '';
+      files.push({ name: entry.name, size: statSync(join(directory, entry.name)).size, ext });
+    } else if (entry.isDirectory()) {
+      dirs.push({ name: entry.name });
     }
   }
   files.sort((a, b) => a.name.localeCompare(b.name));
@@ -68,8 +69,12 @@ export function listStructureFiles(directory) {
   return files;
 }
 
-/** Text preview with truncation + path-traversal guard. */
-export function readTextPreview(taskInfo, fileName) {
+/**
+ * Text preview with chunk offsets + path-traversal guard. No request reads
+ * more than MAX_PREVIEW_CHUNK_SIZE; omitted offset retains the familiar
+ * "show the end of a log first" behaviour for large files.
+ */
+export function readTextPreview(taskInfo, fileName, options = {}) {
   const directory = resolve(taskDir(taskInfo));
   const filePath = resolve(join(directory, fileName));
   if (!isWithin(directory, filePath)) {
@@ -84,24 +89,23 @@ export function readTextPreview(taskInfo, fileName) {
   }
 
   const fileSize = statSync(filePath).size;
-  let content;
-  let truncated = false;
-  if (fileSize > MAX_TEXT_PREVIEW_SIZE) {
-    const fd = openSync(filePath, 'r');
-    try {
-      const buf = Buffer.alloc(MAX_TEXT_PREVIEW_SIZE);
-      readSync(fd, buf, 0, MAX_TEXT_PREVIEW_SIZE, fileSize - MAX_TEXT_PREVIEW_SIZE);
-      content = buf.toString('utf-8');
-    } finally {
-      closeSync(fd);
-    }
-    truncated = true;
-  } else {
-    content = readFileText(filePath);
-    truncated = false;
-  }
+  const requestedLength = boundedInteger(options.length, DEFAULT_PREVIEW_CHUNK_SIZE, 1, MAX_PREVIEW_CHUNK_SIZE);
+  const defaultOffset = fileSize > requestedLength ? fileSize - requestedLength : 0;
+  const offset = boundedInteger(options.offset, defaultOffset, 0, fileSize);
+  const length = Math.min(requestedLength, Math.max(0, fileSize - offset));
+  const content = readChunk(filePath, offset, length);
 
-  return { name: fileName, size: fileSize, content, truncated };
+  return {
+    name: fileName,
+    size: fileSize,
+    totalSize: fileSize,
+    offset,
+    length,
+    content,
+    hasBefore: offset > 0,
+    hasAfter: offset + length < fileSize,
+    truncated: offset > 0 || offset + length < fileSize,
+  };
 }
 
 function isWithin(directory, filePath) {
@@ -126,14 +130,19 @@ function isDir(p) {
   }
 }
 
-function readFileText(p) {
+function readChunk(p, offset, length) {
   const fd = openSync(p, 'r');
   try {
-    const size = statSync(p).size;
-    const buf = Buffer.alloc(size);
-    readSync(fd, buf, 0, size, 0);
+    const buf = Buffer.alloc(length);
+    readSync(fd, buf, 0, length, offset);
     return buf.toString('utf-8');
   } finally {
     closeSync(fd);
   }
+}
+
+function boundedInteger(value, fallback, min, max) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isInteger(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
 }

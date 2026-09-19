@@ -45,3 +45,9 @@ preset-construction/build/sample-vasp/
 /CLAUDE.md
 /.workbuddy/
 /preset-construction/*.md
+
+# ---- local development fixtures and generated previews ----
+/.pnpm-store/
+/output/
+/test/
+plugins/dsh-vaspflow/.vaspflow-development

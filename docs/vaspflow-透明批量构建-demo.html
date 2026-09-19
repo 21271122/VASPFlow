@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VASPFlow · 透明批量构建演示</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --surface: #0e1c30;
+      --surface-2: #122640;
+      --line: #25425f;
+      --text: #eef6ff;
+      --muted: #93a8bd;
+      --blue: #4ea1ff;
+      --green: #50dc93;
+      --amber: #ffc15e;
+      --red: #ff7f86;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: radial-gradient(circle at 80% 0%, #123462 0, transparent 35%), var(--bg);
+      color: var(--text);
+      font: 14px/1.5 Inter, "Microsoft YaHei", system-ui, sans-serif;
+    }
+    button { font: inherit; }
+    .app { max-width: 1440px; margin: auto; padding: 22px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #5aa8ff; border-radius: 50%; color: #9ccaff; font-weight: 600; }
+    h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: .02em; }
+    .sub { color: var(--muted); font-size: 12px; }
+    .demo { padding: 3px 8px; border: 1px solid #7e5b20; border-radius: 999px; color: var(--amber); font-size: 11px; letter-spacing: .08em; }
+    .run-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 17px; background: linear-gradient(110deg, rgba(38,92,150,.38), rgba(14,28,48,.74)); border: 1px solid var(--line); border-radius: 14px; }
+    .run-title h2 { margin: 0; font-size: 20px; font-weight: 500; }
+    .run-title p { margin: 4px 0 0; color: var(--muted); }
+    .run-state { color: var(--blue); font-size: 13px; white-space: nowrap; }
+    .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr) 310px; gap: 14px; margin-top: 14px; }
+    .panel { min-width: 0; background: rgba(14,28,48,.9); border: 1px solid var(--line); border-radius: 14px; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 15px 10px; }
+    .panel-head h3 { margin: 0; font-size: 13px; font-weight: 500; }
+    .panel-head span { color: var(--muted); font-size: 11px; }
+    .timeline { padding: 0 15px 15px; }
+    .event { position: relative; padding: 0 0 16px 19px; color: var(--muted); font-size: 12px; }
+    .event::before { content: ""; position: absolute; top: 5px; left: 4px; width: 7px; height: 7px; border-radius: 50%; background: #55718e; }
+    .event::after { content: ""; position: absolute; top: 13px; bottom: 0; left: 7px; width: 1px; background: var(--line); }
+    .event:last-child { padding-bottom: 0; }
+    .event:last-child::after { display: none; }
+    .event.done { color: var(--text); }
+    .event.done::before { background: var(--green); }
+    .event.live { color: var(--text); }
+    .event.live::before { background: var(--blue); box-shadow: 0 0 0 5px rgba(78,161,255,.13); }
+    .event.warn::before { background: var(--amber); }
+    .event strong { display: block; font-weight: 500; }
+    .stage-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; padding: 0 15px 13px; }
+    .stage { min-width: 0; padding: 8px; border-radius: 9px; background: #0a1626; color: var(--muted); font-size: 11px; }
+    .stage b { display: block; margin-top: 2px; color: var(--text); font-size: 17px; font-weight: 500; }
+    .stage.live { background: #112c4b; color: #8ec3ff; }
+    .stage.good { background: #103626; color: #88e7b3; }
+    .stage.warn { background: #3d3017; color: #ffd283; }
+    .matrix { position: relative; padding: 3px 15px 16px; }
+    .matrix::before { content: ""; position: absolute; inset: 22px 40px auto; height: 1px; background: linear-gradient(90deg, transparent, #326399, transparent); }
+    .task-grid { position: relative; display: grid; grid-template-columns: repeat(4, minmax(105px, 1fr)); gap: 9px; }
+    .task {
+      min-height: 102px; padding: 11px; text-align: left; color: var(--text); background: #0b182a; border: 1px solid #223d59; border-radius: 11px; cursor: pointer; transition: border-color .2s, background .2s, transform .2s;
+    }
+    .task:hover, .task:focus-visible { border-color: var(--blue); outline: none; transform: translateY(-2px); }
+    .task[aria-pressed="true"] { border-color: var(--blue); background: #112b49; box-shadow: 0 0 0 3px rgba(78,161,255,.12); }
+    .task-top { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
+    .task-name { font-size: 13px; font-weight: 500; }
+    .dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #526a82; }
+    .task.live .dot { background: var(--blue); box-shadow: 0 0 12px var(--blue); }
+    .task.good .dot { background: var(--green); }
+    .task.warn .dot { background: var(--amber); }
+    .task .formula { margin-top: 9px; color: #c9d9e9; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    .task small { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; }
+    .slots { display: flex; gap: 3px; margin-top: 7px; }
+    .slot { height: 3px; flex: 1; background: #29425e; border-radius: 4px; }
+    .task.live .slot:nth-child(-n+2), .task.good .slot { background: var(--green); }
+    .task.warn .slot:nth-child(-n+2) { background: var(--amber); }
+    .pipeline { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 8px; margin: 0 15px 14px; padding: 10px; background: #091527; border-radius: 10px; color: var(--muted); font-size: 11px; }
+    .pipe-node { color: var(--text); text-align: center; }
+    .pipe-node b { display: block; color: var(--blue); font-size: 12px; font-weight: 500; }
+    .pipe-arrow { width: 30px; height: 1px; background: #3c6d9f; position: relative; }
+    .pipe-arrow::after { content: ""; position: absolute; right: 0; top: -3px; border-left: 6px solid #3c6d9f; border-top: 3px solid transparent; border-bottom: 3px solid transparent; }
+    .evidence { padding: 0 15px 15px; }
+    .selected { padding: 11px; background: #0a1728; border-left: 2px solid var(--blue); }
+    .selected-name { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .selected-name b { font-weight: 500; }
+    .selected-name span { color: var(--blue); font-size: 12px; }
+    .evidence-list { margin: 12px 0 0; padding: 0; list-style: none; }
+    .evidence-list li { padding: 9px 0; border-bottom: 1px solid #1d354e; color: var(--muted); font-size: 12px; }
+    .evidence-list li:last-child { border-bottom: 0; }
+    .evidence-list b { display: block; color: var(--text); font-weight: 500; }
+    .pass { color: var(--green); }
+    .need { color: var(--amber); }
+    .controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 12px 14px; background: rgba(14,28,48,.9); border: 1px solid var(--line); border-radius: 12px; }
+    .controls p { margin: 0; color: var(--muted); font-size: 12px; }
+    .control-buttons { display: flex; gap: 8px; }
+    .control-buttons button { min-height: 36px; padding: 0 13px; color: var(--text); background: #17314e; border: 1px solid #315878; border-radius: 8px; cursor: pointer; }
+    .control-buttons button:hover, .control-buttons button:focus-visible { background: #204264; outline: 2px solid #8fc5ff; outline-offset: 2px; }
+    .control-buttons .danger { color: #ffd1d3; background: #442329; border-color: #85434a; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+    @media (max-width: 1040px) { .layout { grid-template-columns: 230px minmax(0, 1fr); } .evidence-panel { grid-column: 1 / -1; } .evidence { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } }
+    @media (max-width: 680px) { .app { padding: 12px; } .topbar, .run-title, .controls { align-items: flex-start; flex-direction: column; } .layout { grid-template-columns: 1fr; } .evidence-panel { grid-column: auto; } .task-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stage-row { grid-template-columns: repeat(2, 1fr); } .evidence { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark">V</div><div><h1>VASPFlow · Transparent Build</h1><div class="sub">面向 VASP 批量输入构建的可观察工作台</div></div></div>
+      <span class="demo">INTERACTION DEMO</span>
+    </header>
+
+    <section class="run-title" aria-label="当前构建批次">
+      <div><h2>Pt(111) 表面 CO 吸附构型</h2><p>32 个计算实验单元 · 模板：opt-PBE-D3 · 真实写入前的透明构建演示</p></div>
+      <div class="run-state" id="run-state">构建运行中 · 17 / 32</div>
+    </section>
+
+    <section class="layout">
+      <aside class="panel" aria-label="AI 执行动态">
+        <div class="panel-head"><h3>执行动态</h3><span>真实事件的位置</span></div>
+        <div class="timeline" id="timeline">
+          <div class="event done"><strong>批次计划已生成</strong>32 个结构待构建</div>
+          <div class="event done"><strong>模板已锁定</strong>opt-PBE-D3</div>
+          <div class="event live"><strong id="live-event">正在装配 CO hcp · 04</strong><span id="live-detail">POSCAR 已处理，正在复制输入文件</span></div>
+          <div class="event warn"><strong>发现 1 项待确认</strong>CO tilt · 05 缺少 SD 旗标</div>
+          <div class="event"><strong>批次完成</strong>等待剩余任务</div>
+        </div>
+      </aside>
+
+      <section class="panel" aria-label="计算实验单元矩阵">
+        <div class="panel-head"><h3>计算实验单元</h3><span>不是文件夹；点击查看构建证据</span></div>
+        <div class="stage-row">
+          <div class="stage">计划<b id="planned">32</b></div>
+          <div class="stage live">装配中<b id="assembling">4</b></div>
+          <div class="stage good">已验证<b id="verified">12</b></div>
+          <div class="stage warn">待确认<b id="attention">1</b></div>
+        </div>
+        <div class="pipeline" aria-label="当前选中任务的工作流"><div class="pipe-node"><b>结构</b>POSCAR</div><div class="pipe-arrow" aria-hidden="true"></div><div class="pipe-node"><b>装配</b>输入配方</div><div class="pipe-arrow" aria-hidden="true"></div><div class="pipe-node"><b>验证</b>提交前闸门</div></div>
+        <div class="matrix"><div class="task-grid" id="task-grid"></div></div>
+      </section>
+
+      <aside class="panel evidence-panel" aria-label="所选任务的构建证据">
+        <div class="panel-head"><h3>构建证据</h3><span>可审计，不展示内部思考</span></div>
+        <div class="evidence">
+          <div class="selected"><div class="selected-name"><b id="selected-title">CO hcp · 04</b><span id="selected-state">装配中</span></div><div class="sub" id="selected-summary">Pt(111) + CO，hcp 吸附位</div></div>
+          <ul class="evidence-list" id="evidence-list"></ul>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="controls">
+      <p>演示数据不会创建目录、复制文件或提交计算。真实版本应由工具的实际事件驱动这些状态。</p>
+      <div class="control-buttons"><button type="button" id="pause">暂停后续任务</button><button type="button" id="advance">推进一个真实步骤</button><button type="button" class="danger" id="reset">重置演示</button></div>
+    </footer>
+  </main>
+
+  <script>
+    const tasks = [
+      { name: 'CO top · 01', site: 'top', state: 'verified', formula: 'Pt₁₂CO', detail: ['POSCAR：24 原子，Direct 坐标', 'Selective dynamics：18 F / 6 T', 'POTCAR–POSCAR：Pt-C-O = Pt-C-O', 'INCAR：ENCUT=520，ISPIN=2'], status: '验证通过' },
+      { name: 'CO bridge · 02', site: 'bridge', state: 'verified', formula: 'Pt₁₂CO', detail: ['POSCAR：24 原子', 'KPOINTS：Gamma 3×3×1', 'POTCAR–POSCAR：顺序一致', '提交脚本：lqf.sh 已复制'], status: '验证通过' },
+      { name: 'CO fcc · 03', site: 'fcc', state: 'verified', formula: 'Pt₁₂CO', detail: ['POSCAR：24 原子', 'Selective dynamics：18 F / 6 T', 'POTCAR：已验证', 'INCAR 覆盖：EDIFF=1E-5'], status: '验证通过' },
+      { name: 'CO hcp · 04', site: 'hcp', state: 'live', formula: 'Pt₁₂CO', detail: ['POSCAR：已写入 Selective dynamics', 'INCAR：已从 opt-PBE-D3 复制', 'KPOINTS：正在复制', 'POTCAR：等待元素顺序校验'], status: '装配中' },
+      { name: 'CO tilt · 05', site: 'tilt', state: 'warn', formula: 'Pt₁₂CO', detail: ['POSCAR：源文件没有 SD 旗标', '系统未猜测哪些原子应固定', '未写入目标目录', '需要用户给出 freeAtoms 或 fixedAtoms'], status: '需要确认' },
+      { name: 'CO top · 06', site: 'top', state: 'waiting', formula: 'Pt₁₂CO', detail: ['等待执行队列', '将使用 opt-PBE-D3 模板', '尚未读取或写入文件', '尚未进行校验'], status: '等待' },
+      { name: 'CO bridge · 07', site: 'bridge', state: 'waiting', formula: 'Pt₁₂CO', detail: ['等待执行队列', '尚未读取或写入文件', '尚未进行校验', '可在开始前排除'], status: '等待' },
+      { name: 'CO fcc · 08', site: 'fcc', state: 'waiting', formula: 'Pt₁₂CO', detail: ['等待执行队列', '尚未读取或写入文件', '尚未进行校验', '可在开始前排除'], status: '等待' },
+      { name: 'CO hcp · 09', site: 'hcp', state: 'waiting', formula: 'Pt₁₂CO', detail: ['等待执行队列', '尚未读取或写入文件', '尚未进行校验', '可在开始前排除'], status: '等待' },
+      { name: 'CO tilt · 10', site: 'tilt', state: 'waiting', formula: 'Pt₁₂CO', detail: ['等待执行队列', '尚未读取或写入文件', '尚未进行校验', '可在开始前排除'], status: '等待' },
+      { name: '… 21 个构型', site: 'batch', state: 'waiting', formula: '批次分组', detail: ['此处按科学条件折叠', '展开后仍是独立计算实验单元', '不是 21 个文件夹图标', '可按吸附位、参数或状态筛选'], status: '待处理' }
+    ];
+    let selected = 3;
+    let paused = false;
+    let progress = 17;
+    const grid = document.getElementById('task-grid');
+    const stateLabel = document.getElementById('run-state');
+    const selectedTitle = document.getElementById('selected-title');
+    const selectedState = document.getElementById('selected-state');
+    const selectedSummary = document.getElementById('selected-summary');
+    const evidence = document.getElementById('evidence-list');
+    const liveEvent = document.getElementById('live-event');
+    const liveDetail = document.getElementById('live-detail');
+    function stateText(task) { return task.status; }
+    function evidenceClass(line) { return line.includes('一致') || line.includes('已写入') || line.includes('已复制') || line.includes('已验证') ? 'pass' : line.includes('需要') || line.includes('没有') || line.includes('未写入') ? 'need' : ''; }
+    function render() {
+      grid.innerHTML = '';
+      tasks.forEach((task, index) => {
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'task ' + task.state; button.setAttribute('aria-pressed', String(index === selected));
+        button.innerHTML = '<div class="task-top"><span class="task-name">' + task.name + '</span><span class="dot"></span></div><div class="formula">' + task.formula + '</div><div class="slots"><i class="slot"></i><i class="slot"></i><i class="slot"></i><i class="slot"></i></div><small>' + stateText(task) + '</small>';
+        button.addEventListener('click', () => { selected = index; render(); });
+        grid.appendChild(button);
+      });
+      const task = tasks[selected];
+      selectedTitle.textContent = task.name;
+      selectedState.textContent = task.status;
+      selectedSummary.textContent = task.site === 'batch' ? '多个条件相近的构型被折叠显示' : 'Pt(111) + CO，' + task.site + ' 吸附位';
+      evidence.innerHTML = task.detail.map((line, index) => '<li><b>' + ['结构与约束', '输入配方', '验证闸门', '人工控制'][index] + '</b><span class="' + evidenceClass(line) + '">' + line + '</span></li>').join('');
+      stateLabel.textContent = paused ? '构建已暂停 · ' + progress + ' / 32' : '构建运行中 · ' + progress + ' / 32';
+      document.getElementById('verified').textContent = Math.max(12, progress - 5);
+      document.getElementById('assembling').textContent = paused ? 0 : 4;
+    }
+    document.getElementById('pause').addEventListener('click', (event) => { paused = !paused; event.currentTarget.textContent = paused ? '继续后续任务' : '暂停后续任务'; render(); });
+    document.getElementById('advance').addEventListener('click', () => {
+      if (paused) return;
+      progress = Math.min(32, progress + 1);
+      const next = tasks.findIndex((task) => task.state === 'waiting');
+      const active = tasks.findIndex((task) => task.state === 'live');
+      if (active >= 0) { tasks[active].state = 'verified'; tasks[active].status = '验证通过'; tasks[active].detail[3] = 'POTCAR–POSCAR：元素顺序一致'; }
+      if (next >= 0) { tasks[next].state = 'live'; tasks[next].status = '装配中'; tasks[next].detail = ['POSCAR：正在解析', 'Selective dynamics：等待规则应用', '输入文件：等待复制', '验证闸门：尚未开始']; selected = next; liveEvent.textContent = '正在装配 ' + tasks[next].name; liveDetail.textContent = 'AI 正在执行实际的文件与校验步骤'; }
+      render();
+    });
+    document.getElementById('reset').addEventListener('click', () => location.reload());
+    render();
+  </script>
+</body>
+</html>

@@ -3,8 +3,11 @@
  * handlers and agent tool payloads against a real sample directory without a
  * full Cordis runtime. Uses a minimal fake ctx/webServer to drive `apply`.
  */
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { apply } from '../index.js';
 import * as vaspPresetTools from '../../preset/vasp/tools/vaspflow-tools.mjs';
 
@@ -79,7 +82,32 @@ async function callRoute(matchFn, url, method = 'GET') {
   return { status: res._status, body: body === '' ? null : JSON.parse(body) };
 }
 
-const SAMPLE_ROOT = 'D:\\Projects\\VASPFlow\\preset-construction\\build\\sample-vasp';
+async function callStreamRoute(matchFn, url) {
+  const pathname = new URL(url, 'http://x').pathname;
+  const route = matchFn(pathname);
+  assert.ok(route !== undefined, `no route matched ${pathname}`);
+  let body = '';
+  const res = {
+    writeHead(status, headers) { res._status = status; res._headers = headers; },
+    write(chunk) { body += chunk; },
+    end(chunk = '') { body += chunk; },
+  };
+  await route.handler({ url, method: 'GET' }, res);
+  return { status: res._status, body };
+}
+
+const SAMPLE_ROOT = mkdtempSync(join(tmpdir(), 'vfp-integration-'));
+const SAMPLE_TASK = join(SAMPLE_ROOT, '1-NO3-Cu111');
+mkdirSync(SAMPLE_TASK);
+const SAMPLE_POSCAR = 'sample\n1\n3 0 0\n0 3 0\n0 0 10\nH\n1\nDirect\n0 0 0\n';
+writeFileSync(join(SAMPLE_TASK, 'POSCAR'), SAMPLE_POSCAR);
+writeFileSync(join(SAMPLE_TASK, 'CONTCAR'), SAMPLE_POSCAR);
+writeFileSync(join(SAMPLE_TASK, 'INCAR'), 'SYSTEM = sample\nIBRION = 2\nNSW = 20\n');
+writeFileSync(join(SAMPLE_TASK, 'KPOINTS'), 'Gamma\n0\nGamma\n1 1 1\n0 0 0\n');
+writeFileSync(join(SAMPLE_TASK, 'POTCAR'), 'TITEL = PAW_PBE H 1.0\n');
+writeFileSync(join(SAMPLE_TASK, 'OSZICAR'), '  1 F= -1\n  2 F= -2\n  3 F= -3\n');
+writeFileSync(join(SAMPLE_TASK, 'OUTCAR'), 'reached required accuracy\nGeneral timing and accounting\n');
+after(() => rmSync(SAMPLE_ROOT, { recursive: true, force: true }));
 
 test('apply registers routes globally and VASP tools only through the preset service', () => {
   const { ctx, routes, registered, services } = makeFakeCtx();
@@ -97,10 +125,9 @@ test('apply registers routes globally and VASP tools only through the preset ser
   vaspflowTools.register(ctx);
   const toolNames = registered.map((t) => t.name);
   assert.deepEqual(toolNames.sort(), [
-    'vasp_build_inputs', 'vasp_check_inputs', 'vasp_convergence',
-    'vasp_incar_validate', 'vasp_outcar_parse',
-    'vasp_read_file', 'vasp_scan', 'vasp_scan_templates', 'vasp_src_inspect',
-    'vasp_structure_scene', 'vasp_task_files',
+    'vasp_build_inputs', 'vasp_check_inputs',
+    'vasp_convergence', 'vasp_discover_inputs', 'vasp_inspect_task',
+    'vasp_scan', 'vasp_structure_scene',
   ].sort());
 });
 
@@ -127,10 +154,72 @@ test('scan returns tasks matching the Python field contract', async () => {
   assert.equal(task.n_ion_steps, 3);
   assert.equal(typeof task.final_energy, 'number');
   assert.deepEqual(Object.keys(task).sort(), [
-    'error_message', 'final_energy', 'final_max_force', 'id', 'incar_summary',
+    'directory_type', 'error_message', 'final_energy', 'final_max_force', 'id', 'incar_summary', 'input_check',
     'is_converged', 'is_vasp_task', 'label', 'lattice_consts', 'magmom_total',
-    'n_ion_steps', 'rel_path', 'status', 'system',
+    'n_ion_steps', 'output_files', 'rel_path', 'status', 'status_record', 'system', 'task_type',
   ].sort());
+});
+
+test('task input-check route uses an explicit profile and saves its result', async () => {
+  const { ctx, match } = makeFakeCtx();
+  apply(ctx, { defaultScanRoot: '' });
+  const scan = await callRoute(match, `/plugins/dsh-vaspflow/scan?root_path=${encodeURIComponent(SAMPLE_ROOT)}`, 'POST');
+  const taskId = scan.body.tasks[0].id;
+  const checked = await callRoute(match, `/plugins/dsh-vaspflow/task/${taskId}/input-check?profile_id=structure-optimization`, 'POST');
+  assert.equal(checked.status, 200);
+  assert.equal(checked.body.input_check.profileId, 'structure-optimization');
+  assert.equal(checked.body.raw_check.poscarPotcar, 'OK');
+  assert.equal(checked.body.input_check.code, 'PASS');
+  const projectTasks = await callRoute(match, `/plugins/dsh-vaspflow/tasks/${scan.body.project_id}`);
+  assert.equal(projectTasks.body[0].input_check.profileId, 'structure-optimization');
+});
+
+test('agent input checks link after scanning a parent root and then a nested root', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-nested-root-'));
+  const nestedRoot = join(root, 'client_verify');
+  const taskDir = join(nestedRoot, '8-_NH2OH');
+  mkdirSync(taskDir, { recursive: true });
+  writeFileSync(join(taskDir, 'POSCAR'), SAMPLE_POSCAR);
+  writeFileSync(join(taskDir, 'INCAR'), 'IBRION = 2\nNSW = 20\n');
+  writeFileSync(join(taskDir, 'KPOINTS'), 'Gamma\n0\nGamma\n1 1 1\n0 0 0\n');
+  writeFileSync(join(taskDir, 'POTCAR'), 'TITEL = PAW_PBE H 1.0\n');
+  try {
+    const { ctx, match, registered, services } = makeFakeCtx();
+    apply(ctx, { defaultScanRoot: '' });
+    services.get('vaspflowTools').register(ctx);
+    const scanParent = await callRoute(match, `/plugins/dsh-vaspflow/scan?root_path=${encodeURIComponent(root)}`, 'POST');
+    assert.equal(scanParent.body.tasks[0].rel_path.replace(/\\/g, '/'), 'client_verify/8-_NH2OH');
+    const scanNested = await callRoute(match, `/plugins/dsh-vaspflow/scan?root_path=${encodeURIComponent(nestedRoot)}`, 'POST');
+    assert.equal(scanNested.body.tasks[0].rel_path, '8-_NH2OH');
+
+    const checkInputs = registered.find((tool) => tool.name === 'vasp_check_inputs');
+    const checked = await checkInputs.execute({
+      projectRoot: nestedRoot,
+      dirs: ['8-_NH2OH'],
+      profileId: 'structure-optimization',
+    }, {});
+    assert.equal(checked.linked_count, 1);
+    assert.deepEqual(checked.unlinked_dirs, []);
+
+    const tasks = await callRoute(match, `/plugins/dsh-vaspflow/tasks/${scanNested.body.project_id}`);
+    assert.equal(tasks.body[0].input_check.code, 'PASS');
+    assert.equal(tasks.body[0].input_check.profileId, 'structure-optimization');
+    const parentTasks = await callRoute(match, `/plugins/dsh-vaspflow/tasks/${scanParent.body.project_id}`);
+    assert.equal(parentTasks.body[0].input_check.code, 'PASS');
+    assert.equal(parentTasks.body[0].input_check.profileId, 'structure-optimization');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('incremental scan route emits breadth-first scan events', async () => {
+  const { ctx, match } = makeFakeCtx();
+  apply(ctx, { defaultScanRoot: '' });
+  const stream = await callStreamRoute(match, `/plugins/dsh-vaspflow/scan-events?root_path=${encodeURIComponent(SAMPLE_ROOT)}`);
+  assert.equal(stream.status, 200);
+  assert.match(stream.body, /event: scan-start/);
+  assert.match(stream.body, /event: directory-scanned/);
+  assert.match(stream.body, /event: scan-complete/);
 });
 
 test('convergence route returns chart data', async () => {
@@ -174,6 +263,22 @@ test('files and file-content routes', async () => {
   assert.equal(content.status, 200);
   assert.ok(content.body.content.includes('SYSTEM'));
   assert.equal(content.body.truncated, false);
+  assert.equal(content.body.offset, 0);
+  assert.equal(content.body.totalSize, content.body.size);
+});
+
+test('file-content route reads a large file in bounded chunks', async () => {
+  const { ctx, match } = makeFakeCtx();
+  apply(ctx, { defaultScanRoot: '' });
+  writeFileSync(join(SAMPLE_TASK, 'large.log'), 'A'.repeat(700_000));
+  const scan = await callRoute(match, `/plugins/dsh-vaspflow/scan?root_path=${encodeURIComponent(SAMPLE_ROOT)}`, 'POST');
+  const taskId = scan.body.tasks[0].id;
+  const content = await callRoute(match, `/plugins/dsh-vaspflow/task/${taskId}/file-content?name=large.log&offset=0&length=1024`);
+  assert.equal(content.status, 200);
+  assert.equal(content.body.offset, 0);
+  assert.equal(content.body.length, 1024);
+  assert.equal(content.body.hasAfter, true);
+  assert.equal(content.body.content.length, 1024);
 });
 
 test('preset-scoped vasp_scan returns the same data as the scan route', async () => {
@@ -200,22 +305,25 @@ test('VASP preset bridge registers the host service only in its own scope', () =
   };
   vaspPresetTools.apply(presetCtx);
 
-  assert.equal(registered.length, 11);
-  assert.ok(registered.some((tool) => tool.name === 'vasp_incar_validate'));
-  assert.ok(registered.some((tool) => tool.name === 'vasp_outcar_parse'));
+  assert.equal(registered.length, 7);
+  for (const tool of registered) {
+    assert.equal(Object.hasOwn(tool.parameters ?? {}, 'taskId'), false, `${tool.name} must not expose taskId`);
+  }
 });
 
-test('migrated deterministic tools keep their INCAR and OUTCAR behaviour', async () => {
+test('path-based convergence and structure tools work without a task id or prior scan', async () => {
   const { ctx, services, registered } = makeFakeCtx();
   apply(ctx, { defaultScanRoot: '' });
   services.get('vaspflowTools').register(ctx);
-
-  const validate = registered.find((tool) => tool.name === 'vasp_incar_validate');
-  const parse = registered.find((tool) => tool.name === 'vasp_outcar_parse');
-  const incar = await validate.execute({ incarText: 'IBRION = 2\nNSW = 30\nEDIFF = 1E-5\nEDIFFG = -0.02\nENCUT = 400\n', jobType: 'relax' });
-  const outcar = await parse.execute({ outcarText: 'free  energy   (TOTEN) =      -12.345678 eV\nreached required accuracy\n' });
-
-  assert.equal(incar.ok, true);
-  assert.equal(outcar.converged, true);
-  assert.equal(outcar.energy, -12.345678);
+  const convergence = registered.find((tool) => tool.name === 'vasp_convergence');
+  const structure = registered.find((tool) => tool.name === 'vasp_structure_scene');
+  const args = { rootPath: SAMPLE_ROOT, relPath: '1-NO3-Cu111' };
+  const convergenceResult = await convergence.execute(args, {});
+  const structureResult = await structure.execute(args, {});
+  assert.equal(convergenceResult.error, '');
+  assert.equal(convergenceResult.rel_path, args.relPath);
+  assert.ok(convergenceResult.ion_steps.length > 0);
+  assert.equal(structureResult.error, '');
+  assert.equal(structureResult.rel_path, args.relPath);
+  assert.ok(structureResult.atoms.length > 0);
 });

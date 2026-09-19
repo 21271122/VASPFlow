@@ -24,12 +24,14 @@ const ENTRY_LABEL = 'VASP';
 const ICON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3.2"/><ellipse cx="8" cy="8" rx="7" ry="2.8" transform="rotate(-30 8 8)"/><path d="M8 4.8v6.4"/></svg>';
 
 const CSS = [
-  `[${PANEL_ATTR}]{display:flex;flex-direction:column;min-width:0;overflow:hidden;border-left:1px solid var(--dsw-alias-border-l2,#e5e6eb);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);font-family:var(--dsw-font-family,sans-serif);font-size:13px}`,
-  `[${ENTRY_ATTR}]{width:100%;height:32px;display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--dsw-alias-label-secondary,#454d5f);background:none;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;font-size:13px}`,
+  `[${PANEL_ATTR}]{display:flex;flex-direction:column;min-width:0;overflow:hidden;border-left:1px solid var(--dsw-alias-border-l2,#e5e6eb);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);font-family:var(--dsw-font-family,sans-serif);font-size:16px}`,
+  `[${ENTRY_ATTR}]{width:100%;height:34px;display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--dsw-alias-label-secondary,#454d5f);background:none;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;font-size:14px}`,
   `[${ENTRY_ATTR}]:hover{background:var(--dsw-specific-sidebar-nav-item-hover,rgba(0,0,0,.04));color:var(--dsw-alias-label-primary,#1f2329)}`,
   `[${ENTRY_ATTR}][data-active]{background:var(--dsw-specific-sidebar-nav-item-active,rgba(22,93,255,.1));color:var(--dsw-alias-label-primary,#1f2329);font-weight:600}`,
+  `[${ENTRY_ATTR}] .vfp-dev-badge{display:none;margin-left:auto;padding:1px 5px;border-radius:8px;background:#fa8c16;color:#fff;font-size:10px;font-weight:600;line-height:16px}`,
+  `[${ENTRY_ATTR}][data-development] .vfp-dev-badge{display:inline-block}`,
   '[data-dsh-frame][data-sidebar-collapsed] [' + ENTRY_ATTR + ']{justify-content:center;width:100%;padding:0}',
-  '[data-dsh-frame][data-sidebar-collapsed] [' + ENTRY_ATTR + '] .vfp-entry-label{display:none}',
+  '[data-dsh-frame][data-sidebar-collapsed] [' + ENTRY_ATTR + '] .vfp-entry-label,[data-dsh-frame][data-sidebar-collapsed] [' + ENTRY_ATTR + '] .vfp-dev-badge{display:none}',
   // Compact task tree (panel + popup): tighter rows, smaller indent, arrow
   // close to the name. The popup renders on <body>, OUTSIDE the panel, so it
   // needs its own scope.
@@ -37,15 +39,15 @@ const CSS = [
   `[${PANEL_ATTR}] .ant-tree-node-content-wrapper, .vaspflow-task-popover .ant-tree-node-content-wrapper{padding:0 4px!important;min-height:20px!important;line-height:20px!important}`,
   `[${PANEL_ATTR}] .ant-tree-switcher, .vaspflow-task-popover .ant-tree-switcher{width:14px!important;margin-right:0!important}`,
   `[${PANEL_ATTR}] .ant-tree-indent-unit, .vaspflow-task-popover .ant-tree-indent-unit{width:12px!important}`,
-  `[${PANEL_ATTR}] .ant-tree-title, .vaspflow-task-popover .ant-tree-title{font-size:12px!important}`,
+  `[${PANEL_ATTR}] .ant-tree-title, .vaspflow-task-popover .ant-tree-title{font-size:14px!important}`,
   `[${PANEL_ATTR}] .ant-tree, .vaspflow-task-popover .ant-tree{margin-top:2px}`,
   // Popup controls row: compact height and gaps.
-  '.vaspflow-task-popover .ant-input-affix-wrapper, .vaspflow-task-popover .ant-select-selector{font-size:12px!important}',
-  '.vaspflow-task-popover .ant-segmented{font-size:12px}',
+  '.vaspflow-task-popover .ant-input-affix-wrapper, .vaspflow-task-popover .ant-select-selector{font-size:14px!important}',
+  '.vaspflow-task-popover .ant-segmented{font-size:14px}',
   // Compact popup table rows + tighten popover body padding.
   '.vaspflow-task-popover .ant-popover-inner{padding:6px!important}',
-  '.vaspflow-task-popover .ant-table-cell{padding-top:4px!important;padding-bottom:4px!important;font-size:12px!important}',
-  '.vaspflow-task-popover .ant-table-thead > tr > th{padding-top:4px!important;padding-bottom:4px!important;font-size:12px!important}',
+  '.vaspflow-task-popover .ant-table-cell{padding-top:4px!important;padding-bottom:4px!important;font-size:14px!important}',
+  '.vaspflow-task-popover .ant-table-thead > tr > th{padding-top:4px!important;padding-bottom:4px!important;font-size:14px!important}',
   '.vaspflow-task-popover .ant-table-tbody > tr > td{padding-top:4px!important;padding-bottom:4px!important}',
   // Dark mode: force the 3D structure mount container to the dark background
   // even if the alias token is unresolved on some element paths.
@@ -57,6 +59,10 @@ const CSS = [
   // Task-list popup: menu-like floating surface with theme-adaptive colors.
   '.vaspflow-task-popover .ant-popover-inner{background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);border:1px solid var(--dsw-alias-border-l2,#e5e6eb);box-shadow:0 6px 24px rgba(0,0,0,.18);border-radius:10px}',
   '.vaspflow-task-popover .ant-popover-arrow{display:none}',
+  // The host panel is intentionally readable at the same scale as a normal
+  // conversation reply. Ant Design controls otherwise keep their 14px default.
+  `[${PANEL_ATTR}] .ant-btn,[${PANEL_ATTR}] .ant-input,[${PANEL_ATTR}] .ant-input-affix-wrapper input,[${PANEL_ATTR}] .ant-select-selection-item,[${PANEL_ATTR}] .ant-select-selection-placeholder,[${PANEL_ATTR}] .ant-tabs-tab,[${PANEL_ATTR}] .ant-tag{font-size:15px!important}`,
+  `[${PANEL_ATTR}] .ant-btn-sm{min-height:28px}`,
 ].join('\n');
 
 let cssInjected = false;
@@ -91,7 +97,7 @@ function createEntry(onClick: () => void): HTMLButtonElement {
   entry.type = 'button';
   entry.setAttribute(ENTRY_ATTR, '');
   entry.setAttribute('aria-label', ENTRY_LABEL);
-  entry.innerHTML = `<span style="display:inline-flex;flex:none;justify-content:center;align-items:center">${ICON}</span><span class="vfp-entry-label">${ENTRY_LABEL}</span>`;
+  entry.innerHTML = `<span style="display:inline-flex;flex:none;justify-content:center;align-items:center">${ICON}</span><span class="vfp-entry-label">${ENTRY_LABEL}</span><span class="vfp-dev-badge">开发测试</span>`;
   entry.addEventListener('click', onClick);
   return entry;
 }
@@ -148,6 +154,16 @@ function mountSidebarEntry(toggle: () => void, isOpen: () => boolean, subscribe:
   const unsub = subscribe(applyActive);
   applyActive();
   tryPlace();
+
+  // The host returns this only for a source checkout. A package downloaded
+  // from npm does not contain the marker and therefore keeps the normal VASP
+  // label even when its version number happens to match the source tree.
+  void fetch('/plugins/dsh-vaspflow/ping', { cache: 'no-store' })
+    .then((response) => response.ok ? response.json() : undefined)
+    .then((body) => {
+      if (body?.development === true) entry.setAttribute('data-development', '');
+    })
+    .catch(() => {});
 
   return () => {
     waitObserver.disconnect();
@@ -273,9 +289,9 @@ function apply(ctx: any) {
 
   const toggle = () => panelStore.toggleOpen();
 
-  const handleAnalyzeTask = (task: Task) => {
+  const handleAnalyzeTask = (task: Task, draft?: string) => {
     const rootPath = (panelRootPath());
-    const context = buildTaskContext(task, rootPath);
+    const context = draft ?? buildTaskContext(task, rootPath);
     if (!prefillConversationInput(context)) {
       try {
         navigator.clipboard.writeText(context);

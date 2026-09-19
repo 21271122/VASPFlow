@@ -11,9 +11,6 @@ importers:
       '@ant-design/icons':
         specifier: ^5.6.1
         version: 5.6.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@deepseek-ai/dsh-tools':
-        specifier: 0.1.0-rc.6
-        version: 0.1.0-rc.6(f8724372086ccc1457fc84e7becee2e0)
       '@deepseek-ai/schemastery':
         specifier: ^3.18.0
         version: 3.18.1
@@ -27,6 +24,9 @@ importers:
         specifier: ^0.160.1
         version: 0.160.1
     devDependencies:
+      '@deepseek-ai/dsh-tools':
+        specifier: 0.1.0-rc.6
+        version: 0.1.0-rc.6(f8724372086ccc1457fc84e7becee2e0)
       '@types/react':
         specifier: ^18.3.31
         version: 18.3.31

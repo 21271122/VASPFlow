@@ -7,7 +7,7 @@ const ENERGY = /free  energy\s+\(TOTEN\)\s*=\s*([-\d.]+)/g;       // 最后匹�
 const FORCE = /total drift:\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)/; // 受力漂移（可选）
 const IONIC_STEP = /^\s*(\d+)\s+F=\s*([-\d.]+)\s*E0=\s*([-\d.]+)/gm; // 离子步头行
 
-function parseOutcar(text) {
+export function parseOutcarText(text) {
   const errors = [];
   for (const re of ERRORS) {
     if (re.test(text)) errors.push(re.source.replace(/\\b/g, "").trim());
@@ -21,14 +21,16 @@ function parseOutcar(text) {
   let lastIonicStep = null;
   IONIC_STEP.lastIndex = 0;
   while ((m = IONIC_STEP.exec(text)) !== null) lastIonicStep = Number(m[1]);
-  return {
+  const result = {
     ok: errors.length === 0,
     converged,
-    energy,
     errors,
-    lastIonicStep,
-    drift: drift ? { x: Number(drift[1]), y: Number(drift[2]), z: Number(drift[3]) } : null,
+    error: '',
   };
+  if (energy !== null) result.energy = energy;
+  if (lastIonicStep !== null) result.lastIonicStep = lastIonicStep;
+  if (drift) result.drift = { x: Number(drift[1]), y: Number(drift[2]), z: Number(drift[3]) };
+  return result;
 }
 
 export function registerOutcarParse(ctx) {
@@ -51,6 +53,7 @@ export function registerOutcarParse(ctx) {
           converged: { type: "boolean" },
           energy: { type: "number" },
           errors: { type: "array", items: { type: "string" } },
+          error: { type: "string" },
           lastIonicStep: { type: "number" },
           drift: {
             type: "object",
@@ -62,7 +65,7 @@ export function registerOutcarParse(ctx) {
             }
           }
         },
-        required: ["ok", "converged", "errors"]
+        required: ["ok", "converged", "errors", "error"]
       },
       render: (_args, value) => {
         const parts = [];
@@ -86,7 +89,7 @@ export function registerOutcarParse(ctx) {
       }
     },
     execute(args) {
-      return Promise.resolve(parseOutcar(args.outcarText));
+      return Promise.resolve(parseOutcarText(args.outcarText));
     },
     presentCall: (args) => ({ card: "generic", title: "Parse OUTCAR", kind: "other", rawInput: args })
   });

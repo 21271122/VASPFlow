@@ -10,12 +10,14 @@
 
 | 能力 | 说明 |
 |---|---|
-| **VASP 任务扫描** | 给定项目根目录，自动识别目录树中所有 VASP 计算任务（含 `OUTCAR` 或 `vasprun.xml`） |
+| **VASP 任务扫描** | 给定项目根目录，严格识别同时含 `POSCAR`、`INCAR`、`KPOINTS`、`POTCAR` 的 VASP 输入目录；NEB 父目录按专门规则识别 |
 | **收敛曲线** | 每个离子步的能量与最大力，图表可视化 |
 | **3D 结构查看** | 可切换 `POSCAR` / `CONTCAR` / `*.vasp`，VESTA 式模型旋转、周期边界成键、原子/键/晶胞渲染 |
 | **文件浏览** | 查看任务目录结构与文件内容（`INCAR` / `OUTCAR` / `CONTCAR` 等，500KB 截断预览） |
-| **VASP Agent 工具** | 仅在选择“VASP 计算助手”后可用：`vasp_scan` / `vasp_convergence` / `vasp_structure_scene` / `vasp_task_files` / `vasp_read_file` / `vasp_build_inputs` / `vasp_check_inputs` / `vasp_src_inspect` / `vasp_scan_templates` / `vasp_incar_validate` / `vasp_outcar_parse`；与面板共用同一数据层 |
+| **VASP Agent 工具** | 仅在选择“VASP 计算助手”后可用：`vasp_scan` / `vasp_inspect_task` / `vasp_convergence` / `vasp_structure_scene` / `vasp_discover_inputs` / `vasp_build_inputs` / `vasp_check_inputs`；与面板共用同一数据层 |
 | **一键分析** | 选中任务后「分析此任务」，把任务上下文预填进对话输入框，交由 Agent 继续分析 |
+
+Agent 工具的路径约定：单个任务使用 `rootPath + relPath`（例如 `vasp_convergence`、`vasp_structure_scene`），批量构建/检查使用 `projectRoot + tasks/dirs`。这些工具不依赖会话内临时 `taskId`；面板自己的 HTTP 路由仍可使用内部任务编号来访问当前会话缓存。
 
 ---
 

@@ -1,12 +1,12 @@
 ---
 name: vasp-structure-opt
-description: VASP 结构优化输入文件构建（工具驱动协议）。用 vasp_src_inspect / vasp_scan_templates / vasp_build_inputs / vasp_check_inputs 完成源体检、模板确认、构建（dry-run 先行）、校验与汇报；工具参数以工具 schema 为准。当用户提到"构建输入文件"、"生成结构优化"、"建目录"、"搭INCAR"、"构造fix"、"批量建任务"、"结构优化输入"时使用。
+description: VASP 结构优化输入文件构建（工具驱动协议）。用 vasp_discover_inputs / vasp_build_inputs / vasp_check_inputs 完成源体检、模板确认、构建（dry-run 先行）、校验与汇报；工具参数以工具 schema 为准。当用户提到"构建输入文件"、"生成结构优化"、"建目录"、"搭INCAR"、"构造fix"、"批量建任务"、"结构优化输入"时使用。
 ---
 
 # 协议（编排；执行细节以各工具 schema 为准）
 
-1. **源体检**：`vasp_src_inspect` 盘点结构源（物种/SD 分布/尾行），跨文件不一致先汇报，不带着分歧构建；
-2. **确认模板与提交脚本**：`vasp_scan_templates` 列候选 → **用户确认** `template`（可再用 `sources`/`*Src` 逐文件指定不同来源）；`submitSrc` 缺失时询问或按分段构建跳过（仅警告）；
+1. **源体检与候选发现**：`vasp_discover_inputs` 一次盘点结构源（物种/SD 分布/尾行）和模板候选；跨文件不一致先汇报，不带着分歧构建；
+2. **确认模板与提交脚本**：根据 `vasp_discover_inputs` 的候选，由**用户确认** `template`（可再用 `sources`/`*Src` 逐文件指定不同来源）；`submitSrc` 缺失时询问或按分段构建跳过（仅警告）；
 3. **dry-run 预览**：`vasp_build_inputs` 传 `dryRun: true`——检查每任务 SD 计划与 **`sdNotes` 旗标改写提示**（`override` 模式下源旗标被改必须可见）、POTCAR 匹配；
 4. **正式执行**：用户确认后 `vasp_build_inputs`（不传`dryRun`=真实构建），核对 `written`/`wroteCount` 与逐任务 status；
 5. **验证**：`vasp_check_inputs`（传 `projectRoot`）逐目录核对，并检查顶层 `consistency.uniform`——批次间 SD/物种/K 点/关键参数不一致必须向用户报告；

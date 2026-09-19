@@ -37,7 +37,7 @@ function parseTags(text) {
   return { tags, warnings };
 }
 
-function validateIncar(text, jobType) {
+export function validateIncarText(text, jobType) {
   const { tags, warnings } = parseTags(text);
   const issues = [];
   if (jobType) {
@@ -83,6 +83,7 @@ export function registerIncarValidate(ctx) {
           ok: { type: "boolean" },
           issues: { type: "array", items: { type: "string" } },
           warnings: { type: "array", items: { type: "string" } },
+          error: { type: "string" },
           tags: {
             type: "array",
             items: {
@@ -95,7 +96,7 @@ export function registerIncarValidate(ctx) {
             }
           }
         },
-        required: ["ok", "issues", "tags", "warnings"]
+        required: ["ok", "issues", "tags", "warnings", "error"]
       },
       render: (_args, value) => {
         const warningText = value.warnings && value.warnings.length > 0 ? '\n警告:\n' + value.warnings.join('\n') : '';
@@ -108,10 +109,9 @@ export function registerIncarValidate(ctx) {
       }
     },
     execute(args) {
-      const result = validateIncar(args.incarText, args.jobType ?? undefined);
-      return Promise.resolve(result);
+      const result = validateIncarText(args.incarText, args.jobType ?? undefined);
+      return Promise.resolve({ ...result, error: '' });
     },
     presentCall: (args) => ({ card: "generic", title: "Validate INCAR", kind: "other", rawInput: args })
   });
 }
-

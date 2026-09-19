@@ -28,4 +28,4 @@ export function relpath(p, start) {
   return r === '' ? '.' : r;
 }
 
-export { basename, join, sep, normalize };
+export { basename, join, sep, normalize, resolve };

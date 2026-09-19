@@ -13,24 +13,29 @@ function toFloat(s) {
   return Number(s.replace(/D/g, 'E').replace(/d/g, 'e'));
 }
 
-const OSZICAR_IONIC_PATTERN = /^\s+\d+\s+F=\s*([\d.\-+EDed]+)/;
+const OSZICAR_IONIC_PATTERN = /^\s*(\d+)\s+F=\s*([\d.\-+EDed]+)/;
 
-/** Extract one free energy F per ionic step from OSZICAR (streamed). */
-export async function parseIonicEnergies(oszicarPath) {
-  const energies = [];
+/** Extract ionic-step numbers together with their free energies from OSZICAR. */
+export async function parseIonicEnergyPoints(oszicarPath) {
+  const points = [];
   try {
     const lineStream = createInterface({
       input: createReadStream(oszicarPath, { encoding: 'utf-8' }),
       crlfDelay: Infinity,
     });
     for await (const line of lineStream) {
-      const m = OSZICAR_IONIC_PATTERN.exec(line);
-      if (m) energies.push(toFloat(m[1]));
+      const match = OSZICAR_IONIC_PATTERN.exec(line);
+      if (match) points.push({ step: Number(match[1]), energy: toFloat(match[2]) });
     }
   } catch (error) {
     console.warn(`OSZICAR parse failed (${oszicarPath}): ${error}`);
   }
-  return energies;
+  return points;
+}
+
+/** Extract one free energy F per ionic step from OSZICAR (streamed). */
+export async function parseIonicEnergies(oszicarPath) {
+  return (await parseIonicEnergyPoints(oszicarPath)).map((point) => point.energy);
 }
 
 const FORCE_LINE_PATTERN = /FORCES:\s+max atom,\s+RMS\s+([\d.\-+EDed]+)/i;
@@ -109,17 +114,20 @@ export async function parseConvergence(taskDir) {
   const oszicarPath = join(taskDir, 'OSZICAR');
   const outcarPath = join(taskDir, 'OUTCAR');
 
-  let energies = [];
-  if (fileExists(oszicarPath)) energies = await parseIonicEnergies(oszicarPath);
+  let energyPoints = [];
+  if (fileExists(oszicarPath)) energyPoints = await parseIonicEnergyPoints(oszicarPath);
+  let energies = energyPoints.map((point) => point.energy);
 
   let maxForces = [];
   if (fileExists(outcarPath)) maxForces = await parseMaxForces(outcarPath);
 
   let n = energies.length;
+  let ionSteps = energyPoints.map((point) => point.step);
 
   if (n === 0 && maxForces.length > 0) {
     n = maxForces.length;
     energies = new Array(n).fill(0.0);
+    ionSteps = Array.from({ length: n }, (_, i) => i + 1);
     console.warn(`no OSZICAR energies, fell back to force-block count (${n} steps), energies all 0`);
   } else if (n > 0 && maxForces.length >= n) {
     maxForces = maxForces.slice(-n);
@@ -134,13 +142,18 @@ export async function parseConvergence(taskDir) {
     return { ion_steps: [], energies: [], max_forces: [], error: '未找到 OSZICAR 或 OUTCAR' };
   }
 
-  const ionSteps = Array.from({ length: n }, (_, i) => i + 1);
   const hasRealEnergy = energies.some((e) => e !== 0.0);
+  const missingSteps = ionSteps.reduce((total, step, index) => (
+    index === 0 ? total : total + Math.max(0, step - ionSteps[index - 1] - 1)
+  ), 0);
+  const coverage = missingSteps > 0
+    ? `${n} 条记录，覆盖离子步 ${ionSteps[0]}–${ionSteps[n - 1]}，缺少 ${missingSteps} 步`
+    : `${n} 条离子步记录`;
   return {
     ion_steps: ionSteps,
     energies,
     max_forces: maxForces,
-    _source: hasRealEnergy ? `OSZICAR (${n} steps)` : `OUTCAR (${n} force blocks)`,
+    _source: hasRealEnergy ? `OSZICAR（${coverage}）` : `OUTCAR（${n} 个力区块）`,
   };
 }
 

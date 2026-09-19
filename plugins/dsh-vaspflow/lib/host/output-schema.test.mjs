@@ -47,6 +47,12 @@ function assertValidOutputs(tool, result) {
   assert.deepEqual(violations, [], 'output must pass the host validator: ' + JSON.stringify(violations));
 }
 
+function tool(name) {
+  const found = registered.find((candidate) => candidate.name === name);
+  assert.ok(found, `${name} registered`);
+  return found;
+}
+
 const POSCAR = [
   'surface',
   '1.0',
@@ -89,6 +95,122 @@ function makeFixture() {
   writeFileSync(join(dir, 'struc/surface.vasp'), POSCAR);
   return dir;
 }
+
+function renderedText(toolDefinition, args, value) {
+  return toolDefinition.output.render(args, value).map((block) => block.text ?? '').join('\n');
+}
+
+test('model-visible tool renders keep the requested result details', () => {
+  const inspect = tool('vasp_inspect_task');
+  const inspectText = renderedText(inspect, { include: ['status', 'files', 'preview'] }, {
+    rel_path: 'calc',
+    status: { code: 'ERROR_DETECTED', label: '检测到错误', reason: 'slurm.out 匹配 ZBRENT_FATAL', evidence: [{ file: 'slurm.out', message: '匹配错误签名 ZBRENT_FATAL' }] },
+    task_type: { code: 'RELAXATION', label: '结构优化 / 晶胞优化' },
+    input_check: { code: 'PASS', label: '通过指定规则检查', evidence: [] },
+    output_files: [{ path: 'OUTCAR', size: 1200 }],
+    files: [{ name: 'INCAR', size: 80 }, { name: 'POSCAR', size: 400 }],
+    dirs: [{ name: 'restart' }],
+    preview: { name: 'INCAR', size: 80, truncated: false, content: 'IBRION = 2' },
+    recommended_actions: [],
+    error: '',
+  });
+  assert.match(inspectText, /目录文件.*INCAR/);
+  assert.match(inspectText, /文件预览：INCAR/);
+  assert.match(inspectText, /ZBRENT_FATAL/);
+
+  const scanText = renderedText(tool('vasp_scan'), {}, {
+    project_id: 1,
+    tasks: [{ rel_path: 'calc', status: 'error', status_record: { label: '检测到错误' }, task_type: { label: '结构优化' } }],
+    directories: [{ rel_path: 'calc', label: 'calc' }],
+    error: '',
+  });
+  assert.match(scanText, /calc \| 检测到错误 \| 结构优化/);
+
+  const convergenceText = renderedText(tool('vasp_convergence'), {}, {
+    rel_path: 'calc', ion_steps: [1, 2], energies: [-1, -2], max_forces: [0.4, 0.1], error: '',
+  });
+  assert.match(convergenceText, /能量/);
+  assert.match(convergenceText, /-2/);
+
+  const structureText = renderedText(tool('vasp_structure_scene'), {}, {
+    summary: { formula: 'CuN', atom_count: 2 }, atoms: [{ element: 'Cu' }], bonds: [], bond_families: [], cell: {}, version: 1, warnings: [], error: '',
+  });
+  assert.match(structureText, /结构摘要/);
+  assert.match(structureText, /CuN/);
+
+  const buildText = renderedText(tool('vasp_build_inputs'), {}, {
+    results: [{ status: 'warn', dir: 'calc', sd: '1F, 1T', potcar: 'OK', sources: { POSCAR: 'src/POSCAR' }, sdNotes: [], warnings: ['未提供 submitSrc'], errors: [] }],
+    okCount: 0, warnCount: 1, errorCount: 0, dryRun: true, count: 1, wroteCount: 0, written: false, error: '',
+  });
+  assert.match(buildText, /来源: POSCAR←src\/POSCAR/);
+  assert.match(buildText, /未提供 submitSrc/);
+
+  const checkText = renderedText(tool('vasp_check_inputs'), {}, {
+    results: [{ dir: 'calc', resolved: 'C:\\calc', poscarPotcar: 'OK', sd: 'SDx1', incar: { NSW: '100' }, kpoints: '2x2x1', warnings: [], input_check: { code: 'PASS', label: '通过指定规则检查', profileId: 'structure-optimization', evidence: [{ message: '规则通过' }] }, error: '' }],
+    linked_count: 1, unlinked_dirs: [], error: '',
+  });
+  assert.match(checkText, /输入检查: 通过指定规则检查/);
+  assert.match(checkText, /规则通过/);
+
+  const discoverText = renderedText(tool('vasp_discover_inputs'), {}, {
+    sources: { count: 1, consistency: { note: '源文件模式一致' }, files: [{ path: 'POSCAR', nAtoms: 2 }] },
+    templates: [{ relPath: 'template', files: ['INCAR'], params: {}, complete: false }],
+    error: '',
+  });
+  assert.match(discoverText, /POSCAR/);
+  assert.match(discoverText, /template/);
+});
+
+test('all vasp_* tools honor the shared top-level error contract', async () => {
+  const dir = makeFixture();
+  try {
+    const calc = join(dir, 'calc');
+    mkdirSync(calc);
+    writeFileSync(join(calc, 'POSCAR'), POSCAR);
+    writeFileSync(join(calc, 'INCAR'), INCAR);
+    writeFileSync(join(calc, 'KPOINTS'), KPOINTS);
+    writeFileSync(join(calc, 'POTCAR'), POTCAR);
+    writeFileSync(join(calc, 'CONTCAR'), POSCAR);
+    writeFileSync(join(calc, 'OSZICAR'), '   1 F= -.100000E+02 E0= -.100000E+02 d E =0\n');
+    writeFileSync(join(calc, 'OUTCAR'), ' free  energy   (TOTEN) =      -10.000000 eV\nreached required accuracy\nGeneral timing and accounting\n');
+
+    const scan = tool('vasp_scan');
+    const scanResult = await scan.execute({ rootPath: dir }, {});
+    assertValidOutputs(scan, scanResult);
+    assert.equal(scanResult.error, '');
+    const successCases = [
+      ['vasp_convergence', { rootPath: dir, relPath: 'calc' }],
+      ['vasp_structure_scene', { rootPath: dir, relPath: 'calc' }],
+      ['vasp_inspect_task', { rootPath: dir, relPath: 'calc', include: ['status', 'files', 'preview'], file: { name: 'INCAR', part: 'head' } }],
+      ['vasp_build_inputs', { projectRoot: dir, tasks: [{ dir: 'built', poscarSrc: 'struc/surface.vasp', template: 'tpl', submitSrc: 'tpl/submit.slurm' }], dryRun: true }],
+      ['vasp_check_inputs', { projectRoot: dir, dirs: ['good'] }],
+      ['vasp_discover_inputs', { rootPath: dir }],
+    ];
+    for (const [name, args] of successCases) {
+      const definition = tool(name);
+      const result = await definition.execute(args, {});
+      assertValidOutputs(definition, result);
+      assert.equal(result.error, '', `${name} must use an empty error string on success`);
+    }
+
+    const failureCases = [
+      ['vasp_scan', { rootPath: join(dir, 'missing') }],
+      ['vasp_inspect_task', { rootPath: join(dir, 'missing'), relPath: 'calc' }],
+      ['vasp_convergence', { rootPath: join(dir, 'missing'), relPath: 'calc' }],
+      ['vasp_structure_scene', { rootPath: join(dir, 'missing'), relPath: 'calc' }],
+      ['vasp_discover_inputs', { rootPath: join(dir, 'missing') }],
+    ];
+    for (const [name, args] of failureCases) {
+      const definition = tool(name);
+      const result = await definition.execute(args, {});
+      assertValidOutputs(definition, result);
+      assert.equal(typeof result.error, 'string');
+      assert.notEqual(result.error, '', `${name} must explain its failed call`);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test('vasp_check_inputs output passes the host validator (good/bad/not-found)', async () => {
   const dir = makeFixture();
@@ -227,15 +349,15 @@ test('vasp_check_inputs resolves relative dirs via projectRoot (P1) + DIR_NOT_FO
   }
 });
 
-test('check reports TRAILING_LINES for extra coordinate rows (P5)', async () => {
+test('check ignores an optional POSCAR velocity block after ion positions', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'vfp-tr-'));
   try {
     mkdirSync(join(dir, 'd'));
-    const poscar = POSCAR + '  0.000000E+00  0.000000E+00  0.000000E+00\n';
+    const poscar = POSCAR + '\nCartesian\n' + Array.from({ length: 40 }, () => '  0.000000E+00  0.000000E+00  0.000000E+00').join('\n') + '\n';
     writeFileSync(join(dir, 'd/POSCAR'), poscar);
     writeFileSync(join(dir, 'd/POTCAR'), POTCAR);
     const result = await checker.execute({ dirs: ['d'], projectRoot: dir }, {});
-    assert.ok(result.results[0].sd.includes('TRAILING_LINES'), 'trailing rows must be reported: ' + result.results[0].sd);
+    assert.ok(!result.results[0].sd.includes('TRAILING_LINES'), 'velocity rows must not be treated as atoms: ' + result.results[0].sd);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -271,26 +393,26 @@ function poscarWithoutFlagsToSd(fCnt, tCnt) {
   return lines.join('\n') + '\n';
 }
 
-test('vasp_src_inspect reports species/SD/junk + consistency (B1)', async () => {
+test('vasp_discover_inputs reports structure sources and their consistency', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'vfp-ins-'));
   try {
     mkdirSync(join(dir, 'src'));
     writeFileSync(join(dir, 'src/1.vasp'), POSCAR);
     writeFileSync(join(dir, 'src/2.vasp'), POSCAR + '  0.000000E+00  0.000000E+00  0.000000E+00\n');
-    const tool = registered.find((t) => t.name === 'vasp_src_inspect');
+    const tool = registered.find((t) => t.name === 'vasp_discover_inputs');
     assert.ok(tool);
     const result = await tool.execute({ rootPath: dir }, {});
     assertValidOutputs(tool, result);
-    assert.equal(result.count, 2);
-    assert.equal(result.files[0].elements.join(''), 'CuNO');
-    assert.equal(result.files[1].trailingLines, 1);
-    assert.equal(result.consistency.uniform, true);
+    assert.equal(result.sources.count, 2);
+    assert.equal(result.sources.files[0].elements.join(''), 'CuNO');
+    assert.equal(result.sources.files[1].trailingLines, 1);
+    assert.equal(result.sources.consistency.uniform, true);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('vasp_scan_templates lists template dirs with files and params (B5)', async () => {
+test('vasp_discover_inputs lists candidate templates with files and parameters', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'vfp-tpl-'));
   try {
     mkdirSync(join(dir, 't1'));
@@ -300,11 +422,11 @@ test('vasp_scan_templates lists template dirs with files and params (B5)', async
     writeFileSync(join(dir, 't1/submit.slurm'), '#!/bin/bash\n');
     mkdirSync(join(dir, 't2'));
     writeFileSync(join(dir, 't2/INCAR'), 'SYSTEM = t2\nIBRION = 2\n');
-    const tool = registered.find((t) => t.name === 'vasp_scan_templates');
+    const tool = registered.find((t) => t.name === 'vasp_discover_inputs');
     assert.ok(tool);
     const result = await tool.execute({ rootPath: dir }, {});
     assertValidOutputs(tool, result);
-    assert.equal(result.count, 2);
+    assert.equal(result.templates.length, 2);
     const t1 = result.templates.find((t) => t.relPath === 't1');
     assert.equal(t1.complete, true);
     assert.equal(t1.submit, 'submit.slurm');

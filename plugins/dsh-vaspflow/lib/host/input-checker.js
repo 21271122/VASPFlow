@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import { resolve } from 'node:path';
 import {
   parsePoscarHeader,
+  parseCoords,
   potcarElements,
   checkPoscarPotcar,
 } from './input-builder.js';
@@ -24,8 +25,17 @@ import {
 const INCAR_KEY_PARAMS = [
   'SYSTEM', 'ENCUT', 'ALGO', 'IBRION', 'NSW', 'ISIF',
   'EDIFF', 'EDIFFG', 'POTIM', 'ISPIN', 'IVDW', 'ISMEAR', 'SIGMA',
-  'NELM', 'NFREE', 'LREAL', 'LWAVE', 'LCHARG', 'NUPDOWN', 'LORBIT',
+  'NELM', 'NFREE', 'LREAL', 'LWAVE', 'LCHARG', 'NUPDOWN', 'LORBIT', 'IMAGES',
 ];
+
+export const INPUT_CHECK_PROFILES = {
+  'basic-inputs': { version: '1', label: '基础 VASP 输入' },
+  'static-scf': { version: '1', label: '静态 SCF 输入' },
+  'structure-optimization': { version: '1', label: '结构优化输入' },
+  'frequency-zpe': { version: '1', label: '频率 / ZPE 输入' },
+  aimd: { version: '1', label: 'AIMD 输入' },
+  neb: { version: '1', label: 'NEB 共享输入' },
+};
 
 /** POSCAR-POTCAR species match for one directory. */
 function checkPoscarPotcarDir(d) {
@@ -88,42 +98,26 @@ function checkSdDir(d) {
     return 'POSCAR_UNREADABLE';
   }
 
-  const sdCount = lines.filter((l) => l.trim() === 'Selective dynamics').length;
   const parsed = parsePoscarHeader(lines);
   if (parsed.error) return 'POSCAR_PARSE_ERROR(' + parsed.error + ')';
   const expected = parsed.counts.reduce((a, b) => a + b, 0);
-
-  let fCnt = 0;
-  let tCnt = 0;
-  let noFlag = 0;
-  let total = 0;
-  for (let i = parsed.coordStart; i < lines.length; i += 1) {
-    const parts = lines[i].trim().split(/\s+/);
-    if (parts.length >= 6) {
-      total += 1;
-      if (parts[3] === 'F') fCnt += 1;
-      else if (parts[3] === 'T') tCnt += 1;
-    } else if (parts.length === 3) {
-      const x = Number(parts[0]);
-      const y = Number(parts[1]);
-      const z = Number(parts[2]);
-      if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
-        total += 1;
-        noFlag += 1;
-      }
-    }
-  }
+  // Stop after the declared number of ion positions. A valid POSCAR/CONTCAR
+  // may then contain optional velocity or predictor-corrector sections whose
+  // numeric rows must never be mistaken for extra atoms.
+  const { coords, error } = parseCoords(lines, parsed.coordStart, expected);
+  const fCnt = coords.filter((coord) => coord.flags?.[0] === 'F').length;
+  const tCnt = coords.filter((coord) => coord.flags?.[0] === 'T').length;
+  const noFlag = coords.filter((coord) => coord.flags === null).length;
 
   const issues = [];
-  if (sdCount === 0) issues.push('NO_SD');
-  else if (sdCount > 1) issues.push('SD_DUP(x' + sdCount + ')');
-  if (total > expected) issues.push('TRAILING_LINES(' + (total - expected) + ')'); // informational: extra coordinate rows past the species counts
-  else if (total < expected) issues.push('COUNT_MISMATCH(' + total + ' vs ' + expected + ')');
-  if (sdCount > 0 && noFlag > 0) issues.push('FLAG_MISSING(' + noFlag + ')');
+  const hasSd = parsed.sdIdx >= 0;
+  if (!hasSd) issues.push('NO_SD');
+  if (error) issues.push('COUNT_MISMATCH(' + coords.length + ' vs ' + expected + ')');
+  if (hasSd && noFlag > 0) issues.push('FLAG_MISSING(' + noFlag + ')');
 
   const status = issues.length === 0 ? 'OK' : issues.join(', ');
   const noFlagPart = noFlag > 0 ? (',' + noFlag + 'noflag') : '';
-  return 'SDx' + sdCount + ' ' + total + 'at(' + fCnt + 'F,' + tCnt + 'T' + noFlagPart + ') [' + status + ']';
+  return 'SDx' + (hasSd ? 1 : 0) + ' ' + coords.length + 'at(' + fCnt + 'F,' + tCnt + 'T' + noFlagPart + ') [' + status + ']';
 }
 
 /** Key INCAR parameters for one directory. */
@@ -262,4 +256,110 @@ export function checkInputs(dirs, opts = {}) {
   }
   const consistency = buildConsistency(results.filter((r) => r.poscarPotcar !== 'DIR_NOT_FOUND'));
   return { results, consistency };
+}
+
+function describePoscarPotcar(value) {
+  const mismatch = /^MISMATCH\(顺序\): POSCAR=(\[[^]*?\]) vs POTCAR=(\[[^]*\])$/.exec(String(value));
+  if (mismatch) {
+    try {
+      return `POSCAR 与 POTCAR 的元素顺序不一致（POSCAR：${JSON.parse(mismatch[1]).join(' → ')}；POTCAR：${JSON.parse(mismatch[2]).join(' → ')}）`;
+    } catch {
+      // Fall through to a concise machine-status fallback.
+    }
+  }
+  const labels = {
+    POSCAR_MISSING: '未找到 POSCAR',
+    POTCAR_MISSING: '未找到 POTCAR',
+    POSCAR_UNREADABLE: '无法读取 POSCAR',
+    POTCAR_UNREADABLE: '无法读取 POTCAR',
+    POSCAR_PARSE_ERROR: '无法解析 POSCAR 的元素与原子数',
+    POTCAR_NO_TITEL: 'POTCAR 中未找到 TITEL 元素信息',
+  };
+  return labels[value] ?? `POSCAR/POTCAR 检查未通过：${value}`;
+}
+
+function describeSdFailure(value) {
+  const missing = /FLAG_MISSING\((\d+)\)/.exec(String(value));
+  if (missing) return `已启用 Selective dynamics，但有 ${missing[1]} 个原子的 F/T 标记不完整`;
+  if (/COUNT_MISMATCH/.test(String(value))) return 'POSCAR 中声明的原子数与实际坐标行数不一致';
+  return '无法解析 POSCAR 的 Selective dynamics 坐标标记';
+}
+
+function describeIncar(value) {
+  const labels = { INCAR_MISSING: '未找到 INCAR', INCAR_UNREADABLE: '无法读取 INCAR' };
+  return labels[value] ?? `INCAR 检查未通过：${value}`;
+}
+
+function describeKpoints(value) {
+  const labels = { KPOINTS_MISSING: '未找到 KPOINTS', KPOINTS_UNREADABLE: '无法读取 KPOINTS' };
+  return labels[value] ?? `KPOINTS 检查未通过：${value}`;
+}
+
+/**
+ * Convert raw mechanical checks into B1's independent input-check dimension.
+ * A profile is intentionally required: without a user-selected workflow the
+ * scanner must not imply that the directory is ready to submit.
+ */
+export function buildInputCheck(row, profileId) {
+  if (!profileId) {
+    return {
+      code: 'NOT_REQUESTED', label: '未指定检查规则', profileId: '', profileVersion: '',
+      checkedFiles: [], uncheckedItems: ['未指定模板或任务类型检查规则'], evidence: [], observedAt: new Date().toISOString(),
+    };
+  }
+  const profile = INPUT_CHECK_PROFILES[profileId];
+  if (!profile) {
+    return {
+      code: 'NOT_CHECKED', label: '尚未检查', profileId, profileVersion: '',
+      checkedFiles: [], uncheckedItems: ['未知的检查规则 ID'], evidence: [], observedAt: new Date().toISOString(),
+    };
+  }
+  const checkedFiles = ['POSCAR', 'POTCAR', 'INCAR', 'KPOINTS'];
+  const evidence = [];
+  const failures = [];
+  const warnings = [];
+  // NEB keeps shared INCAR/KPOINTS/POTCAR in the parent and POSCAR in image
+  // subdirectories, so its parent must not fail the single-task POSCAR rule.
+  if (row.poscarPotcar !== 'OK' && !(profileId === 'neb' && row.poscarPotcar === 'POSCAR_MISSING')) failures.push(describePoscarPotcar(row.poscarPotcar));
+  if (typeof row.incar !== 'object' || !row.incar) failures.push(describeIncar(row.incar));
+  if (String(row.kpoints).includes('MISSING') || String(row.kpoints).includes('UNREADABLE')) failures.push(describeKpoints(row.kpoints));
+  if (/PARSE_ERROR|COUNT_MISMATCH|FLAG_MISSING/.test(String(row.sd))) failures.push(describeSdFailure(row.sd));
+  if (row.error) failures.push(row.error);
+
+  const incar = typeof row.incar === 'object' && row.incar ? row.incar : {};
+  const number = (key) => Number.parseInt(String(incar[key] ?? ''), 10);
+  const ibrion = number('IBRION');
+  const nsw = number('NSW');
+  if (profileId === 'static-scf' && Number.isFinite(nsw) && nsw !== 0) failures.push(`静态 SCF 规则要求 NSW=0，当前为 ${nsw}`);
+  if (profileId === 'structure-optimization' && !([1, 2, 3].includes(ibrion) && nsw > 0)) failures.push('结构优化规则要求 IBRION=1/2/3 且 NSW>0');
+  if (profileId === 'frequency-zpe' && ![5, 6, 7, 8].includes(ibrion)) failures.push('频率 / ZPE 规则要求 IBRION=5/6/7/8');
+  if (profileId === 'aimd' && !(ibrion === 0 && nsw > 0)) failures.push('AIMD 规则要求 IBRION=0 且 NSW>0');
+  if (profileId === 'neb') {
+    if (!(number('IMAGES') > 0)) failures.push('NEB 规则要求 IMAGES 为正整数');
+    else {
+      const missingImages = nebImageInputsMissing(row.resolved, number('IMAGES'));
+      if (missingImages.length > 0) failures.push(`NEB image 目录或 POSCAR 缺失：${missingImages.join('、')}`);
+    }
+  }
+  for (const message of failures) evidence.push({ ruleId: 'INPUT_FAIL', file: '', severity: 'error', message });
+  for (const message of warnings) evidence.push({ ruleId: 'INPUT_WARN', file: 'POSCAR', severity: 'warning', message });
+  return {
+    code: failures.length > 0 ? 'FAIL' : warnings.length > 0 ? 'WARN' : 'PASS',
+    label: failures.length > 0 ? '未通过指定规则检查' : warnings.length > 0 ? '发现需注意项' : '通过指定规则检查',
+    profileId,
+    profileVersion: profile.version,
+    checkedFiles,
+    uncheckedItems: ['提交脚本、资源设置与科学合理性'],
+    evidence,
+    observedAt: new Date().toISOString(),
+  };
+}
+
+function nebImageInputsMissing(root, images) {
+  const missing = [];
+  for (let index = 0; index < images + 2; index += 1) {
+    const image = String(index).padStart(2, '0');
+    if (!fs.existsSync(resolve(root, image, 'POSCAR'))) missing.push(image);
+  }
+  return missing;
 }

@@ -10,28 +10,53 @@ import {
   EyeOutlined,
   FolderOutlined,
   FolderOpenOutlined,
+  CheckCircleFilled,
+  CloseCircleFilled,
+  FileOutlined,
+  LoadingOutlined,
+  QuestionCircleFilled,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { TreeDataNode } from 'antd';
 import { panelStore, usePanelStore } from './store';
 import type { Task } from './api';
 
-/** Status dot color per the original Sidebar semantics. */
-function TaskStatusDot({ task }: { task: Task }) {
-  const color =
-    task.status === 'finished'
-      ? task.is_converged ? '#52c41a' : '#13c2c2'
-      : task.status === 'error' ? '#ff4d4f' : '#faad14';
+const STATUS_META = {
+  NO_OUTPUT_EVIDENCE: { label: '未发现计算输出', color: '#faad14', tag: 'gold', icon: FileOutlined },
+  TASK_COMPLETED: { label: '任务完成', color: '#52c41a', tag: 'green', icon: CheckCircleFilled },
+  ERROR_DETECTED: { label: '检测到错误', color: '#ff4d4f', tag: 'red', icon: CloseCircleFilled },
+  RUNNING: { label: '正在运行', color: '#1677ff', tag: 'blue', icon: LoadingOutlined },
+  UNKNOWN: { label: '待检查', color: '#8c8c8c', tag: 'default', icon: QuestionCircleFilled },
+} as const;
+
+export function taskStatusCode(task: Task): keyof typeof STATUS_META {
+  if (task.status_record?.code && task.status_record.code in STATUS_META) return task.status_record.code as keyof typeof STATUS_META;
+  if (task.status === 'finished') return 'TASK_COMPLETED';
+  if (task.status === 'error') return 'ERROR_DETECTED';
+  return 'UNKNOWN';
+}
+
+export function StatusBadge({ task, compact = false }: { task: Task; compact?: boolean }) {
+  const code = taskStatusCode(task);
+  const meta = STATUS_META[code];
+  const Icon = meta.icon;
+  const title = task.status_record?.reason || meta.label;
+  if (compact) {
+    return (
+      <Tooltip title={`${meta.label}：${title}`} mouseEnterDelay={0.4}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: meta.color }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: meta.color }} />
+          <Icon spin={code === 'RUNNING'} style={{ fontSize: 12 }} />
+        </span>
+      </Tooltip>
+    );
+  }
   return (
-    <span style={{
-      display: 'inline-block',
-      width: 7,
-      height: 7,
-      borderRadius: '50%',
-      background: color,
-      marginRight: -2,
-      flexShrink: 0,
-    }} />
+    <Tooltip title={title} mouseEnterDelay={0.4}>
+      <Tag color={meta.tag} style={{ marginInlineEnd: 0 }} icon={<Icon spin={code === 'RUNNING'} />}>
+        {meta.label}
+      </Tag>
+    </Tooltip>
   );
 }
 
@@ -47,6 +72,8 @@ function pathParts(path: string): string[] {
 type VaspTreeNode = TreeDataNode & {
   __task?: Task;
   __rel_path?: string;
+  __pending?: boolean;
+  __failedReason?: string;
 };
 
 function sortNodes(nodes: VaspTreeNode[]): VaspTreeNode[] {
@@ -62,7 +89,7 @@ function sortNodes(nodes: VaspTreeNode[]): VaspTreeNode[] {
   }));
 }
 
-export function buildProjectTree(directories: any[], tasks: Task[]): VaspTreeNode[] {
+export function buildProjectTree(directories: any[], tasks: Task[], pendingDirectories: any[] = [], failedDirectories: any[] = []): VaspTreeNode[] {
   const nodeMap = new Map<string, VaspTreeNode>();
   const roots: VaspTreeNode[] = [];
 
@@ -102,7 +129,24 @@ export function buildProjectTree(directories: any[], tasks: Task[]): VaspTreeNod
     node.__rel_path = normalizePath(task.rel_path);
     node.icon = task.is_vasp_task === false
       ? <FolderOutlined style={{ color: '#8c8c8c' }} />
-      : <TaskStatusDot task={task} />;
+      : <StatusBadge task={task} compact />;
+  });
+
+  pendingDirectories.forEach((dir) => {
+    const node = ensureDir(dir.rel_path, dir.label);
+    if (node.__task) return;
+    node.__pending = true;
+    node.title = `正在检查目录 ${dir.label}`;
+    node.icon = <LoadingOutlined spin style={{ color: '#1677ff' }} />;
+  });
+
+  failedDirectories.forEach((dir) => {
+    const node = ensureDir(dir.rel_path, dir.label);
+    if (node.__task) return;
+    node.__pending = false;
+    node.__failedReason = dir.reason || '无法读取目录';
+    node.title = `无法扫描目录 ${dir.label}`;
+    node.icon = <CloseCircleFilled style={{ color: '#ff4d4f' }} />;
   });
 
   return sortNodes(roots);
@@ -119,7 +163,7 @@ function filterTaskTree(
 
   const taskMatches = (task: Task): boolean => {
     if (task.is_vasp_task === false) return !filterStatus && filterConverged === null;
-    if (filterStatus && task.status !== filterStatus) return false;
+    if (filterStatus && taskStatusCode(task) !== filterStatus) return false;
     if (filterConverged !== null && task.is_converged !== filterConverged) return false;
     if (kw) {
       return (
@@ -137,7 +181,9 @@ function filterTaskTree(
       const task = node.__task;
       const children = node.children ? walk(node.children as VaspTreeNode[]) : [];
       const selfMatchesSearch = !kw || String(node.title).toLowerCase().includes(kw) || (node.__rel_path || '').toLowerCase().includes(kw);
-      const selfMatches = task ? taskMatches(task) : selfMatchesSearch && !filterStatus && filterConverged === null;
+      const selfMatches = node.__pending
+        ? !filterStatus && filterConverged === null && !kw
+        : task ? taskMatches(task) : selfMatchesSearch && !filterStatus && filterConverged === null;
       if (selfMatches || children.length > 0) {
         result.push({ ...node, children });
       }
@@ -160,8 +206,7 @@ function collectKeys(nodes: VaspTreeNode[]): string[] {
 }
 
 /** Table view (port of TaskTable.tsx, without the drawer). */
-export function TaskTable({ onAnalyze, onTaskSelected }: {
-  onAnalyze?: (task: Task) => void;
+export function TaskTable({ onTaskSelected }: {
   /** Called when a task row is selected (used to auto-close the popup). */
   onTaskSelected?: (task: Task) => void;
 }) {
@@ -169,7 +214,7 @@ export function TaskTable({ onAnalyze, onTaskSelected }: {
 
   const filteredTasks = React.useMemo(() => {
     let result = tasks;
-    if (filterStatus) result = result.filter((t) => t.status === filterStatus);
+    if (filterStatus) result = result.filter((t) => taskStatusCode(t) === filterStatus);
     if (filterConverged !== null) result = result.filter((t) => t.is_converged === filterConverged);
     if (searchText.trim()) {
       const kw = searchText.trim().toLowerCase();
@@ -205,6 +250,7 @@ export function TaskTable({ onAnalyze, onTaskSelected }: {
       render: (v: string, record: Task) => (
         <a onClick={() => {
           panelStore.setSelectedTask(record);
+          panelStore.setViewTab('status');
           onTaskSelected?.(record);
         }}>{v}</a>
       ),
@@ -218,20 +264,23 @@ export function TaskTable({ onAnalyze, onTaskSelected }: {
     },
     {
       title: '状态',
-      dataIndex: 'status',
+      dataIndex: 'status_record',
       key: 'status',
-      width: 80,
+      width: 145,
       filters: [
-        { text: '已完成', value: 'finished' },
-        { text: '错误', value: 'error' },
-        { text: '未知', value: 'unknown' },
+        { text: '未发现计算输出', value: 'NO_OUTPUT_EVIDENCE' },
+        { text: '任务完成', value: 'TASK_COMPLETED' },
+        { text: '检测到错误', value: 'ERROR_DETECTED' },
+        { text: '正在运行', value: 'RUNNING' },
+        { text: '待检查', value: 'UNKNOWN' },
       ],
-      onFilter: (value, record) => record.status === value,
-      render: (v: string) => {
-        const color = v === 'finished' ? 'green' : v === 'error' ? 'red' : 'orange';
-        const label = v === 'finished' ? '完成' : v === 'error' ? '错误' : '未知';
-        return <Tag color={color}>{label}</Tag>;
-      },
+      onFilter: (value, record) => taskStatusCode(record) === value,
+      render: (_: unknown, record: Task) => (
+        <Space direction="vertical" size={2}>
+          <StatusBadge task={record} />
+          <span style={{ color: '#8c8c8c', fontSize: 10 }}>{record.input_check?.label ?? '未指定检查规则'}</span>
+        </Space>
+      ),
     },
     {
       title: '收敛',
@@ -277,12 +326,6 @@ export function TaskTable({ onAnalyze, onTaskSelected }: {
             <Button type="link" size="small" icon={<EyeOutlined />}
               onClick={() => handleStructure(record)} />
           </Tooltip>
-          {onAnalyze && (
-            <Tooltip title="分析此任务">
-              <Button type="link" size="small"
-                onClick={() => onAnalyze(record)}>分析</Button>
-            </Tooltip>
-          )}
         </Space>
       ),
     },
@@ -298,7 +341,7 @@ export function TaskTable({ onAnalyze, onTaskSelected }: {
       size="small"
       loading={loading}
       onRow={(record) => ({
-        onClick: () => panelStore.setSelectedTask(record),
+        onClick: () => { panelStore.setSelectedTask(record); panelStore.setViewTab('status'); },
         style: {
           background: selectedTask?.id === record.id ? 'var(--dsw-specific-sidebar-nav-item-active, #e6f4ff)' : undefined,
           cursor: 'pointer',
@@ -315,18 +358,17 @@ export function TaskTable({ onAnalyze, onTaskSelected }: {
 }
 
 /** Directory tree view (port of Sidebar.tsx tree portion). */
-export function TreeView({ onAnalyze, onTaskSelected }: {
-  onAnalyze?: (task: Task) => void;
+export function TreeView({ onTaskSelected }: {
   /** Called when a task node is selected (used to auto-close the popup). */
   onTaskSelected?: (task: Task) => void;
 }) {
   const {
-    projectPath, tasks, directories, loading,
+    projectPath, tasks, directories, pendingDirectories, failedDirectories, loading,
     selectedTask, filterStatus, filterConverged, searchText,
   } = usePanelStore();
   const [expandedKeys, setExpandedKeys] = React.useState<React.Key[]>([]);
 
-  const fullTree = React.useMemo(() => buildProjectTree(directories, tasks), [directories, tasks]);
+  const fullTree = React.useMemo(() => buildProjectTree(directories, tasks, pendingDirectories, failedDirectories), [directories, tasks, pendingDirectories, failedDirectories]);
   const visibleTree = React.useMemo(
     () => filterTaskTree(fullTree, filterStatus, filterConverged, searchText),
     [fullTree, filterStatus, filterConverged, searchText],
@@ -347,7 +389,7 @@ export function TreeView({ onAnalyze, onTaskSelected }: {
     const task = (info.node as VaspTreeNode).__task;
     if (task) {
       panelStore.setSelectedTask(task);
-      panelStore.setViewTab(task.is_vasp_task === false ? 'files' : 'chart');
+      panelStore.setViewTab(task.is_vasp_task === false ? 'files' : 'status');
       onTaskSelected?.(task);
     }
   };
@@ -358,7 +400,7 @@ export function TreeView({ onAnalyze, onTaskSelected }: {
     const existing = tasks.find((task) => normalizePath(task.rel_path) === normalizePath(relPath));
     if (existing) {
       panelStore.setSelectedTask(existing);
-      panelStore.setViewTab(existing.is_vasp_task === false ? 'files' : 'chart');
+      panelStore.setViewTab(existing.is_vasp_task === false ? 'files' : 'status');
       onTaskSelected?.(existing);
       return;
     }
@@ -368,7 +410,7 @@ export function TreeView({ onAnalyze, onTaskSelected }: {
       const newTask = await openTaskByPath(projectPath, relPath);
       panelStore.setTasks([...tasks, newTask]);
       panelStore.setSelectedTask(newTask);
-      panelStore.setViewTab(newTask.is_vasp_task === false ? 'files' : 'chart');
+      panelStore.setViewTab(newTask.is_vasp_task === false ? 'files' : 'status');
       onTaskSelected?.(newTask);
     } catch {
       // Ignore open failures; the tree state is preserved.
@@ -380,9 +422,15 @@ export function TreeView({ onAnalyze, onTaskSelected }: {
   const titleRender = (node: TreeDataNode) => {
     const treeNode = node as VaspTreeNode;
     const task = treeNode.__task;
+    if (treeNode.__pending) {
+      return <span style={{ fontSize: 12, color: '#1677ff' }}>{node.title as string}</span>;
+    }
+    if (treeNode.__failedReason) {
+      return <Tooltip title={treeNode.__failedReason}><span style={{ fontSize: 12, color: '#ff4d4f' }}>{node.title as string}</span></Tooltip>;
+    }
     const content = task && task.is_vasp_task !== false ? (
       <Tooltip
-        title={`体系: ${task.system} | 状态: ${task.status} | ${task.n_ion_steps}步 | E: ${task.final_energy?.toFixed(4) ?? 'N/A'} eV`}
+        title={`体系: ${task.system} | ${task.status_record?.label ?? task.status}：${task.status_record?.reason ?? ''} | 最近观察: ${task.status_record?.observedAt ?? '-'} `}
         mouseEnterDelay={0.5}
       >
         <span style={{ fontSize: 12 }}>
@@ -403,12 +451,6 @@ export function TreeView({ onAnalyze, onTaskSelected }: {
         onDoubleClick={(e) => { e.stopPropagation(); handleDoubleClick(treeNode); }}
       >
         {content}
-        {task && task.is_vasp_task !== false && (
-          <Button type="link" size="small" style={{ fontSize: 11, padding: 0, marginLeft: 6 }}
-            onClick={(e) => { e.stopPropagation(); onAnalyze?.(task); }}>
-            分析
-          </Button>
-        )}
       </span>
     );
   };

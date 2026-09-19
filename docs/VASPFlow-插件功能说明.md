@@ -1,6 +1,6 @@
 # dsh-vaspflow 插件功能说明
 
-> 面向 DeepSeek Harness (DSH) 的 VASP 科研助手插件。右侧面板（任务列表 / 收敛曲线 / 3D 结构 / 文件浏览）+ 宿主 Node 数据服务 + 11 个仅由配套 `vasp` Agent 预设暴露的 `vasp_*` 工具。
+> 面向 DeepSeek Harness (DSH) 的 VASP 科研助手插件。右侧面板（任务列表 / 收敛曲线 / 3D 结构 / 文件浏览）+ 宿主 Node 数据服务 + 7 个仅由配套 `vasp` Agent 预设暴露的 `vasp_*` 工具。
 
 ## 1. 定位
 
@@ -17,8 +17,8 @@
 ┌─────────────────────┐     ┌───────────────────────┐     ┌────────────────────────┐
 │ L1 右侧面板 (React)  │────▶│ L2 数据服务             │────▶│ L3 vasp Agent 预设      │
 │ 任务树/表、收敛图、   │  ▶ │ /plugins/dsh-vaspflow/* │  ▶ │ persona + skills       │
-│ 3D 结构、文件浏览、    │  │ │ TaskStore（内存态）      │  │ │ vasp_incar_validate   │
-│ 一键分析、自动刷新    │◀──│ vasp_* × 11 个 Agent 工具│◀──│ vasp_outcar_parse      │
+│ 3D 结构、文件浏览、    │  │ │ TaskStore（内存态）      │  │ │ vasp_inspect_task       │
+│ 一键分析、自动刷新    │◀──│ vasp_* × 7 个 Agent 工具 │◀──│ vasp_check_inputs       │
 └─────────────────────┘     └───────────────────────┘     └────────────────────────┘
 ```
 
@@ -26,28 +26,26 @@
 |------|------|------|
 | L1 客户端 | `src/client/` + `lib/client.js`（bundle） | 侧边栏 VASP 入口 + 右侧 dock 面板 |
 | L2 宿主 | `lib/index.js` + `lib/host/*` | HTTP 路由 + Agent 工具注册 + 数据层 |
-| L3 预设 | `plugins/dsh-vaspflow/preset/vasp` | 科研助手 persona、3 个 skills；通过预设专属 bridge 注册全部 11 个工具 |
+| L3 预设 | `plugins/dsh-vaspflow/preset/vasp` | 科研助手 persona、3 个 skills；通过预设专属 bridge 注册全部 7 个工具 |
 
-## 3. Agent 工具（11 个，均以 `vasp_` 前缀暴露）
+## 3. Agent 工具（7 个，均以 `vasp_` 前缀暴露）
 
-所有工具的输出都经宿主 JSON-Schema 校验器校验（`additionalProperties` 收紧、必填字段声明），调用失败有统一形如 `{ error: "string" }` 的契约。
+所有工具的输出都经宿主 JSON-Schema 校验器校验（`additionalProperties` 收紧、必填字段声明）。全部 7 个 `vasp_*` 工具均有必填顶层字段 `error: string`：空字符串 `""` 表示该次工具调用成功；非空字符串表示调用本身失败。Agent 工具不使用会话内临时 `taskId`；单任务统一用 `rootPath + relPath`，批量工具用 `projectRoot + dirs/tasks`。
 
 ### 3.1 扫描与巡检
 
 | 工具 | 用途 | 关键参数 |
 |------|------|----------|
-| `vasp_scan` | 扫描目录树，识别含 OUTCAR/vasprun.xml 的 VASP 任务，返回任务元数据（状态/步数/能量/晶格/INCAR 摘要）并写入 TaskStore | `rootPath` |
-| `vasp_src_inspect` | **构建前源体检**：扫描 `*.vasp`/POSCAR/CONTCAR，报告物种/数量/坐标类型/SD 旗标统计/坐标行数/尾部垃圾行，并跨文件一致性比对 | `rootPath`, `maxDepth` |
-| `vasp_scan_templates` | 扫描含 INCAR 的模板目录，报告文件齐备度（INCAR/KPOINTS/POTCAR/提交脚本文件名）与关键 INCAR 参数，**仅供列候选给用户确认** | `rootPath`, `maxDepth` |
+| `vasp_scan` | 扫描目录树，严格识别同时含 `POSCAR`、`INCAR`、`KPOINTS`、`POTCAR` 的 VASP 任务（NEB 父目录另有规则），返回状态、证据和普通目录并写入 TaskStore | `rootPath` |
+| `vasp_inspect_task` | 一次核查单个任务的状态、输入检查、输出证据、目录清单，可选预览一个文件 | `rootPath`, `relPath`, `include`, `file` |
+| `vasp_discover_inputs` | **构建前发现**：合并结构源体检与模板候选盘点，仅报告候选，不替用户选择 | `rootPath`, `maxDepth`, `include` |
 
 ### 3.2 查询任务数据
 
 | 工具 | 用途 | 关键参数 |
 |------|------|----------|
-| `vasp_convergence` | 每离子步能量 + 最大力（`ion_steps/energies/max_forces`），判断收敛趋势 | `taskId` |
-| `vasp_structure_scene` | 3D 结构场景 JSON（晶胞/原子/键/键族/分子式摘要），默认 CONTCAR | `taskId`, `file` |
-| `vasp_task_files` | 任务目录文件/子目录清单 | `taskId` |
-| `vasp_read_file` | 读取任务内文本文件（500KB 截断，`truncated` 标志） | `taskId`, `name` |
+| `vasp_convergence` | 每离子步能量 + 最大力（`ion_steps/energies/max_forces`），不依赖预先扫描 | `rootPath`, `relPath` |
+| `vasp_structure_scene` | 3D 结构场景 JSON（晶胞/原子/键/键族/分子式摘要），默认 CONTCAR | `rootPath`, `relPath`, `file` |
 
 ### 3.3 构建输入（批量）
 
@@ -98,12 +96,9 @@
 
 **顶层 `consistency`（批次一致性）**：跨目录比对 POTCAR-POSCAR / SD / K 点 / 物种 / 关键 INCAR（不含 SYSTEM）；`uniform=false` 时按模式分组列出差异目录——抓"单看都对、合起来不一致"的批次问题。
 
-### 3.5 裸文本判定
+### 3.5 文件内容的确定性分析
 
-| 工具 | 用途 | 关键参数 |
-|------|------|----------|
-| `vasp_incar_validate` | 校验 INCAR 文本的任务类型必需/禁用标签与常见组合矛盾；支持分号分隔的同行多标签 | `incarText`, `jobType` |
-| `vasp_outcar_parse` | 解析 OUTCAR 文本的收敛标志、最新总能、离子步、常见错误签名与受力漂移 | `outcarText` |
+INCAR、OUTCAR 等已属于任务目录的文件，统一由 `vasp_inspect_task`、`vasp_check_inputs` 和扫描器的确定性解析逻辑处理。Agent 不需要先把文件全文搬进上下文再调用独立的文本分析工具；这减少一次工具调用和大段文本传输。
 
 ## 4. HTTP 路由（面板数据服务，`/plugins/dsh-vaspflow/*`）
 
@@ -138,7 +133,7 @@
 |------|------|------|
 | persona | VASP 计算助手身份 + 硬规则（建作业前校验 INCAR/POTCAR 顺序、不覆盖 CONTCAR/WAVECAR、收敛判定与 VASP 错误签名识别、优先用 `vasp_*` 工具；构建用 `vasp_build_inputs`/`vasp_check_inputs`，不按元素序推断 SD，不自动探测模板/提交脚本） |
 | skills | `vasp-structure-opt`（工具驱动协议：源体检→模板候选→dry-run→构建→校验→汇报）、`vasp-zpe-setup`（Plan 模式五节点确认→执行→验证）、`vesta-view` |
-| 工具 bridge | 仅在该预设作用域注册全部 `vasp_*` 工具；其中 `vasp_incar_validate` 和 `vasp_outcar_parse` 处理裸文本 |
+| 工具 bridge | 仅在该预设作用域注册全部 7 个 `vasp_*` 工具；文件解析由任务巡检、输入检查和扫描器完成 |
 
 职责分工：宿主插件持有任务数据和全部工具实现；预设只在选择“VASP 计算助手”的会话中注册工具。这样普通 Agent 不会得到 VASP 工具，而面板和 VASP Agent 始终共用同一 TaskStore。
 
@@ -146,7 +141,7 @@
 
 1. **SD 保持优先**：`sdPolicy` 默认 `keep`（沿源文件旗标原样：源无 SD 行 → 原样复制 + 警告；源有 SD 行但坐标缺旗标 → 报错）；显式 `freeAtoms`/`fixedAtoms` 按显式规则；`override` 且不显式 → 报错。绝不按元素序推断。
 2. **提交脚本显式（可分段）**：`submitSrc` 不自动探测；缺失仅警告（分段构建，稍后补充），Agent 可询问用户。POSCAR/其他输入同理可分段提供。
-3. **模板由用户决定**：Agent 最多用 `vasp_scan_templates` 列候选供确认；`template` 只是默认来源目录。
+3. **模板由用户决定**：Agent 最多用 `vasp_discover_inputs` 列候选供确认；`template` 只是默认来源目录。
 4. **输出契约**：输出必须过宿主校验器；`error` 恒为字符串；dry-run/真跑可区分（`dryRun/written/wroteCount` + `[dry-run]` 渲染前缀）。
 5. **确定性判定**：POTCAR 等长同序、分号感知 INCAR、F/T 差异反馈、批次一致性比对均由工具完成。
 6. **性能**：大文件只读尾部/流式、POTCAR 缓存 + 提前终止、元数据签名缓存；`--linkPotcar` 硬链接。
@@ -161,7 +156,7 @@ node scripts/install-dsh.mjs install --profile web --package .
 cd plugins/dsh-vaspflow
 pnpm install --frozen-lockfile
 npm run build      # 构建浏览器 bundle → lib/client.js
-npm test           # 宿主单元 + schema 校验测试（52 项）
+ npm test           # 宿主单元 + schema 校验测试（77 项）
 npm run verify     # 产物一致性检查
 ```
 
@@ -169,6 +164,6 @@ npm run verify     # 产物一致性检查
 
 ## 9. 与历史形态的差异
 
-- 原 `check_all_inputs.py`/`batch_build_dirs.py`/`scan_templates.py` 等 Python 脚本已**移除**，逻辑由宿主 JS 工具（`vasp_build_inputs`/`vasp_check_inputs`/`vasp_scan_templates`）取代；
+- 原 `check_all_inputs.py`/`batch_build_dirs.py`/`scan_templates.py` 等 Python 脚本已**移除**，逻辑由宿主 JS 工具（`vasp_build_inputs`/`vasp_check_inputs`/`vasp_discover_inputs`）取代；
 - 原 `get_directory_structure.py`（勘察）由通用工具/`vasp_scan` 取代；
 - 提交脚本不再自动探测、SD 不再按元素序推断（较旧 Python 版行为收紧）。

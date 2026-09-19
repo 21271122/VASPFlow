@@ -13,7 +13,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -79,6 +79,21 @@ test('parseIonicEnergies extracts per-step F values', async () => {
     assert.equal(energies.length, 2);
     assert.ok(Math.abs(energies[0] - -100.0) < 1e-6);
     assert.ok(Math.abs(energies[1] - -100.0001) < 1e-6);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseConvergence keeps OSZICAR ionic step numbers and reports gaps', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vfp-test-'));
+  try {
+    writeFileSync(join(dir, 'OSZICAR'), [
+      '   1 F= -.10000000E+03 E0= -.10000000E+03',
+      '   3 F= -.10000010E+03 E0= -.10000010E+03',
+    ].join('\n'));
+    const result = await parseConvergence(dir);
+    assert.deepEqual(result.ion_steps, [1, 3]);
+    assert.match(result._source, /缺少 1 步/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -274,7 +289,10 @@ test('scanSingleDir recognizes VASP task and field contract', () => {
   const taskDirPath = join(root, 'relax', 'task1');
   mkdirSync(taskDirPath, { recursive: true });
   try {
-    writeFileSync(join(taskDirPath, 'INCAR'), 'SYSTEM = cu-relax\nEDIFFG = -0.02\n');
+    writeFileSync(join(taskDirPath, 'POSCAR'), 'test\n1\n1 0 0\n0 1 0\n0 0 1\nH\n1\nDirect\n0 0 0\n');
+    writeFileSync(join(taskDirPath, 'INCAR'), 'SYSTEM = cu-relax\nIBRION = 2\nNSW = 20\nEDIFFG = -0.02\n');
+    writeFileSync(join(taskDirPath, 'KPOINTS'), 'Gamma\n0\nGamma\n1 1 1\n0 0 0\n');
+    writeFileSync(join(taskDirPath, 'POTCAR'), 'TITEL = PAW_PBE H 1.0\n');
     writeFileSync(join(taskDirPath, 'OSZICAR'), '   1 F= -.10000000E+03 E0= -.10000000E+03  d E =-.100E-05  mag= 0.0000\n');
     writeFileSync(join(taskDirPath, 'OUTCAR'), 'reached required accuracy\nGeneral timing and accounting\n');
     const task = scanSingleDir(taskDirPath, root);
@@ -297,6 +315,10 @@ test('scanProject returns tasks + directories, skips noise dirs', async () => {
     const taskDirPath = join(root, 'a', 'b');
     mkdirSync(taskDirPath, { recursive: true });
     mkdirSync(join(root, 'node_modules', 'x'), { recursive: true });
+    writeFileSync(join(taskDirPath, 'POSCAR'), 'test\n1\n1 0 0\n0 1 0\n0 0 1\nH\n1\nDirect\n0 0 0\n');
+    writeFileSync(join(taskDirPath, 'INCAR'), 'NSW = 0\n');
+    writeFileSync(join(taskDirPath, 'KPOINTS'), 'Gamma\n0\nGamma\n1 1 1\n0 0 0\n');
+    writeFileSync(join(taskDirPath, 'POTCAR'), 'TITEL = PAW_PBE H 1.0\n');
     writeFileSync(join(taskDirPath, 'OUTCAR'), 'reached required accuracy\n');
     writeFileSync(join(root, 'node_modules', 'x', 'OUTCAR'), 'x\n');
     const result = await scanProject(root);
@@ -319,6 +341,97 @@ test('TaskStore assigns stable ids and root keys are casefolded', () => {
     const id2 = store.addProject(root, [], []);
     assert.equal(id2, 1, 'same root reuses project id');
     assert.equal(store.version, 3);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('TaskStore keeps an input check only while its four input files are unchanged', () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-input-cache-'));
+  const store = new TaskStore({ inputCheckCacheFile: join(root, 'cache', 'input-checks.json') });
+  const taskDir = join(root, 'run');
+  const task = () => ({
+    rel_path: 'run', label: 'run', task_type: { code: 'STATIC_SCF' },
+    input_check: { code: 'NOT_REQUESTED' },
+  });
+  try {
+    mkdirSync(taskDir);
+    for (const name of ['POSCAR', 'INCAR', 'KPOINTS', 'POTCAR']) writeFileSync(join(taskDir, name), name);
+    store.addProject(root, [task()], []);
+    store.setInputCheck(root, 'run', { code: 'PASS', label: '通过指定规则检查' });
+
+    store.addProject(root, [task()], []);
+    assert.equal(store.tasks.get(1).input_check.code, 'PASS');
+
+    writeFileSync(join(taskDir, 'POSCAR'), 'POSCAR changed');
+    store.addProject(root, [task()], []);
+    assert.equal(store.tasks.get(1).input_check.code, 'NOT_REQUESTED');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('TaskStore restores an input check after restart, then drops it when an input changes', () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-persisted-input-cache-'));
+  const cacheFile = join(root, 'cache', 'input-checks.json');
+  const taskDir = join(root, 'run');
+  const task = () => ({
+    rel_path: 'run', label: 'run', task_type: { code: 'STATIC_SCF' },
+    input_check: { code: 'NOT_REQUESTED' },
+  });
+  try {
+    mkdirSync(taskDir);
+    for (const name of ['POSCAR', 'INCAR', 'KPOINTS', 'POTCAR']) writeFileSync(join(taskDir, name), name);
+
+    const firstStore = new TaskStore({ inputCheckCacheFile: cacheFile });
+    firstStore.addProject(root, [task()], []);
+    firstStore.setInputCheck(root, 'run', { code: 'PASS', label: '通过指定规则检查' });
+
+    const restartedStore = new TaskStore({ inputCheckCacheFile: cacheFile });
+    restartedStore.addProject(root, [task()], []);
+    assert.equal(restartedStore.tasks.get(1).input_check.code, 'PASS');
+
+    writeFileSync(join(taskDir, 'INCAR'), 'INCAR changed');
+    const changedInputStore = new TaskStore({ inputCheckCacheFile: cacheFile });
+    changedInputStore.addProject(root, [task()], []);
+    assert.equal(changedInputStore.tasks.get(1).input_check.code, 'NOT_REQUESTED');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('TaskStore restores a legacy input check after restart when the same task is opened from its parent project', () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-parent-cache-'));
+  const nestedRoot = join(root, 'client_verify');
+  const taskDir = join(nestedRoot, '8-_NH2OH');
+  const cacheFile = join(root, 'cache', 'input-checks.json');
+  const nestedTask = () => ({
+    rel_path: '8-_NH2OH', label: '8-_NH2OH', task_type: { code: 'STATIC_SCF' },
+    input_check: { code: 'NOT_REQUESTED' },
+  });
+  const parentTask = () => ({
+    rel_path: 'client_verify/8-_NH2OH', label: '8-_NH2OH', task_type: { code: 'STATIC_SCF' },
+    input_check: { code: 'NOT_REQUESTED' },
+  });
+  try {
+    mkdirSync(taskDir, { recursive: true });
+    for (const name of ['POSCAR', 'INCAR', 'KPOINTS', 'POTCAR']) writeFileSync(join(taskDir, name), name);
+
+    const firstStore = new TaskStore({ inputCheckCacheFile: cacheFile });
+    firstStore.addProject(nestedRoot, [nestedTask()], []);
+    firstStore.setInputCheck(nestedRoot, '8-_NH2OH', { code: 'PASS', label: '通过指定规则检查' });
+    const currentCache = JSON.parse(readFileSync(cacheFile, 'utf8'));
+    const legacyKey = firstStore.rootKey(nestedRoot) + '\u0000' + firstStore.relKey('8-_NH2OH');
+    writeFileSync(cacheFile, JSON.stringify({
+      version: 1,
+      entries: { [legacyKey]: Object.values(currentCache.entries)[0] },
+    }), 'utf8');
+
+    const restartedStore = new TaskStore({ inputCheckCacheFile: cacheFile });
+    restartedStore.addProject(root, [parentTask()], []);
+    assert.equal(restartedStore.tasks.get(1).input_check.code, 'PASS');
+    const migratedCache = JSON.parse(readFileSync(cacheFile, 'utf8'));
+    assert.equal(Object.keys(migratedCache.entries).some((key) => key.includes('\u0000')), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
