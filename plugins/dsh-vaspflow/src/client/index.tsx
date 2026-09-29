@@ -15,6 +15,7 @@ import { Panel, buildTaskContext } from './Panel';
 import type { PanelProps } from './Panel';
 import { mountPanelLayout } from './layout';
 import { panelStore, usePanelStore } from './store';
+import { VaspToolRow } from './tool-rows';
 import type { BuildTaskDetail } from './store';
 import type { Task } from './api';
 
@@ -87,6 +88,15 @@ const CSS = [
   '[data-dsh-vaspflow-tool] .vfp-tree-actions button:disabled{opacity:.5;cursor:default}',
   '[data-dsh-vaspflow-tool] .vfp-tree-message{margin-top:8px;white-space:pre-wrap;color:var(--dsw-alias-label-secondary,#65746b)}',
   '[data-dsh-vaspflow-tool] .vfp-tree-message[data-error]{color:#c44136}',
+  '[data-dsh-vaspflow-tool] .vfp-result-summary{padding:8px 0;line-height:1.5}',
+  '[data-dsh-vaspflow-tool] .vfp-result-summary[data-error]{color:#c44136}',
+  '[data-dsh-vaspflow-tool] .vfp-result-rows{display:grid;gap:3px}',
+  '[data-dsh-vaspflow-tool] .vfp-result-row{display:flex;align-items:center;gap:10px;min-height:30px;padding:4px 8px;border:0;border-radius:4px;background:rgba(38,151,102,.09);color:inherit;text-align:left;font:inherit;cursor:pointer}',
+  '[data-dsh-vaspflow-tool] .vfp-result-row:disabled{cursor:default}',
+  'body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-result-row{background:rgba(94,204,155,.11)}',
+  '[data-dsh-vaspflow-tool] .vfp-result-row .vfp-tree-muted{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+  '[data-dsh-vaspflow-tool="vasp_say"].vfp-say{font-size:15px;line-height:1.65;white-space:pre-wrap}',
+  '[data-chat-flow-kind="tool-call"]:has([data-dsh-vaspflow-tool="vasp_done"][data-complete]){display:none!important}',
   `[${PANEL_ATTR}] .vfp-build-detail{font-size:14px;line-height:1.55}`,
   `[${PANEL_ATTR}] .vfp-build-detail-head{display:flex;align-items:center;gap:8px;font-size:16px}`,
   `[${PANEL_ATTR}] .vfp-build-detail-path{margin:5px 0 16px;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary,#65746b);font-family:ui-monospace,Consolas,monospace;font-size:12px}`,
@@ -95,10 +105,6 @@ const CSS = [
   `[${PANEL_ATTR}] .vfp-build-detail-section>div:has(>span){display:grid;grid-template-columns:95px minmax(0,1fr);gap:8px}`,
   `[${PANEL_ATTR}] .vfp-build-warning{color:#ae7412}`,
   `[${PANEL_ATTR}] .vfp-build-error{color:#c44136}`,
-  // The host also renders the model-facing tool result as a following
-  // assistant-step. Keep that payload for the agent/history, but avoid showing
-  // the same summary twice after our human-readable tool row.
-  '[data-chat-flow-kind="tool-call"]:has([data-dsh-vaspflow-tool="vasp_build_inputs"]) + [data-chat-flow-kind="assistant-step"]{display:none!important}',
 ].join('\n');
 
 let cssInjected = false;
@@ -491,14 +497,19 @@ function apply(ctx: any) {
     })
     .catch(() => panelStore.setBuildModeError('VASPFlow 插件服务仍是旧版或未启动。请重启 DSH 并刷新页面后再构建。'));
 
-  // Replace the generic “Tool call …” row for this one VASP tool only. The
-  // host still owns the call/result data; this component only changes how that
-  // data is shown in the conversation.
+  // The host still owns calls and results; these views provide the visible
+  // delivery for the VASP preset without an extra assistant paragraph.
   try {
     ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
       name: 'tool.call.toolview',
       key: 'vasp_build_inputs',
     }, BuildInputsToolRow));
+    for (const toolName of ['vasp_scan', 'vasp_inspect_task', 'vasp_convergence', 'vasp_structure_scene', 'vasp_discover_inputs', 'vasp_check_inputs', 'vasp_say', 'vasp_done']) {
+      ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
+        name: 'tool.call.toolview',
+        key: toolName,
+      }, (props: any) => <VaspToolRow {...props} toolName={toolName} />));
+    }
   } catch (error) {
     console.error('[dsh-vaspflow] conversation tool row mount failed:', error);
   }

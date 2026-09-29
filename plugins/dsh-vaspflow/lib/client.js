@@ -99403,8 +99403,117 @@ function mountPanelLayout(opts) {
   return api;
 }
 
-// src/client/index.tsx
+// src/client/tool-rows.tsx
+init_api();
 var import_jsx_runtime6 = require("react/jsx-runtime");
+var titles = {
+  vasp_scan: "\u626B\u63CF\u9879\u76EE",
+  vasp_inspect_task: "\u6838\u67E5\u4EFB\u52A1",
+  vasp_convergence: "\u6536\u655B\u6570\u636E",
+  vasp_structure_scene: "\u7ED3\u6784\u573A\u666F",
+  vasp_discover_inputs: "\u53D1\u73B0\u8F93\u5165\u6765\u6E90",
+  vasp_check_inputs: "\u68C0\u67E5\u8F93\u5165\u6587\u4EF6"
+};
+function argsOf(block) {
+  const raw = block?.kind === "tool-result" ? block.call?.argsRaw : block?.argsRaw;
+  try {
+    return typeof raw === "string" ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+function valueOf(block) {
+  return block?.result?.meta ?? block?.resultView?.meta ?? block?.result?.value ?? block?.meta ?? {};
+}
+async function openTask(rootPath, relPath, tab) {
+  if (!rootPath || !relPath) return;
+  const snapshot = panelStore.getSnapshot();
+  let task = snapshot.projectPath === rootPath ? snapshot.tasks.find((item) => item.rel_path === relPath) : void 0;
+  if (!task) {
+    try {
+      task = await openTaskByPath(rootPath, relPath);
+    } catch {
+      return;
+    }
+  }
+  panelStore.setProjectPath(rootPath);
+  if (snapshot.projectPath !== rootPath) panelStore.setTasks([task]);
+  else if (!snapshot.tasks.some((item) => item.id === task.id)) panelStore.setTasks([...snapshot.tasks, task]);
+  panelStore.setSelectedTask(task);
+  panelStore.setViewTab(tab);
+  panelStore.setOpen(true);
+}
+function IssueRows({ rows, rootPath, tab = "status" }) {
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-rows", children: rows.map((row, index2) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "vfp-result-row", disabled: !row.path || !rootPath, onClick: () => {
+    void openTask(rootPath, row.path, tab);
+  }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: row.label }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-muted", children: row.note }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-status", "data-status": row.status, children: row.status === "error" ? "\u9519\u8BEF" : row.status === "warn" ? "\u6CE8\u610F" : row.path ? "\u67E5\u770B" : "" })
+  ] }, `${row.path}-${index2}`)) });
+}
+function VaspToolRow({ block, toolName }) {
+  const args = argsOf(block);
+  const settled = block?.kind === "tool-result";
+  const value = valueOf(block);
+  const toolError = block?.result?.isError ? block.result.content?.find((item) => item.type === "text")?.text ?? "\u5DE5\u5177\u6267\u884C\u5931\u8D25" : "";
+  if (toolName === "vasp_say") {
+    if (!settled) return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_say", className: "vfp-tree-muted", children: "\u6B63\u5728\u51C6\u5907\u56DE\u590D\u2026" });
+    if (toolError) return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_say", className: "vfp-result-summary", "data-error": "", children: toolError });
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_say", className: "vfp-say", "data-kind": args.kind, children: args.text });
+  }
+  if (toolName === "vasp_done") return toolError ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_done", className: "vfp-result-summary", "data-error": "", children: toolError }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { "data-dsh-vaspflow-tool": "vasp_done", "data-complete": "", hidden: true });
+  const rootPath = value.rootPath ?? args.rootPath ?? value.projectRoot ?? args.projectRoot ?? panelStore.getSnapshot().projectPath;
+  const relPath = value.relPath ?? value.rel_path ?? args.relPath ?? "";
+  let summary = "";
+  let rows = [];
+  let tab = "status";
+  if (toolName === "vasp_scan") {
+    const tasks = Array.isArray(value.tasks) ? value.tasks : [];
+    const running = tasks.filter((task) => task.status_record?.code === "RUNNING");
+    const abnormal = tasks.filter((task) => ["ERROR_DETECTED", "UNKNOWN"].includes(task.status_record?.code));
+    summary = `${tasks.length} \u4E2A\u4EFB\u52A1 \xB7 ${running.length} \u4E2A\u8FD0\u884C\u4E2D \xB7 ${abnormal.length} \u4E2A\u5F02\u5E38\u6216\u72B6\u6001\u672A\u77E5`;
+    rows = [...abnormal, ...running].slice(0, 12).map((task) => ({ path: task.rel_path, label: task.label || task.rel_path, note: task.status_record?.reason, status: task.status_record?.code === "ERROR_DETECTED" ? "error" : "warn" }));
+  } else if (toolName === "vasp_inspect_task") {
+    summary = [value.status?.label ?? value.status?.code, value.inputCheck?.label, value.status?.reason].filter(Boolean).join(" \xB7 ");
+    rows = relPath ? [{ path: relPath, label: relPath, note: "\u5728\u53F3\u4FA7\u67E5\u770B\u8BC1\u636E" }] : [];
+  } else if (toolName === "vasp_convergence") {
+    summary = `${value.ionSteps ?? 0} \u4E2A\u79BB\u5B50\u6B65${Number.isFinite(value.finalEnergy) ? ` \xB7 \u672B\u6B65\u80FD\u91CF ${Number(value.finalEnergy).toFixed(6)} eV` : ""}`;
+    rows = relPath ? [{ path: relPath, label: relPath, note: "\u5728\u53F3\u4FA7\u67E5\u770B\u66F2\u7EBF" }] : [];
+    tab = "chart";
+  } else if (toolName === "vasp_structure_scene") {
+    summary = `${value.summary?.formula ?? args.file ?? "\u7ED3\u6784"} \xB7 ${value.summary?.atom_count ?? 0} \u4E2A\u539F\u5B50${value.warnings?.length ? ` \xB7 ${value.warnings.length} \u9879\u6CE8\u610F` : ""}`;
+    rows = relPath ? [{ path: relPath, label: relPath, note: "\u5728\u53F3\u4FA7\u67E5\u770B\u7ED3\u6784" }] : [];
+    tab = "structure";
+  } else if (toolName === "vasp_discover_inputs") {
+    const sources = value.sources?.files ?? [];
+    const templates = value.templates ?? [];
+    summary = `${value.sources?.count ?? sources.length} \u4E2A\u7ED3\u6784\u6E90 \xB7 ${templates.length} \u4E2A\u5019\u9009\u6A21\u677F${value.sources?.consistency?.uniform === false ? " \xB7 \u6765\u6E90\u4E0D\u4E00\u81F4" : ""}`;
+    rows = [...sources.slice(0, 8).map((source) => ({ path: "", label: source.relPath ?? source.path ?? "\u7ED3\u6784\u6E90", note: source.error || `${source.elements?.join(", ") ?? ""} \xB7 ${source.nAtoms ?? 0} \u539F\u5B50${source.hasSd ? " \xB7 \u542B SD" : ""}`, status: source.error ? "error" : void 0 })), ...templates.slice(0, 8).map((template) => ({ path: "", label: template.relPath ?? template.dir ?? "\u6A21\u677F", note: template.complete === false ? "\u7F3A\u5C11\u6587\u4EF6" : `${template.files?.length ?? 0} \u4E2A\u6587\u4EF6`, status: template.complete === false ? "warn" : void 0 }))];
+  } else if (toolName === "vasp_check_inputs") {
+    const results = Array.isArray(value.results) ? value.results : [];
+    const errors = results.filter((row) => row.error || row.input_check?.code === "FAIL");
+    const warns = results.filter((row) => !errors.includes(row) && (row.warnings?.length || row.input_check?.code === "WARN"));
+    const passed = results.filter((row) => row.input_check?.code === "PASS" && !errors.includes(row) && !warns.includes(row));
+    const unchecked = results.filter((row) => !errors.includes(row) && !warns.includes(row) && !passed.includes(row));
+    summary = `${passed.length} \u4E2A\u901A\u8FC7 \xB7 ${warns.length} \u4E2A\u6CE8\u610F \xB7 ${errors.length} \u4E2A\u5931\u8D25${unchecked.length ? ` \xB7 ${unchecked.length} \u4E2A\u672A\u6309\u89C4\u5219\u68C0\u67E5` : ""}${value.consistency?.uniform === false ? " \xB7 \u6279\u6B21\u8BBE\u7F6E\u4E0D\u4E00\u81F4" : ""}`;
+    rows = [...errors, ...warns, ...unchecked].slice(0, 12).map((row) => ({ path: row.dir, label: row.dir, note: row.error || row.input_check?.evidence?.[0]?.message || row.warnings?.[0] || row.input_check?.label, status: row.error || row.input_check?.code === "FAIL" ? "error" : "warn" }));
+  }
+  const error = toolError || value.error || block?.result?.error;
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { "data-dsh-vaspflow-tool": toolName, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-tree-head", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: titles[toolName] }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-muted", children: settled ? error ? "\u5931\u8D25" : "\u5B8C\u6210" : "\u5904\u7406\u4E2D" })
+    ] }),
+    settled && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", "data-error": error ? "" : void 0, children: error || summary || "\u65E0\u7ED3\u679C" }),
+      rows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(IssueRows, { rows, rootPath, tab })
+    ] })
+  ] });
+}
+
+// src/client/index.tsx
+var import_jsx_runtime7 = require("react/jsx-runtime");
 var ENTRY_ATTR = "data-dsh-vaspflow-entry";
 var PANEL_ATTR = "data-dsh-vaspflow-panel";
 var ENTRY_LABEL = "VASP";
@@ -99472,6 +99581,15 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-tree-actions button:disabled{opacity:.5;cursor:default}",
   "[data-dsh-vaspflow-tool] .vfp-tree-message{margin-top:8px;white-space:pre-wrap;color:var(--dsw-alias-label-secondary,#65746b)}",
   "[data-dsh-vaspflow-tool] .vfp-tree-message[data-error]{color:#c44136}",
+  "[data-dsh-vaspflow-tool] .vfp-result-summary{padding:8px 0;line-height:1.5}",
+  "[data-dsh-vaspflow-tool] .vfp-result-summary[data-error]{color:#c44136}",
+  "[data-dsh-vaspflow-tool] .vfp-result-rows{display:grid;gap:3px}",
+  "[data-dsh-vaspflow-tool] .vfp-result-row{display:flex;align-items:center;gap:10px;min-height:30px;padding:4px 8px;border:0;border-radius:4px;background:rgba(38,151,102,.09);color:inherit;text-align:left;font:inherit;cursor:pointer}",
+  "[data-dsh-vaspflow-tool] .vfp-result-row:disabled{cursor:default}",
+  "body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-result-row{background:rgba(94,204,155,.11)}",
+  "[data-dsh-vaspflow-tool] .vfp-result-row .vfp-tree-muted{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+  '[data-dsh-vaspflow-tool="vasp_say"].vfp-say{font-size:15px;line-height:1.65;white-space:pre-wrap}',
+  '[data-chat-flow-kind="tool-call"]:has([data-dsh-vaspflow-tool="vasp_done"][data-complete]){display:none!important}',
   `[${PANEL_ATTR}] .vfp-build-detail{font-size:14px;line-height:1.55}`,
   `[${PANEL_ATTR}] .vfp-build-detail-head{display:flex;align-items:center;gap:8px;font-size:16px}`,
   `[${PANEL_ATTR}] .vfp-build-detail-path{margin:5px 0 16px;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary,#65746b);font-family:ui-monospace,Consolas,monospace;font-size:12px}`,
@@ -99479,11 +99597,7 @@ var CSS = [
   `[${PANEL_ATTR}] .vfp-build-detail-section>b{font-size:13px}`,
   `[${PANEL_ATTR}] .vfp-build-detail-section>div:has(>span){display:grid;grid-template-columns:95px minmax(0,1fr);gap:8px}`,
   `[${PANEL_ATTR}] .vfp-build-warning{color:#ae7412}`,
-  `[${PANEL_ATTR}] .vfp-build-error{color:#c44136}`,
-  // The host also renders the model-facing tool result as a following
-  // assistant-step. Keep that payload for the agent/history, but avoid showing
-  // the same summary twice after our human-readable tool row.
-  '[data-chat-flow-kind="tool-call"]:has([data-dsh-vaspflow-tool="vasp_build_inputs"]) + [data-chat-flow-kind="assistant-step"]{display:none!important}'
+  `[${PANEL_ATTR}] .vfp-build-error{color:#c44136}`
 ].join("\n");
 var cssInjected = false;
 function injectCss() {
@@ -99752,62 +99866,62 @@ function BuildInputsToolRow({ block }) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { "data-dsh-vaspflow-tool": "vasp_build_inputs", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-tree-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: "\u6784\u5EFA\u4EFB\u52A1" }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "vfp-tree-muted", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { "data-dsh-vaspflow-tool": "vasp_build_inputs", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-head", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("strong", { children: "\u6784\u5EFA\u4EFB\u52A1" }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-tree-muted", children: [
         !settled ? "\u5904\u7406\u4E2D" : phase === "done" ? "\u6784\u5EFA\u7ED3\u679C" : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : phase === "unavailable" ? "\u4E0D\u53EF\u786E\u8BA4" : isPreview ? "\u5B89\u5168\u9884\u89C8" : "\u6784\u5EFA\u7ED3\u679C",
         " \xB7 ",
         tasks.length,
         " \u4E2A\u4EFB\u52A1"
       ] })
     ] }),
-    Array.from(groups, ([name, indices]) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-tree-group", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", className: "vfp-tree-toggle", "aria-label": `${collapsed.has(name) ? "\u5C55\u5F00" : "\u6536\u8D77"} ${name}`, "aria-expanded": !collapsed.has(name), onClick: () => setCollapsed((old) => {
+    Array.from(groups, ([name, indices]) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-group", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "vfp-tree-toggle", "aria-label": `${collapsed.has(name) ? "\u5C55\u5F00" : "\u6536\u8D77"} ${name}`, "aria-expanded": !collapsed.has(name), onClick: () => setCollapsed((old) => {
           const next2 = new Set(old);
           if (next2.has(name)) next2.delete(name);
           else next2.add(name);
           return next2;
         }), children: collapsed.has(name) ? "\u203A" : "\u2304" }),
-        canConfirm && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("input", { type: "checkbox", "aria-label": `\u9009\u62E9 ${name} \u5168\u90E8\u4EFB\u52A1`, checked: indices.every((index2) => selected.has(index2)), ref: (node2) => {
+        canConfirm && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("input", { type: "checkbox", "aria-label": `\u9009\u62E9 ${name} \u5168\u90E8\u4EFB\u52A1`, checked: indices.every((index2) => selected.has(index2)), ref: (node2) => {
           if (node2) node2.indeterminate = indices.some((index2) => selected.has(index2)) && !indices.every((index2) => selected.has(index2));
         }, onChange: (event) => setSelected((old) => {
           const next2 = new Set(old);
           indices.forEach((index2) => event.target.checked ? next2.add(index2) : next2.delete(index2));
           return next2;
         }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: name }),
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-muted", children: indices.length })
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: name }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-tree-muted", children: indices.length })
       ] }),
       !collapsed.has(name) && indices.map((index2) => {
         const row = writeRows[index2] ?? preview.results?.[index2];
         const status = row?.errors?.length ? "error" : row?.warnings?.length ? "warn" : "ok";
         const label = !settled ? "\u5904\u7406\u4E2D" : status === "error" ? "\u9519\u8BEF" : row?.wrote ? "\u5DF2\u5199\u5165" : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : phase === "unavailable" ? "\u5F85\u6838\u67E5" : phase === "done" && selected.has(index2) ? "\u672A\u5199\u5165" : status === "warn" ? "\u9700\u6CE8\u610F" : isPreview ? "\u53EF\u6784\u5EFA" : "\u5B8C\u6210";
-        return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-tree-task", "data-selected": focused === index2 ? "" : void 0, children: [
-          canConfirm && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("input", { type: "checkbox", "aria-label": `\u9009\u62E9 ${tasks[index2].dir || `\u4EFB\u52A1 ${index2 + 1}`}`, checked: selected.has(index2), onChange: (event) => setSelected((old) => {
+        return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-task", "data-selected": focused === index2 ? "" : void 0, children: [
+          canConfirm && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("input", { type: "checkbox", "aria-label": `\u9009\u62E9 ${tasks[index2].dir || `\u4EFB\u52A1 ${index2 + 1}`}`, checked: selected.has(index2), onChange: (event) => setSelected((old) => {
             const next2 = new Set(old);
             if (event.target.checked) next2.add(index2);
             else next2.delete(index2);
             return next2;
           }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "vfp-tree-open", onClick: () => showTask(index2), "aria-label": `\u5728\u53F3\u4FA7\u67E5\u770B ${tasks[index2].dir || `\u4EFB\u52A1 ${index2 + 1}`} \u8BE6\u60C5`, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-name", children: tasks[index2].dir?.split(/[\\/]+/).filter(Boolean).at(-1) || `\u4EFB\u52A1 ${index2 + 1}` }),
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-status", "data-status": status, children: label }),
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { "aria-hidden": "true", children: "\u203A" })
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("button", { type: "button", className: "vfp-tree-open", onClick: () => showTask(index2), "aria-label": `\u5728\u53F3\u4FA7\u67E5\u770B ${tasks[index2].dir || `\u4EFB\u52A1 ${index2 + 1}`} \u8BE6\u60C5`, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-tree-name", children: tasks[index2].dir?.split(/[\\/]+/).filter(Boolean).at(-1) || `\u4EFB\u52A1 ${index2 + 1}` }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-tree-status", "data-status": status, children: label }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { "aria-hidden": "true", children: "\u203A" })
           ] })
         ] }, `${taskGroup(tasks[index2].dir || "")}-${index2}`);
       })
     ] }, name)),
-    tasks.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-tree-message", children: "\u6CA1\u6709\u6784\u5EFA\u4EFB\u52A1" }),
-    isPreview && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-tree-actions", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { children: [
+    tasks.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", children: "\u6CA1\u6709\u6784\u5EFA\u4EFB\u52A1" }),
+    isPreview && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-actions", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { children: [
         selected.size,
         " \u4E2A\u4EFB\u52A1\u5DF2\u9009\u4E2D",
         selectedErrors ? ` \xB7 ${selectedErrors} \u4E2A\u4EFB\u52A1\u5B58\u5728\u9519\u8BEF` : ""
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { children: [
-        phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", onClick: () => {
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { children: [
+        phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", onClick: () => {
           saveBuildOutcome(preview.planId, { phase: "cancelled", selectedIndices, writeRows: {}, message: "\u9884\u89C8\u5DF2\u53D6\u6D88\uFF0C\u672A\u5199\u5165\u6587\u4EF6", requestError: false });
           setPhase("cancelled");
           setMessage("\u9884\u89C8\u5DF2\u53D6\u6D88\uFF0C\u672A\u5199\u5165\u6587\u4EF6");
@@ -99818,35 +99932,35 @@ function BuildInputsToolRow({ block }) {
           }).catch(() => {
           });
         }, children: "\u53D6\u6D88\u9884\u89C8" }),
-        phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, title: "\u6267\u884C\u672C\u6B21\u6240\u9009\u4EFB\u52A1\uFF0C\u5E76\u8BA9\u540E\u7EED AI \u8C03\u7528\u76F4\u63A5\u6784\u5EFA", onClick: () => {
+        phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, title: "\u6267\u884C\u672C\u6B21\u6240\u9009\u4EFB\u52A1\uFF0C\u5E76\u8BA9\u540E\u7EED AI \u8C03\u7528\u76F4\u63A5\u6784\u5EFA", onClick: () => {
           void confirm2(true);
         }, children: "\u4EA4\u7ED9 AI \u76F4\u63A5\u6784\u5EFA" }),
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", className: "vfp-tree-confirm", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, onClick: () => {
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "vfp-tree-confirm", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, onClick: () => {
           void confirm2();
         }, children: phase === "building" ? "\u6B63\u5728\u6784\u5EFA\u2026" : phase === "done" ? "\u5DF2\u5B8C\u6210" : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : phase === "unavailable" ? "\u4E0D\u53EF\u786E\u8BA4" : `\u786E\u8BA4\u6784\u5EFA ${selected.size} \u4E2A\u4EFB\u52A1` })
       ] })
     ] }),
-    directMode && settled && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-tree-actions", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-muted", children: "\u540E\u7EED AI \u8C03\u7528\u5C06\u76F4\u63A5\u6784\u5EFA" }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", onClick: () => {
+    directMode && settled && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-actions", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-tree-muted", children: "\u540E\u7EED AI \u8C03\u7528\u5C06\u76F4\u63A5\u6784\u5EFA" }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", onClick: () => {
         void restorePreview();
       }, children: "\u6062\u590D\u9884\u89C8\u786E\u8BA4" })
     ] }),
-    preview.error && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: preview.error }),
-    buildModeError && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: buildModeError }),
-    settled && isPreview && !preview.planId && !preview.error && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-tree-message", children: "\u6B64\u9884\u89C8\u7F3A\u5C11\u786E\u8BA4\u51ED\u636E\uFF0C\u8BF7\u5728\u5BF9\u8BDD\u4E2D\u91CD\u65B0\u8FD0\u884C\u9884\u89C8\u3002" }),
-    message && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-tree-message", "data-error": requestError ? "" : void 0, children: message })
+    preview.error && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: preview.error }),
+    buildModeError && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: buildModeError }),
+    settled && isPreview && !preview.planId && !preview.error && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", children: "\u6B64\u9884\u89C8\u7F3A\u5C11\u786E\u8BA4\u51ED\u636E\uFF0C\u8BF7\u5728\u5BF9\u8BDD\u4E2D\u91CD\u65B0\u8FD0\u884C\u9884\u89C8\u3002" }),
+    message && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": requestError ? "" : void 0, children: message })
   ] });
 }
 function PanelRoot(props) {
   const dark = (0, import_react164.useSyncExternalStore)(subscribeDarkTheme, getDarkTheme, getDarkTheme);
   const api = panelLayoutApi.current;
-  return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
     config_provider_default,
     {
       locale: import_zh_CN2.default,
       theme: { algorithm: dark ? theme_default3.darkAlgorithm : theme_default3.defaultAlgorithm },
-      children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+      children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
         Panel3,
         {
           ...props,
@@ -99873,6 +99987,12 @@ function apply(ctx) {
       name: "tool.call.toolview",
       key: "vasp_build_inputs"
     }, BuildInputsToolRow));
+    for (const toolName of ["vasp_scan", "vasp_inspect_task", "vasp_convergence", "vasp_structure_scene", "vasp_discover_inputs", "vasp_check_inputs", "vasp_say", "vasp_done"]) {
+      ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
+        name: "tool.call.toolview",
+        key: toolName
+      }, (props) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(VaspToolRow, { ...props, toolName })));
+    }
   } catch (error) {
     console.error("[dsh-vaspflow] conversation tool row mount failed:", error);
   }
@@ -99918,7 +100038,7 @@ function apply(ctx) {
       }
     }
   };
-  const panel = /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PanelRoot, { onAnalyzeTask: handleAnalyzeTask, onPickWorkspace });
+  const panel = /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(PanelRoot, { onAnalyzeTask: handleAnalyzeTask, onPickWorkspace });
   const disposers = [];
   try {
     disposers.push(mountSidebarEntry(toggle, () => panelStore.getSnapshot().open, panelStore.subscribe));

@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VASPFlow · 工具输出协议 Demo</title>
+  <style>
+    :root {
+      font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      color-scheme: light;
+      --canvas: #f3f6f2; --paper: #fffefb; --ink: #20383a; --muted: #687c7b;
+      --line: #dbe5df; --teal: #17665d; --teal-deep: #123c3d; --mint: #e7f5ee;
+      --mint-strong: #cfebdc; --coral: #ed7454; --amber: #a76522; --red: #be4f49;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--canvas); }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
+    button:disabled { cursor: default; opacity: .52; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 64px; padding: 0 24px; color: #fff; background: var(--teal-deep); }
+    .identity { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .mark { display: grid; width: 30px; height: 30px; place-items: center; color: var(--teal-deep); background: #c8f2d7; font-size: 18px; font-weight: 900; }
+    .identity strong { font-size: 15px; letter-spacing: -.02em; white-space: nowrap; }
+    .identity small { padding-left: 14px; border-left: 1px solid #537676; color: #bad4ca; font-size: 11px; white-space: nowrap; }
+    .top-right { display: flex; align-items: center; gap: 12px; }
+    .mode { display: flex; align-items: center; gap: 7px; padding: 6px 9px; color: #d8f8e7; background: #285958; font-size: 11px; white-space: nowrap; }
+    .mode i { width: 7px; height: 7px; border-radius: 50%; background: #72e9ab; }
+    .top-reset { padding: 7px 9px; border: 1px solid #668b84; color: #fff; background: transparent; font-size: 11px; }
+    .top-reset:hover { background: #285958; }
+    .shell { display: grid; grid-template-columns: 228px minmax(0, 1fr) 360px; min-height: calc(100vh - 64px); max-width: 1580px; margin: auto; background: var(--paper); }
+    .rail { border-right: 1px solid var(--line); background: #f7faf5; }
+    .rail-inner { position: sticky; top: 0; padding: 25px 13px; }
+    .rail-label { margin: 0 11px 13px; color: #708781; font-size: 10px; font-weight: 800; letter-spacing: .15em; }
+    .scenario { display: flex; width: 100%; align-items: center; gap: 9px; min-height: 49px; margin: 3px 0; padding: 6px 10px; border: 0; border-radius: 5px; color: var(--ink); background: transparent; text-align: left; }
+    .scenario:hover { background: #e8f2e9; }
+    .scenario.active { color: #0e594f; background: var(--mint-strong); }
+    .scenario b { display: grid; width: 24px; height: 24px; flex: 0 0 24px; place-items: center; border: 1px solid #b8d8c3; border-radius: 5px; font-size: 11px; }
+    .scenario span { display: grid; gap: 3px; min-width: 0; }
+    .scenario strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .scenario small { color: var(--muted); font-size: 10px; }
+    .rail-rule { height: 1px; margin: 25px 11px 20px; background: var(--line); }
+    .rail-note { margin: 0 11px; color: var(--muted); font-size: 11px; line-height: 1.7; }
+    .rail-note strong { display: block; margin-bottom: 5px; color: var(--ink); font-size: 11px; }
+    .legend { display: grid; gap: 7px; margin: 12px 11px 0; color: var(--muted); font-size: 10px; }
+    .legend span::before { display: inline-block; width: 8px; height: 8px; margin-right: 7px; background: var(--teal); content: ""; }
+    .legend span:nth-child(2)::before { background: var(--coral); }
+    .legend span:nth-child(3)::before { background: var(--amber); }
+    .chat { min-width: 0; }
+    .chat-head { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 75px; padding: 12px clamp(25px, 4vw, 66px); border-bottom: 1px solid var(--line); background: rgba(255, 254, 251, .97); }
+    .chat-head h1 { margin: 0 0 3px; font-size: 17px; letter-spacing: -.03em; }
+    .chat-head p { margin: 0; color: var(--muted); font-size: 11px; }
+    .head-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+    .head-actions button { min-height: 30px; padding: 0 9px; border: 1px solid #a8cbb8; border-radius: 4px; color: var(--teal); background: #fff; font-size: 11px; white-space: nowrap; }
+    .head-actions button:hover { background: var(--mint); }
+    .turn-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; color: var(--teal); background: var(--mint); font-size: 10px; font-weight: 700; white-space: nowrap; }
+    .turn-status.blocked { color: var(--red); background: #fff0ed; }
+    .thread { max-width: 790px; margin: 0 auto; padding: 28px clamp(25px, 4vw, 66px) 90px; }
+    .intro { display: flex; align-items: center; gap: 9px; margin-bottom: 30px; padding-bottom: 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+    .intro strong { color: var(--teal); }
+    .intro .dot { width: 4px; height: 4px; border-radius: 50%; background: #9eb9aa; }
+    .user-line { display: flex; justify-content: flex-end; margin: 24px 0 21px; }
+    .user-bubble { max-width: 88%; padding: 11px 14px; border-radius: 9px 9px 2px 9px; background: #e3f0e8; font-size: 13px; line-height: 1.6; }
+    .assistant-line { display: flex; gap: 10px; margin: 21px 0; }
+    .assistant-icon { display: grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border-radius: 4px; color: #fff; background: var(--teal); font-size: 12px; font-weight: 800; }
+    .assistant-body { max-width: 640px; min-width: 0; }
+    .assistant-body .speaker { margin: 3px 0 8px; color: var(--teal); font-size: 11px; font-weight: 800; }
+    .assistant-body .speech { font-size: 13px; line-height: 1.7; white-space: pre-wrap; }
+    .choice-actions { display: flex; gap: 7px; margin-top: 12px; }
+    .choice-actions button { min-height: 30px; padding: 0 10px; border: 1px solid #9abfa9; border-radius: 4px; color: var(--teal); background: #f8fcf8; font-size: 11px; }
+    .choice-actions button:hover { background: var(--mint); }
+    .host-error { margin: 22px 0; padding: 12px 14px; border-left: 3px solid var(--red); background: #fff2ef; color: #8c3e39; font-size: 12px; line-height: 1.65; }
+    .host-error strong { display: block; color: #a13d37; }
+    .tool { margin: 8px 0 12px; border-top: 1px solid var(--line); }
+    .tool-header { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 47px; padding: 4px 0; border: 0; color: var(--ink); background: transparent; text-align: left; }
+    .tool-header:hover .tool-title { color: var(--teal); }
+    .tool-index { width: 28px; flex: 0 0 28px; color: #92aba3; font: 11px Consolas, monospace; }
+    .tool-title { font-size: 12px; font-weight: 800; white-space: nowrap; }
+    .tool-summary { overflow: hidden; min-width: 0; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+    .tool-status { margin-left: auto; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .tool-status.ok { color: var(--teal); } .tool-status.warn { color: var(--amber); } .tool-status.error { color: var(--red); }
+    .caret { color: #829d91; font-size: 16px; }
+    .tool.collapsed .caret { transform: rotate(-90deg); }
+    .tool-body { padding: 0 0 4px 38px; }
+    .tool.collapsed .tool-body { display: none; }
+    .tool-note { margin: 4px 0 9px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .row { display: flex; align-items: center; gap: 8px; min-height: 35px; width: 100%; margin: 3px 0; padding: 5px 9px; border: 0; border-radius: 5px; color: var(--ink); background: #edf5f0; text-align: left; }
+    .row:hover, .row.selected { background: #d9eddf; }
+    .row .name { flex: 1; min-width: 0; overflow: hidden; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .row .detail { color: var(--muted); font-size: 10px; white-space: nowrap; }
+    .row .state { font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .row .state.ok { color: var(--teal); } .row .state.warn { color: var(--amber); } .row .state.error { color: var(--red); }
+    .row .arrow { color: #7e9d8f; font-size: 15px; }
+    .group-label { display: flex; align-items: center; gap: 7px; margin: 11px 0 6px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; }
+    .group-label::before { width: 8px; height: 8px; border: 1px solid #8bb69f; border-radius: 2px; content: ""; }
+    .candidate-detail { margin: 2px 0 7px; padding: 8px 10px; border-left: 2px solid #8cbd9e; color: var(--muted); background: #f5faf5; font-size: 11px; line-height: 1.7; }
+    .candidate-detail b { color: var(--ink); }
+    .more { padding: 5px 0; border: 0; color: var(--teal); background: none; font-size: 11px; font-weight: 700; }
+    .more:hover { text-decoration: underline; }
+    .build-row { display: flex; align-items: center; gap: 8px; margin: 3px 0 3px 14px; padding: 0 8px; border-radius: 5px; background: #edf5f0; }
+    .build-row:hover, .build-row.selected { background: #d9eddf; }
+    .build-row input { width: 15px; height: 15px; margin: 0; accent-color: var(--teal); }
+    .build-row .row { margin: 0; padding-left: 0; background: transparent; }
+    .build-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 12px 0 1px 14px; }
+    .build-actions small { color: var(--muted); font-size: 10px; }
+    .build-actions .buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+    .build-actions button { min-height: 30px; padding: 0 9px; border: 1px solid #a8c8b2; border-radius: 4px; color: var(--teal); background: #fff; font-size: 10px; font-weight: 700; }
+    .build-actions button:hover:not(:disabled) { background: var(--mint); }
+    .build-actions button.primary { border-color: var(--teal); color: #fff; background: var(--teal); }
+    .build-actions button.primary:hover:not(:disabled) { background: #12564f; }
+    .guard-controls { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 18px; }
+    .guard-controls button { padding: 7px 9px; border: 1px solid #d6b2aa; border-radius: 4px; color: #a84a40; background: #fff; font-size: 11px; }
+    .guard-controls button.active { border-color: var(--red); color: #fff; background: var(--red); }
+    .board { position: sticky; top: 0; display: flex; flex-direction: column; align-self: start; height: calc(100vh - 64px); border-left: 1px solid var(--line); background: #f8fbf8; }
+    .board-tabs { display: flex; height: 52px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+    .board-tabs button { height: 100%; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; color: var(--muted); background: transparent; font-size: 11px; font-weight: 700; }
+    .board-tabs button.active { border-color: var(--teal); color: var(--teal); }
+    .board-scroll { flex: 1; overflow: auto; padding: 24px 26px 35px; }
+    .board-kicker { color: var(--teal); font-size: 10px; font-weight: 800; letter-spacing: .14em; }
+    .board-scroll h2 { margin: 8px 0 5px; font-size: 22px; letter-spacing: -.03em; }
+    .board-path { margin: 0 0 23px; color: var(--muted); font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
+    .section { margin: 0 0 25px; }
+    .section h3 { margin: 0 0 10px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+    .data-line { display: flex; justify-content: space-between; gap: 13px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 11px; }
+    .data-line span:first-child { color: var(--muted); }
+    .data-line span:last-child { text-align: right; overflow-wrap: anywhere; }
+    .evidence { padding: 11px 12px; border-left: 3px solid var(--teal); background: var(--mint); font-size: 11px; line-height: 1.7; }
+    .evidence.warn { border-color: var(--amber); background: #fff4e9; }
+    .evidence.error { border-color: var(--red); background: #fff0ee; }
+    .energy-chart { width: 100%; height: auto; background: #eaf5ed; }
+    .structure-diagram { display: grid; min-height: 200px; place-items: center; background: #e7f2ea; }
+    .structure-diagram svg { width: 100%; max-width: 260px; }
+    .protocol-number { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 16px 0 25px; }
+    .protocol-number div { padding: 12px 10px; background: #e7f2eb; }
+    .protocol-number strong { display: block; margin-bottom: 4px; color: var(--teal); font-size: 19px; }
+    .protocol-number span { color: var(--muted); font-size: 9px; }
+    .pipeline { display: grid; gap: 0; margin: 0 0 26px; }
+    .pipeline div { display: flex; align-items: center; gap: 9px; min-height: 30px; border-left: 1px solid #9bbfa9; margin-left: 7px; padding-left: 13px; color: var(--muted); font-size: 10px; }
+    .pipeline div::before { width: 7px; height: 7px; margin-left: -17px; border: 1px solid #89bba0; border-radius: 50%; background: #f8fbf8; content: ""; }
+    .pipeline div:last-child::before { background: var(--teal); }
+    .audit { display: grid; gap: 9px; }
+    .audit-item { display: flex; gap: 9px; padding-bottom: 9px; border-bottom: 1px solid var(--line); font-size: 10px; line-height: 1.5; }
+    .audit-item b { width: 49px; flex: 0 0 49px; color: var(--teal); }
+    .audit-item.rejected b { color: var(--red); }
+    .board-foot { padding: 12px 26px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; line-height: 1.4; }
+    @media (max-width: 1120px) { .shell { grid-template-columns: 190px minmax(0, 1fr) 320px; } .rail-inner { padding: 18px 7px; } .chat-head { padding: 11px 24px; } .thread { padding: 24px 24px 70px; } }
+    @media (max-width: 860px) { .shell { grid-template-columns: 180px minmax(0, 1fr); } .board { position: static; grid-column: 2; height: auto; min-height: 400px; border-top: 1px solid var(--line); } .board-scroll { max-height: 500px; } }
+    @media (max-width: 620px) { .topbar { padding: 10px 14px; } .identity small, .mode { display: none; } .shell { display: block; } .rail { border-right: 0; border-bottom: 1px solid var(--line); } .rail-inner { display: flex; gap: 6px; overflow-x: auto; padding: 9px 10px; } .rail-label, .rail-rule, .rail-note, .legend { display: none; } .scenario { min-width: 120px; margin: 0; } .chat-head { position: static; flex-wrap: wrap; } .thread { padding: 21px 16px 45px; } .board { border-left: 0; } .tool-summary { display: none; } .row .detail { display: none; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="identity"><span class="mark">V</span><strong>VASPFlow</strong><small>工具输出协议 / 交互原型</small></div>
+    <div class="top-right"><span class="mode"><i></i> 严格工具模式 · 模拟</span><button class="top-reset" id="resetAll" type="button">重置演示</button></div>
+  </header>
+  <main class="shell">
+    <nav class="rail" aria-label="演示对话"><div class="rail-inner">
+      <p class="rail-label">演示对话</p>
+      <div id="scenarioNav"></div>
+      <div class="rail-rule"></div>
+      <p class="rail-note"><strong>这份 demo 展示什么</strong>工具结果直接交付；需要发言才调用 <code>vasp_say</code>；无正文时以 <code>vasp_done</code> 结束。右侧可检查协议事件。</p>
+      <div class="legend"><span>领域工具 · 结果视图</span><span>发言工具 · 唯一正文</span><span>harness · 预提交拦截</span></div>
+    </div></nav>
+    <section class="chat" aria-label="对话"><div class="chat-head"><div><h1 id="chatTitle"></h1><p id="chatSubtitle"></p></div><div class="head-actions" id="headActions"></div></div><div class="thread" id="thread"></div></section>
+    <aside class="board" aria-label="右侧 VASP 看板"><div class="board-tabs"><button type="button" data-tab="detail" class="active">任务详情</button><button type="button" data-tab="protocol">协议轨迹</button></div><div class="board-scroll" id="boardContent"></div><div class="board-foot" id="boardFoot"></div></aside>
+  </main>
+  <script>
+  const CASES = [
+    {id:'survey',number:'01',title:'项目巡检',caption:'4 种工具 · 静默结束',subtitle:'结果由工具视图交付，没有模型结语'},
+    {id:'build',number:'02',title:'输入构建',caption:'预览 / 直接构建',subtitle:'同一构建意图，由插件模式决定写入时机'},
+    {id:'clarify',number:'03',title:'模板追问',caption:'vasp_say · 提问',subtitle:'只在缺少关键选择时让模型发言'},
+    {id:'answer',number:'04',title:'科学解释',caption:'vasp_say · 回答',subtitle:'工具给出证据，发言工具解释结论'},
+    {id:'guard',number:'05',title:'协议拦截',caption:'非法候选 · 零泄漏',subtitle:'在写入 assistant/chunk 前拒绝直接文本'}
+  ];
+  const TOOL_NAMES = {
+    vasp_scan:'扫描项目', vasp_inspect_task:'核查任务', vasp_convergence:'收敛数据',
+    vasp_structure_scene:'结构场景', vasp_discover_inputs:'发现输入',
+    vasp_build_inputs:'构建输入', vasp_check_inputs:'输入检查'
+  };
+  const BUILD_TASKS = [
+    {name:'dz-p0.2',source:'structures/dzp0.2.vasp',status:'可构建'},
+    {name:'dz-p0.4',source:'structures/dzp0.4.vasp',status:'可构建'},
+    {name:'dz-p0.6',source:'structures/dzp0.6.vasp',status:'需注意'}
+  ];
+  const GUARD_CASES = [
+    {id:'text',label:'纯文本'},
+    {id:'mixed',label:'文本 + 工具'},
+    {id:'parallel',label:'终止工具混用'},
+    {id:'noop',label:'无结果静默结束'},
+    {id:'empty',label:'空完成'}
+  ];
+  const state = {active:'survey',tab:'detail',dryRun:true,chats:{},outcomes:{},nextMessage:1,nextPlan:1,guardCase:'text'};
+  const $ = id => document.getElementById(id);
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const call = (name,args={}) => ({name,args});
+  const step = (...calls) => ({calls,chunks:Math.max(2,calls.length*2)});
+  const row = (chat,key,name,detail,status,tone='ok') => '<button type="button" class="row '+(chat.selected===key?'selected':'')+'" data-detail="'+esc(key)+'"><span class="name">'+esc(name)+'</span><span class="detail">'+esc(detail)+'</span><span class="state '+tone+'">'+esc(status)+'</span><span class="arrow" aria-hidden="true">›</span></button>';
+  const dataLine = (label,value) => '<div class="data-line"><span>'+esc(label)+'</span><span>'+esc(value)+'</span></div>';
+  const section = (title,body) => '<section class="section"><h3>'+esc(title)+'</h3>'+body+'</section>';
+  const evidence = (text,tone='') => '<div class="evidence '+tone+'">'+esc(text)+'</div>';
+  const buildArgs = template => ({projectRoot:'D:/Projects/VASPFlow/test',tasks:BUILD_TASKS.map(t=>({
+    dir:'4-NO-scan/'+t.name,poscarSrc:t.source,template,submitSrc:template+'/lqf.sh',sdPolicy:'keep'
+  }))});
+
+  function newChat(id) {
+    return {id,messages:[],audit:[],open:new Set(),more:new Set(),candidates:new Set(),
+      selected:id==='survey'?'scan:error':id==='build'?'build:pending:0':id==='answer'?'inspect':null,
+      publishedChunks:0,rejected:0,domainCount:0,speechCount:0,doneCount:0,status:'running',stepNumber:0,choiceResolved:false};
+  }
+  function resultFor(name,args) {
+    if(name==='vasp_scan') return {total:14,running:2,errors:1};
+    if(name==='vasp_inspect_task') return {path:'2-NO',status:'已完成',evidence:'OUTCAR 正常结束；电子与离子收敛证据齐全。'};
+    if(name==='vasp_convergence') return {path:'2-NO',steps:8,energy:'−304.287 eV',force:'0.021 eV/Å'};
+    if(name==='vasp_structure_scene') return {path:'2-NO/CONTCAR',formula:'Bi₅₄NO',atoms:56};
+    if(name==='vasp_discover_inputs') return {sources:4,templates:2,conflict:'第三个位移结构的 SD 旗标不同'};
+    if(name==='vasp_build_inputs') {
+      const planId='P-'+String(state.nextPlan++).padStart(3,'0');
+      const dryRun=state.dryRun;
+      if(dryRun) state.outcomes[planId]={phase:'preview',picked:[true,true,true],directAfter:false};
+      return {planId,dryRun,count:3,wroteCount:dryRun?0:3,tasks:BUILD_TASKS,template:args.tasks?.[0]?.template||'2-NO'};
+    }
+    if(name==='vasp_check_inputs') return {ok:2,warn:1,error:0,consistent:false};
+    return null;
+  }
+  function rejectReason(candidate,hasDomain) {
+    const calls=candidate.calls||[];
+    if(String(candidate.text||'').trim()) return calls.length?'模型输出混入直接文本':'模型直接输出正文';
+    if(calls.length===0) return '模型未调用任何工具';
+    if(calls.some(c=>!TOOL_NAMES[c.name] && c.name!=='vasp_say' && c.name!=='vasp_done')) return '模型调用未注册工具';
+    if(calls.some(c=>c.name==='vasp_say'||c.name==='vasp_done') && calls.length!==1) return '终止工具必须单独调用';
+    if(calls.some(c=>c.name==='vasp_build_inputs') && calls.length!==1) return '构建工具必须单独调用';
+    if(calls[0].name==='vasp_done' && !hasDomain) return '没有可见工具结果，不能静默结束';
+    return '';
+  }
+  function runTurn(chat,userText,steps) {
+    chat.messages.push({kind:'user',text:userText,id:state.nextMessage++});
+    chat.status='running';
+    let hasDomain=false;
+    for(const candidate of steps) {
+      chat.stepNumber++;
+      const reason=rejectReason(candidate,hasDomain);
+      if(reason) {
+        chat.rejected++;
+        chat.audit.push({kind:'rejected',label:'STEP '+chat.stepNumber,detail:reason+' · 发布 0 个 assistant/chunk · 执行 0 个工具'});
+        chat.messages.push({kind:'host-error',text:'模型输出不符合工具协议，本轮已停止。候选内容未进入对话，也没有执行工具。'});
+        chat.status='blocked';
+        return;
+      }
+      const names=candidate.calls.map(c=>c.name);
+      chat.publishedChunks+=candidate.chunks||2;
+      chat.audit.push({kind:'accepted',label:'STEP '+chat.stepNumber,detail:'缓冲 → 验证通过 → 发布 '+(candidate.chunks||2)+' 个分片 · '+names.join(' + ')});
+      for(const item of candidate.calls) {
+        if(item.name==='vasp_done') {
+          chat.doneCount++;
+          chat.audit.push({kind:'terminal',label:'DONE',detail:'vasp_done 成功；concludeTurn() · 不生成正文'});
+          chat.status='complete';
+          return;
+        }
+        if(item.name==='vasp_say') {
+          const text=String(item.args.text||'').trim();
+          if(!text || text.length>300 || !['question','answer','blocker'].includes(item.args.kind)) {
+            chat.messages.push({kind:'host-error',text:'vasp_say 参数校验失败；未显示发言。'});
+            chat.status='blocked';
+            return;
+          }
+          chat.messages.push({kind:'speech',speechKind:item.args.kind,text,id:state.nextMessage++});
+          chat.speechCount++;
+          chat.audit.push({kind:'terminal',label:'SAY',detail:'vasp_say 成功结算后显示正文；concludeTurn()'});
+          chat.status=item.args.kind==='question'?'awaiting_user':'complete';
+          return;
+        }
+        const data=resultFor(item.name,item.args);
+        const message={kind:'tool',name:item.name,args:item.args,data,id:state.nextMessage++};
+        chat.messages.push(message);
+        chat.open.add(message.id);
+        chat.domainCount++;
+        hasDomain=true;
+        chat.audit.push({kind:'tool',label:'TOOL',detail:item.name+' · 结构化结果写入会话'});
+        if(item.name==='vasp_build_inputs') {
+          chat.selected='build:'+data.planId+':0';
+          if(data.dryRun) {
+            chat.audit.push({kind:'terminal',label:'WAIT',detail:'dryRun=true · planId='+data.planId+' · concludeTurn() · 等待用户确认'});
+            chat.status='awaiting_user';
+            return;
+          }
+        }
+      }
+    }
+    chat.status='complete';
+  }
+  function runBuild(chat,first) {
+    const text=first
+      ? '使用我已选定的三个位移结构源和 2-NO 模板，构建 3 个 NO 位移任务；如果已经写入，再检查输入。'
+      : '按刚才相同的来源，再发起一次构建并检查。';
+    runTurn(chat,text,[
+      step(call('vasp_discover_inputs',{rootPath:'D:/Projects/VASPFlow/test'})),
+      step(call('vasp_build_inputs',buildArgs('2-NO'))),
+      step(call('vasp_check_inputs',{projectRoot:'D:/Projects/VASPFlow/test',dirs:BUILD_TASKS.map(t=>'4-NO-scan/'+t.name),profileId:'structure-optimization'})),
+      step(call('vasp_done'))
+    ]);
+  }
+  function guardCandidate() {
+    if(state.guardCase==='text') return {text:'unpublished direct text',calls:[],chunks:3};
+    if(state.guardCase==='mixed') return {text:'unpublished mixed text',calls:[call('vasp_scan',{rootPath:'D:/Projects/VASPFlow/test'})],chunks:4};
+    if(state.guardCase==='parallel') return step(call('vasp_say',{kind:'answer',text:'你好。'}),call('vasp_scan',{rootPath:'D:/Projects/VASPFlow/test'}));
+    if(state.guardCase==='noop') return step(call('vasp_done'));
+    return {text:'',calls:[],chunks:1};
+  }
+  function createScenario(id) {
+    const chat=newChat(id);
+    if(id==='survey') runTurn(chat,'扫描 NO 项目，核查 2-NO 的状态，并打开收敛曲线和结构。',[
+      step(call('vasp_scan',{rootPath:'D:/Projects/VASPFlow/test'})),
+      step(call('vasp_inspect_task',{rootPath:'D:/Projects/VASPFlow/test',relPath:'2-NO'})),
+      step(call('vasp_convergence',{rootPath:'D:/Projects/VASPFlow/test',relPath:'2-NO'})),
+      step(call('vasp_structure_scene',{rootPath:'D:/Projects/VASPFlow/test',relPath:'2-NO',file:'CONTCAR'})),
+      step(call('vasp_done'))
+    ]);
+    if(id==='build') runBuild(chat,true);
+    if(id==='clarify') runTurn(chat,'帮我构建 NO 位移任务，模板你来找。',[
+      step(call('vasp_discover_inputs',{rootPath:'D:/Projects/VASPFlow/test'})),
+      step(call('vasp_say',{kind:'question',text:'发现两个可用模板：2-NO 和 3-NO-scan/dz-p0.2。请选择要用于这批位移任务的模板。'}))
+    ]);
+    if(id==='answer') runTurn(chat,'2-NO 是否已经收敛？请解释你的判断。',[
+      step(call('vasp_inspect_task',{rootPath:'D:/Projects/VASPFlow/test',relPath:'2-NO'})),
+      step(call('vasp_say',{kind:'answer',text:'从本次输出证据看，2-NO 的电子和离子优化都已收敛，OUTCAR 也有正常结束标记。输入检查通过只说明文件符合所选规则，不能单独证明物理模型合理。'}))
+    ]);
+    if(id==='guard') runTurn(chat,'扫描当前 NO 项目。',[guardCandidate()]);
+    return chat;
+  }
+  function currentChat() {
+    if(!state.chats[state.active]) state.chats[state.active]=createScenario(state.active);
+    return state.chats[state.active];
+  }
+  function outcomeFor(data) { return data.dryRun?state.outcomes[data.planId]:null; }
+  function toolSummary(message) {
+    const d=message.data;
+    if(message.name==='vasp_scan') return ['14 个任务 · 运行 2 · 错误 1','需注意','warn'];
+    if(message.name==='vasp_inspect_task') return ['2-NO · 输出证据齐全','已完成','ok'];
+    if(message.name==='vasp_convergence') return ['2-NO · 8 步 · −304.287 eV','可查看','ok'];
+    if(message.name==='vasp_structure_scene') return ['CONTCAR · Bi₅₄NO · 56 原子','可查看','ok'];
+    if(message.name==='vasp_discover_inputs') return ['4 个结构源 · 2 个模板 · SD 不一致','需注意','warn'];
+    if(message.name==='vasp_build_inputs') {
+      if(!d.dryRun) return ['3/3 已写入 · AI 直接构建','已完成','ok'];
+      const o=outcomeFor(d);
+      if(o.phase==='done') return [o.picked.filter(Boolean).length+'/3 已写入 · 确认状态已保存','已完成','ok'];
+      if(o.phase==='cancelled') return ['预览已取消 · 未写入','已取消','warn'];
+      return ['3 个任务 · 预览未写入','待确认','warn'];
+    }
+    return ['2 通过 · 1 警告 · 批次不一致','需注意','warn'];
+  }
+  function renderCandidate(chat,key,name,detail,status,tone,body) {
+    const open=chat.candidates.has(key);
+    return '<button type="button" class="row" data-candidate="'+esc(key)+'" aria-expanded="'+open+'"><span class="name">'+esc(name)+'</span><span class="detail">'+esc(detail)+'</span><span class="state '+tone+'">'+esc(status)+'</span><span class="arrow" aria-hidden="true">'+(open?'⌄':'›')+'</span></button>'
+      +(open?'<div class="candidate-detail">'+body+'</div>':'');
+  }
+  function renderToolBody(message,chat) {
+    const name=message.name,d=message.data;
+    if(name==='vasp_scan') return '<p class="tool-note">先显示运行和错误任务；其余状态可展开。</p>'
+      +row(chat,'scan:error','3-NO-scan/dz-p6.0','结构优化','错误','error')
+      +row(chat,'scan:running','2-NO','离子步 8','运行中','warn')
+      +(chat.more.has(message.id)?row(chat,'scan:ready','4-NO-scan/dz-p0.2','输入齐全','待计算')+row(chat,'scan:done','1-NO3','正常结束','已完成'):'')
+      +'<button type="button" class="more" data-more="'+message.id+'">'+(chat.more.has(message.id)?'收起示例':'查看更多任务示例')+'</button>';
+    if(name==='vasp_inspect_task') return row(chat,'inspect','2-NO','OUTCAR 正常结束','查看状态')+'<p class="tool-note">电子步、离子步与结束标记均有证据；详细依据在右侧看板。</p>';
+    if(name==='vasp_convergence') return row(chat,'convergence','2-NO','8 个离子步','查看曲线')+'<p class="tool-note">末步能量 −304.287 eV；数值序列与曲线在右侧看板。</p>';
+    if(name==='vasp_structure_scene') return row(chat,'structure','2-NO/CONTCAR','Bi₅₄NO · 56 原子','查看结构')+'<p class="tool-note">不在对话中展开原子坐标与键的原始 JSON。</p>';
+    if(name==='vasp_discover_inputs') return '<div class="group-label">结构源 · 4</div>'
+      +renderCandidate(chat,'source:no','structures/dz*.vasp','3 个位移结构','完整','ok','<b>文件：</b>dzp0.2、dzp0.4、dzp0.6.vasp<br><b>约束：</b>前两项 54F/2T；第三项 55F/1T。')
+      +renderCandidate(chat,'source:contcar','2-NO/CONTCAR','额外来源','旗标不同','warn','<b>物种：</b>Bi 54、N 1、O 1<br><b>约束：</b>55F / 1T；与位移结构组不同。')
+      +'<div class="group-label">候选模板 · 2</div>'
+      +renderCandidate(chat,'template:2no','2-NO','INCAR / KPOINTS / POTCAR','完整','ok','<b>参数：</b>ENCUT=400 · IBRION=2 · NSW=300。')
+      +renderCandidate(chat,'template:scan','3-NO-scan/dz-p0.2','含提交脚本','完整','ok','<b>文件：</b>INCAR、KPOINTS、POTCAR、lqf.sh。')
+      +'<p class="tool-note">候选仅在对话内展开；没有看板视图时不伪装为详情跳转。</p>';
+    if(name==='vasp_build_inputs') return renderBuild(message,chat);
+    return '<p class="tool-note">规则：结构优化。批次不一致不能被“2 项通过”掩盖。</p>'
+      +row(chat,'check:warn','4-NO-scan/dz-p0.6','SD 模式与同批不同','需注意','warn')
+      +(chat.more.has(message.id)?row(chat,'check:ok1','dz-p0.2','POSCAR / POTCAR 匹配','通过')+row(chat,'check:ok2','dz-p0.4','POSCAR / POTCAR 匹配','通过'):'')
+      +'<button type="button" class="more" data-more="'+message.id+'">'+(chat.more.has(message.id)?'收起':'查看通过项')+'</button>';
+  }
+  function renderBuild(message,chat) {
+    const d=message.data,o=outcomeFor(d);
+    const phase=!d.dryRun?'direct':o.phase;
+    const selectedCount=o?o.picked.filter(Boolean).length:d.count;
+    const leading=phase==='preview'?'我计划构建以下任务，尚未写入磁盘；请检查，无误后点击确认构建。'
+      :phase==='cancelled'?'本次预览已取消，未写入磁盘。'
+      :phase==='direct'?'文件已写入，请检阅构建结果。'
+      :'已按所选任务写入文件，请检阅。';
+    const tasks=d.tasks.map((t,i)=>{
+      const key='build:'+d.planId+':'+i;
+      const wrote=phase==='direct'||phase==='done'&&o.picked[i];
+      const status=phase==='preview'?t.status:wrote?'已写入':phase==='cancelled'?'已取消':'未写入';
+      const tone=t.status==='需注意'&&phase==='preview'?'warn':wrote?'ok':'warn';
+      return '<div class="build-row '+(chat.selected===key?'selected':'')+'">'
+        +(phase==='preview'?'<input type="checkbox" data-plan="'+esc(d.planId)+'" data-index="'+i+'" aria-label="选择 '+esc(t.name)+'" '+(o.picked[i]?'checked':'')+'>':'')
+        +row(chat,key,t.name,'POSCAR ← '+t.source,status,tone)+'</div>';
+    }).join('');
+    const actions=phase==='preview'
+      ?'<div class="buttons"><button type="button" data-build-action="cancel" data-plan="'+esc(d.planId)+'">取消预览</button><button type="button" data-build-action="direct" data-plan="'+esc(d.planId)+'" '+(selectedCount?'':'disabled')+'>交给 AI 直接构建</button><button type="button" class="primary" data-build-action="confirm" data-plan="'+esc(d.planId)+'" '+(selectedCount?'':'disabled')+'>确认构建 '+selectedCount+' 个</button></div>'
+      :'<div class="buttons"><button type="button" disabled>'+(phase==='cancelled'?'已取消':'已完成')+'</button></div>';
+    return '<p class="tool-note">'+esc(leading)+'</p><div class="group-label">4-NO-scan · 3 个任务</div>'+tasks
+      +'<div class="build-actions"><small>'+(phase==='preview'?selectedCount+' 个任务已选中':phase==='done'?selectedCount+' 个任务已写入':phase==='direct'?'3 个任务已写入':'没有写入文件')+'</small>'+actions+'</div>';
+  }
+  function renderTool(message,chat) {
+    const [summary,status,tone]=toolSummary(message);
+    const open=chat.open.has(message.id);
+    const number=chat.messages.filter(m=>m.kind==='tool'&&m.id<=message.id).length;
+    return '<section class="tool '+(open?'':'collapsed')+'" data-tool="'+esc(message.name)+'"><button type="button" class="tool-header" data-toggle="'+message.id+'" aria-expanded="'+open+'"><span class="tool-index">'+String(number).padStart(2,'0')+'</span><span class="tool-title">'+esc(TOOL_NAMES[message.name])+'</span><span class="tool-summary">'+esc(summary)+'</span><span class="tool-status '+tone+'">'+esc(status)+'</span><span class="caret" aria-hidden="true">⌄</span></button><div class="tool-body">'+renderToolBody(message,chat)+'</div></section>';
+  }
+  function renderMessage(message,chat) {
+    if(message.kind==='user') return '<div class="user-line"><div class="user-bubble">'+esc(message.text)+'</div></div>';
+    if(message.kind==='tool') return renderTool(message,chat);
+    if(message.kind==='host-error') return '<div class="host-error"><strong>Harness 拦截</strong>'+esc(message.text)+'</div>';
+    const choice=chat.id==='clarify'&&message.speechKind==='question'&&!chat.choiceResolved
+      ?'<div class="choice-actions"><button type="button" data-choose="2-NO">使用 2-NO 模板</button><button type="button" data-choose="3-NO-scan/dz-p0.2">使用扫描模板</button></div>':'';
+    return '<div class="assistant-line"><span class="assistant-icon">V</span><div class="assistant-body"><div class="speaker">VASP 助手 <span style="color:var(--muted);font-weight:500">· 通过 vasp_say</span></div><div class="speech">'+esc(message.text)+'</div>'+choice+'</div></div>';
+  }
+  function renderNav() {
+    $('scenarioNav').innerHTML=CASES.map(c=>'<button type="button" class="scenario '+(state.active===c.id?'active':'')+'" data-scenario="'+c.id+'"><b>'+c.number+'</b><span><strong>'+esc(c.title)+'</strong><small>'+esc(c.caption)+'</small></span></button>').join('');
+  }
+  function renderHeader(chat) {
+    const descriptor=CASES.find(c=>c.id===state.active);
+    $('chatTitle').textContent=descriptor.title;
+    $('chatSubtitle').textContent=descriptor.subtitle;
+    const mode='<span class="turn-status">全局构建模式：'+(state.dryRun?'用户预览':'AI 直接构建')+'</span>';
+    const status='<span class="turn-status '+(chat.status==='blocked'?'blocked':'')+'">'+(chat.status==='blocked'?'本轮已拦截':chat.status==='awaiting_user'?'等待用户操作':'本轮已完成')+'</span>';
+    const rerun=state.active==='build'?'<button type="button" data-rerun="build">再次发起构建</button>':'';
+    const restore=state.active==='build'&&!state.dryRun?'<button type="button" data-mode="preview">恢复预览确认</button>':'';
+    $('headActions').innerHTML=mode+status+restore+rerun;
+  }
+  function renderThread(chat) {
+    const controls=state.active==='guard'?'<div class="guard-controls" aria-label="违规候选类型">'+GUARD_CASES.map(c=>'<button type="button" class="'+(state.guardCase===c.id?'active':'')+'" data-guard="'+c.id+'">'+esc(c.label)+'</button>').join('')+'</div>':'';
+    $('thread').innerHTML='<div class="intro"><strong>VASP Agent</strong><span class="dot"></span><span>所有模型发言必须经过工具</span><span class="dot"></span><span>演示数据，不写入磁盘</span></div>'+controls+chat.messages.map(m=>renderMessage(m,chat)).join('');
+  }
+  function renderDetail(chat) {
+    const key=chat.selected;
+    if(!key) return '<div class="board-kicker">VASP 看板</div><h2>选择一条结果</h2><p class="board-path">点击对话中的任务行，查看该任务的结构化详情。</p>'+section('规则',evidence('工具结果即是默认回复。候选源和模板可在对话内展开；需要解释时才使用发言工具。'));
+    if(key.startsWith('build:')) {
+      const parts=key.split(':'),planId=parts[1],i=Number(parts[2]);
+      const tool=chat.messages.find(m=>m.kind==='tool'&&m.name==='vasp_build_inputs'&&m.data.planId===planId);
+      if(!tool) return '<div class="board-kicker">VASP 看板</div><h2>任务详情</h2>';
+      const task=tool.data.tasks[i],o=outcomeFor(tool.data);
+      const phase=tool.data.dryRun?o.phase:'direct';
+      const wrote=phase==='direct'||phase==='done'&&o.picked[i];
+      const status=phase==='preview'?'预览 · 尚未写入':wrote?'已写入':phase==='cancelled'?'已取消 · 未写入':'未选中 · 未写入';
+      return '<div class="board-kicker">构建任务</div><h2>'+esc(task.name)+'</h2><p class="board-path">D:/Projects/VASPFlow/test/4-NO-scan/'+esc(task.name)+'</p>'
+        +section('构建状态',dataLine('本次状态',status)+dataLine('全局后续模式',state.dryRun?'用户预览':'AI 直接构建')+dataLine('检查',task.status))
+        +section('来源映射',dataLine('POSCAR',task.source)+dataLine('INCAR / KPOINTS / POTCAR',tool.data.template+' 模板')+dataLine('Selective dynamics',i===2?'55F / 1T · 仅 O 放开':'54F / 2T · N/O 放开'))
+        +section('提醒',evidence(task.status==='需注意'?'本项有来源约束提醒，请核对 N/O 固定规则。':'POTCAR 与 POSCAR 物种顺序一致。',task.status==='需注意'?'warn':''));
+    }
+    if(key==='convergence') return '<div class="board-kicker">收敛看板</div><h2>2-NO</h2><p class="board-path">8 个离子步 · CONTCAR</p>'
+      +section('能量趋势','<svg class="energy-chart" viewBox="0 0 300 165" role="img" aria-label="能量随离子步下降并趋于稳定"><path d="M32 16V135H282" fill="none" stroke="#a0bcaa"/><path d="M34 30 69 65 104 87 139 108 174 119 209 126 244 129 279 130" fill="none" stroke="#187669" stroke-width="3"/><circle cx="279" cy="130" r="4" fill="#ed7454"/><text x="7" y="26" fill="#687c7b" font-size="9">−303.8</text><text x="7" y="132" fill="#687c7b" font-size="9">−304.3</text></svg>')
+      +section('末步指标',dataLine('能量','−304.287 eV')+dataLine('最大力','0.021 eV/Å')+dataLine('离子步','8'));
+    if(key==='structure') return '<div class="board-kicker">结构看板</div><h2>Bi₅₄NO</h2><p class="board-path">2-NO/CONTCAR · 56 原子</p>'
+      +section('结构场景','<div class="structure-diagram"><svg viewBox="0 0 260 195" role="img" aria-label="Bi 表面与 NO 吸附物的示意结构"><path d="M20 138H240M20 164H240" stroke="#9bbfac"/><g fill="#7eaa92"><circle cx="42" cy="139" r="11"/><circle cx="84" cy="139" r="11"/><circle cx="126" cy="139" r="11"/><circle cx="168" cy="139" r="11"/><circle cx="210" cy="139" r="11"/><circle cx="63" cy="164" r="11"/><circle cx="105" cy="164" r="11"/><circle cx="147" cy="164" r="11"/><circle cx="189" cy="164" r="11"/></g><line x1="130" y1="99" x2="147" y2="58" stroke="#4c6860" stroke-width="4"/><circle cx="130" cy="99" r="12" fill="#356592"/><circle cx="147" cy="58" r="11" fill="#e76854"/><text x="126" y="103" font-size="11" fill="#fff">N</text><text x="143" y="62" font-size="11" fill="#fff">O</text></svg></div><p class="tool-note">示意场景；实际插件接入现有 3D 结构视图。</p>')
+      +section('结构摘要',dataLine('Bi / N / O','54 / 1 / 1')+dataLine('N–O 键长','1.19 Å'));
+    if(key==='check:warn'||key.startsWith('check:')) return '<div class="board-kicker">输入检查</div><h2>'+esc(key==='check:warn'?'dz-p0.6':key==='check:ok1'?'dz-p0.2':'dz-p0.4')+'</h2><p class="board-path">4-NO-scan · 结构优化规则</p>'
+      +section('逐项结果',dataLine('POSCAR / POTCAR','同序 · 通过')+dataLine('Selective dynamics',key==='check:warn'?'与同批不同':'通过'))
+      +section('批次判断',evidence('同批任务的 SD 旗标不一致，需核对固定规则。','warn'));
+    if(key==='scan:error') return '<div class="board-kicker">任务状态</div><h2>dz-p6.0</h2><p class="board-path">3-NO-scan/dz-p6.0</p>'
+      +section('状态',dataLine('类型','结构优化')+dataLine('结果','错误'))
+      +section('关键证据',evidence('OUTCAR 中发现结构优化错误。单个错误词需要结合结束标记和任务类型解释。','error'));
+    if(key==='scan:running') return '<div class="board-kicker">任务状态</div><h2>2-NO</h2><p class="board-path">2-NO</p>'
+      +section('状态',dataLine('类型','结构优化')+dataLine('观察到','离子步 8')+dataLine('扫描快照','运行中'));
+    if(key==='inspect'||key==='scan:done') return '<div class="board-kicker">任务状态</div><h2>'+esc(key==='scan:done'?'1-NO3':'2-NO')+'</h2><p class="board-path">'+esc(key==='scan:done'?'1-NO3':'2-NO')+' · OUTCAR</p>'
+      +section('状态',dataLine('类型','结构优化')+dataLine('结果','已完成'))
+      +section('关键证据',evidence('OUTCAR 正常结束；电子和离子收敛证据齐全。'));
+    return '<div class="board-kicker">任务状态</div><h2>dz-p0.2</h2><p class="board-path">4-NO-scan/dz-p0.2</p>'
+      +section('状态',dataLine('输入文件','齐全')+dataLine('扫描快照','待计算'));
+  }
+  function renderProtocol(chat) {
+    const audits=chat.audit.map(a=>'<div class="audit-item '+(a.kind==='rejected'?'rejected':'')+'"><b>'+esc(a.label)+'</b><span>'+esc(a.detail)+'</span></div>').join('');
+    return '<div class="board-kicker">Harness / Tool-only</div><h2>协议轨迹</h2><p class="board-path">确定性模拟：候选先缓冲、验证，只有通过才写入会话并执行工具。</p>'
+      +'<div class="protocol-number"><div><strong>'+chat.domainCount+'</strong><span>领域工具结果</span></div><div><strong>'+chat.speechCount+'</strong><span>发言工具</span></div><div><strong>'+chat.rejected+'</strong><span>拦截候选</span></div></div>'
+      +section('接收边界','<div class="pipeline"><div>模型候选缓冲</div><div>检查正文、工具批次、终止条件</div><div>通过后发布 assistant/chunk 与 message</div><div>执行工具；必要时 concludeTurn()</div></div>')
+      +section('会话事件','<div class="audit">'+audits+'</div>')
+      +section('可见性',evidence('已发布分片 '+chat.publishedChunks+'；被拒绝候选发布 0 个分片。违规原文不进入界面或会话日志。',chat.rejected?'warn':''));
+  }
+  function renderBoard(chat) {
+    document.querySelectorAll('[data-tab]').forEach(button=>button.classList.toggle('active',button.dataset.tab===state.tab));
+    $('boardContent').innerHTML=state.tab==='protocol'?renderProtocol(chat):renderDetail(chat);
+    $('boardFoot').textContent=state.tab==='protocol'
+      ?'仅展示可审计事件；模拟的违规原文不会被持久化。'
+      :'对话保留调用时的快照；此看板展示所选结果的详情。';
+  }
+  function render() {
+    const chat=currentChat();
+    renderNav();renderHeader(chat);renderThread(chat);renderBoard(chat);
+  }
+  document.addEventListener('click',event=>{
+    const target=event.target.closest('button');
+    if(!target)return;
+    if(target.id==='resetAll') {
+      state.active='survey';state.tab='detail';state.dryRun=true;state.chats={};state.outcomes={};state.nextMessage=1;state.nextPlan=1;state.guardCase='text';render();return;
+    }
+    if(target.dataset.scenario){state.active=target.dataset.scenario;state.tab='detail';render();return;}
+    if(target.dataset.tab){state.tab=target.dataset.tab;renderBoard(currentChat());return;}
+    const chat=currentChat();
+    if(target.dataset.toggle){const id=Number(target.dataset.toggle);chat.open.has(id)?chat.open.delete(id):chat.open.add(id);render();return;}
+    if(target.dataset.more){const id=Number(target.dataset.more);chat.more.has(id)?chat.more.delete(id):chat.more.add(id);render();return;}
+    if(target.dataset.candidate){const id=target.dataset.candidate;chat.candidates.has(id)?chat.candidates.delete(id):chat.candidates.add(id);render();return;}
+    if(target.dataset.detail){chat.selected=target.dataset.detail;state.tab='detail';render();return;}
+    if(target.dataset.guard){state.guardCase=target.dataset.guard;state.chats.guard=createScenario('guard');render();return;}
+    if(target.dataset.choose){
+      if(chat.choiceResolved)return;
+      chat.choiceResolved=true;
+      runTurn(chat,'使用 '+target.dataset.choose+' 模板；结构源使用三个位移文件。',[
+        step(call('vasp_build_inputs',buildArgs(target.dataset.choose))),
+        step(call('vasp_check_inputs',{projectRoot:'D:/Projects/VASPFlow/test',dirs:BUILD_TASKS.map(t=>'4-NO-scan/'+t.name),profileId:'structure-optimization'})),
+        step(call('vasp_done'))
+      ]);
+      render();return;
+    }
+    if(target.dataset.buildAction){
+      const o=state.outcomes[target.dataset.plan];
+      if(!o||o.phase!=='preview')return;
+      if(target.dataset.buildAction==='cancel'){o.phase='cancelled';chat.audit.push({kind:'ui',label:'UI',detail:'用户取消预览 · 未写入 · 不触发模型调用'});}
+      else if(o.picked.some(Boolean)){
+        o.phase='done';
+        o.directAfter=target.dataset.buildAction==='direct';
+        if(o.directAfter)state.dryRun=false;
+        chat.audit.push({kind:'ui',label:'UI',detail:'用户确认 '+o.picked.filter(Boolean).length+' 个任务 · 模拟写入 · 不触发模型调用'+(o.directAfter?' · 后续设为 AI 直接构建':'')});
+      }
+      chat.status='complete';
+      render();return;
+    }
+    if(target.dataset.mode){state.dryRun=true;chat.audit.push({kind:'ui',label:'UI',detail:'全局模式恢复用户预览；只影响后续构建调用'});render();return;}
+    if(target.dataset.rerun){runBuild(chat,false);render();$('thread').lastElementChild?.scrollIntoView({behavior:'smooth',block:'end'});return;}
+  });
+  document.addEventListener('change',event=>{
+    const input=event.target.closest('input[data-plan]');
+    if(!input)return;
+    const o=state.outcomes[input.dataset.plan];
+    if(!o||o.phase!=='preview')return;
+    o.picked[Number(input.dataset.index)]=input.checked;
+    render();
+  });
+  render();
+  </script>
+</body>
+</html>

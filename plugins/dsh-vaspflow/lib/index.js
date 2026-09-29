@@ -262,13 +262,6 @@ function buildInputsResultContent(value) {
   const mode = data?.dryRun
     ? '当前模式：用户预览确认；构建计划完成，未写入任何文件'
     : `当前模式：交给 AI 直接构建；已写入 ${wroteCount}/${count} 个任务`;
-  const reply = data?.dryRun && data?.planId
-    ? `建议回复：我计划构建 ${count} 个任务，尚未写入磁盘。请检查任务树，无误请点击「确认构建」。不要再次调用 vasp_build_inputs 来确认。`
-    : !data?.dryRun && count > 0
-      ? wroteCount === count && !data?.errorCount
-        ? `建议回复：已构建 ${wroteCount} 个任务，文件已写入，请在任务树和右侧看板检阅。`
-        : `建议回复：本次写入 ${wroteCount}/${count} 个任务；请说明失败任务，不要声称全部构建完成。`
-      : '';
   const rows = results.slice(0, 6).map((row) => {
     const icon = row?.errors?.length ? '失败' : row?.warnings?.length ? '注意' : '通过';
     const notes = [row?.sd && `SD ${row.sd}`, row?.potcar && `POTCAR ${row.potcar}`].filter(Boolean).join(' · ');
@@ -283,7 +276,7 @@ function buildInputsResultContent(value) {
     type: 'text',
     text: [
       mode,
-      reply,
+      data?.dryRun && data?.planId ? '等待用户在任务树确认；确认按钮会直接写入，不需要再次调用构建工具' : '',
       `结果：${data?.okCount ?? 0} 个通过 · ${data?.warnCount ?? 0} 个有注意项 · ${data?.errorCount ?? 0} 个失败`,
       rows.length > 0 ? rows.join('\n') : '没有任务结果',
     ].filter(Boolean).join('\n'),
@@ -374,6 +367,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
         },
       },
       render: (_args, value) => renderScanResult(value),
+      presentationMeta: (args, value) => ({ rootPath: args.rootPath, error: value.error, tasks: value.tasks, directories: value.directories }),
     },
     async execute(args) {
       const error = directoryError(args.rootPath);
@@ -419,6 +413,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
         },
       },
       render: (args, value) => renderTaskInspection(args, value),
+      presentationMeta: (_args, value) => ({ rootPath: value.root_path, relPath: value.rel_path, status: value.status, inputCheck: value.input_check, preview: value.preview, error: value.error }),
     },
     async execute(args) {
       const error = directoryError(args.rootPath);
@@ -484,6 +479,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
             `最大力：${renderJson(renderSeries(value.max_forces))}`,
           ].join('\n')),
       }],
+      presentationMeta: (_args, value) => ({ rootPath: value.root_path, relPath: value.rel_path, ionSteps: value.ion_steps?.length ?? 0, finalEnergy: value.energies?.at(-1), error: value.error }),
     },
     async execute(args) {
       const info = taskAtPath(args.rootPath, args.relPath);
@@ -571,6 +567,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
             `晶胞与原子场景：${renderJson({ version: value.version, cell: value.cell, atoms: value.atoms, bonds: value.bonds, bond_families: value.bond_families, warnings: value.warnings })}`,
           ].join('\n')),
       }],
+      presentationMeta: (_args, value) => ({ rootPath: value.root_path, relPath: value.rel_path, summary: value.summary, warnings: value.warnings, error: value.error }),
     },
     async execute(args) {
       const info = taskAtPath(args.rootPath, args.relPath);
@@ -687,7 +684,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
 
   ctx.tools.register(defineTool({
     name: 'vasp_build_inputs',
-    description: '按明确来源批量构建 VASP 输入：建目录、复制 INCAR/KPOINTS/POTCAR/POSCAR/提交脚本、按 freeAtoms 或 fixedAtoms 显式规则写 Selective dynamics（绝不按元素序推断）、INCAR 参数覆盖、POTCAR-POSCAR 等长同序校验。提交脚本必须显式给出 submitSrc。工具调用始终表达同一构建意图；预览或直接写入由插件全局模式决定，AI 无需指定。以本次返回的 dryRun、wroteCount、count 判断当前模式与实际写入情况，不根据上轮状态猜测。dryRun 为 true 时，告诉用户在对话任务树检查并点击「确认构建」，不要为了确认再次调用工具；为 false 时，报告已写入的数量并请用户检阅。',
+    description: '按明确来源批量构建 VASP 输入：建目录、复制 INCAR/KPOINTS/POTCAR/POSCAR/提交脚本，按显式 freeAtoms 或 fixedAtoms 规则写 Selective dynamics，覆盖 INCAR 参数并校验 POTCAR-POSCAR 物种顺序。工具调用始终表达同一构建意图；预览或直接写入由插件模式决定，AI 不指定 dryRun。预览结果有 planId 时，任务树提供确认按钮并自动结束本轮；不要再次调用本工具来确认。直接构建按结果中的 wroteCount 和错误项判断实际写入情况。',
     parameters: {
       projectRoot: { type: 'string', description: '项目根目录：任务 dir 与相对源路径的基准；缺省用当前会话工作空间。' },
       tasks: {
@@ -780,6 +777,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
           }
           const planId = randomUUID();
           buildPlans.set(planId, { projectRoot, tasks: structuredClone(args.tasks), linkPotcar: !!args.linkPotcar, createdAt: Date.now() });
+          exec?.concludeTurn?.();
           return { ...result, projectRoot, planId, error: '' };
         }
         return { ...result, projectRoot, error: '' };
@@ -856,6 +854,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
           return (r.error ? '[CRASH] ' : '[ok] ') + r.dir + ' -> ' + r.resolved + ' | POTCAR-POSCAR: ' + r.poscarPotcar + ' | SD: ' + r.sd + ' | ' + inc + ' | ' + r.kpoints + check + evidence + (r.error ? ' | ' + r.error : '') + warn;
         }).join('\n') + `\n目录一致性：${value.consistency?.note ?? '未提供'}\n[面板同步] 已关联 ${value.linked_count ?? 0} 个任务${value.unlinked_dirs?.length ? `；未关联：${value.unlinked_dirs.join(', ')}` : ''}`),
       }],
+      presentationMeta: (args, value) => ({ projectRoot: args.projectRoot, profileId: args.profileId, results: value.results, consistency: value.consistency, error: value.error }),
     },
     execute(args, exec) {
       try {
@@ -905,6 +904,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
             `模板明细：${renderJson(value.templates)}`,
           ].join('\n')),
       }],
+      presentationMeta: (args, value) => ({ rootPath: args.rootPath, sources: value.sources, templates: value.templates, error: value.error }),
     },
     execute(args, exec) {
       const rootPath = args.rootPath ?? workspaceOf(exec);
@@ -923,6 +923,42 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
     },
     presentCall: (args) => ({ card: 'generic', title: 'Discover VASP inputs', kind: 'other', rawInput: args }),
   }));
+  ctx.tools.register(defineTool({
+    name: 'vasp_say',
+    description: '仅在需要提问、回答解释性问题或说明工具结果无法表达的阻碍时，向用户发送一条简短消息。本调用必须单独进行；不能复述已有工具视图。',
+    parameters: {
+      kind: { type: 'string', required: true, enum: ['question', 'answer', 'blocker'] },
+      text: { type: 'string', required: true, description: '向用户展示的正文；直接回答，避免过程播报。' },
+    },
+    output: {
+      schema: { type: 'object', additionalProperties: false, properties: { delivered: { type: 'boolean', required: true } } },
+      render: () => [{ type: 'text', text: '消息已展示，当前轮次结束。' }],
+    },
+    execute(args, exec) {
+      if (!['question', 'answer', 'blocker'].includes(args.kind) || typeof args.text !== 'string' || !args.text.trim() || args.text.length > 4000) {
+        throw new Error('vasp_say requires a kind and 1–4000 characters of text');
+      }
+      exec.concludeTurn();
+      return { delivered: true };
+    },
+    presentCall: () => ({ card: 'generic', title: '向用户发言', kind: 'other' }),
+  }));
+
+  ctx.tools.register(defineTool({
+    name: 'vasp_done',
+    description: '当前轮次已有完整的 VASP 工具结果时结束本轮，不再输出正文。本调用必须单独进行。',
+    parameters: {},
+    output: {
+      schema: { type: 'object', additionalProperties: false, properties: { done: { type: 'boolean', required: true } } },
+      render: () => [{ type: 'text', text: '本轮结束。' }],
+    },
+    execute(_args, exec) {
+      exec.concludeTurn();
+      return { done: true };
+    },
+    presentCall: () => ({ card: 'generic', title: '结束本轮', kind: 'other' }),
+  }));
+
   // Superseded by vasp_discover_inputs; kept temporarily as an unregistered
   // implementation reference while 0.3 is validated.
   if (false) ctx.tools.register(defineTool({

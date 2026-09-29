@@ -1,6 +1,6 @@
 # VASPFlow 工具优先、发言受控的 Agent 设计
 
-> 设计基线：提交 `b058dc8`；插件 `dsh-vaspflow@0.2.4`；本机 DSH `0.1.0-rc.6`。本文是实施方案，尚未修改运行时。
+> 设计基线：提交 `b058dc8`；插件 `dsh-vaspflow@0.2.4`；本机 DSH `0.1.0-rc.6`。方案已在插件内实现。输出闸门使用预设专属的 `llm/stream` 包装器，完整缓冲并验证后才允许 Agent Loop 记录分片；没有修改 DSH 安装目录中的代码。
 
 ## 1. 目标与边界
 
@@ -21,7 +21,7 @@
 - `@deepseek-ai/dsh-agent-loop@0.1.0-rc.6` 在 `ReactLoopAgent.step()` 中，**先**将每个模型分片写为 `assistant/chunk`，随后将组装后的块写为 `assistant/message`，再执行工具调用。因此事后检查完整消息或只隐藏 UI 都无法防止流式文字泄漏。
 - 同一循环在没有工具调用时直接结束该轮；有工具调用时执行整个调用批次。成功工具可通过 `ToolRunContext.concludeTurn()` 标记 `concludesTurn`，循环在该批次提交后结束本轮。故终止工具应单独调用，不能与别的工具放在同一个 assistant 消息中。
 - DSH 的 `GenerateOptions` 只有 `tools`，没有 `toolChoice/tool_choice`。不能把提供方“强制工具调用”当作当前版本已有能力。系统提示词是软引导；真正的约束需在宿主接受模型输出前验证。
-- `llm/stream` 是可包装的 waterfall，可用于原型缓冲和检查流，但它不拥有会话事件与工具调度。正式约束应靠 Agent Loop 的输出策略扩展点；不能直接修改安装目录里的编译产物。
+- `llm/stream` 是可包装的 waterfall。当前版本的 prepared call 也经过它；完整缓冲和验证可在 Agent Loop 看到分片前拒绝候选。它不拥有会话事件与工具调度，因此长期仍适合迁移到 Agent Loop 的正式输出策略扩展点。
 
 ## 3. 推荐协议：领域工具 + 两个终止工具
 
@@ -117,7 +117,13 @@ async execute(args, exec) {
 }
 ```
 
-### 6.2 DSH 上游 Agent Loop：强约束所必需
+### 6.2 模型输出闸门（已在 VASP 预设内实现）
+
+当前实现位于 `plugins/dsh-vaspflow/preset/vasp/tools/tool-only-output.mjs`。它只对工具目录同时含 `vasp_say` 和 `vasp_done` 的会话生效；这两个工具仅由 VASP 预设注册。包装器在向 Agent Loop 交付第一个分片前收齐并验证整个候选，因此无效正文不会进入 `assistant/chunk` 或触发混批工具。违约时本轮以明确错误结束。普通预设的流保持原样。
+
+这会增加首个工具调用的等待时间。当前 DSH 的 `llm/stream` 对 prepared call 也生效，因此在不修改上游包的前提下可以形成接收端闸门。若未来 DSH 增加正式的 scoped output-policy API，应迁移至该扩展点，并保持下述验收测试。
+
+### 6.3 可迁移的 DSH 上游 Agent Loop 设计
 
 目标是 `packages/core/agent-loop` 的 `ReactLoopAgent.step()`，不是改本机 `node_modules`。新增由 agent scope 提供的 `assistantOutputPolicy` 服务或等价能力（默认关闭；`vasp` 预设设为 `tool-only`），由当前 agent 的 scope 解析，不能从全局开关误伤其他预设。在 **session append 之前** 验证一次完整模型候选：
 
@@ -144,14 +150,14 @@ return executeToolCalls(calls);
 
 检查必须覆盖：只有文字、文字与工具混合、空成功响应、伪造/未知工具、无可见结果却调用 `vasp_done`、终止工具和其他工具混用、构建工具与其他调用混用。无效候选以及失败或截断的部分候选不写入用户可见的 `assistant/chunk` 或 `assistant/message`，也不执行任何工具。记录不含原始正文的政策诊断事件，给用户一个明确的宿主错误；保留原有取消、max-tokens、提供方错误及工具权限流程的终止语义。首版采用**失败即停**，避免在没有规范重试边界时隐式再向模型请求。若错误率影响可用性，再在 Agent Loop 增加一次有界重试，并为重试建立可回放的尝试事件。
 
-当前 `GenerateOptions` 没有 `toolChoice`。未来可以在 LLM 接口和支持它的适配器加入 `toolChoice: 'required'` 以减少违约；它只是模型侧优化，不能替代上述接收端验证。`llm/stream` 包装器可作为独立原型先做“缓冲后拒绝”，但须通过 scoped-session 集成测试证明只影响 `vasp` 会话；未证明前不把它当正式隔离边界。
+当前 `GenerateOptions` 没有 `toolChoice`。未来可以在 LLM 接口和支持它的适配器加入 `toolChoice: 'required'` 以减少违约；它只是模型侧优化，不能替代上述接收端验证。当前插件用 VASP 预设独有的两个工具名限定闸门范围，并在测试中验证普通工具目录直通。
 
-### 6.3 执行顺序与门槛
+### 6.4 执行顺序与门槛
 
 1. 先给七个工具补齐自描述的结果视图，再移除“建议回复”。验证：只看工具行和看板就能判断成功、异常和下一步。
 2. 注册并测试 `vasp_say`、`vasp_done` 与 persona。验证：纯问答、澄清、预览、直接构建四类轮次都能正常结束。
-3. 在 DSH 上游加入 scoped 输出策略与持久事件测试。验证：无效文本从未进入会话日志或流式 UI，也不会触发同批工具。
-4. 通过真实模型的回归对话逐步启用，记录违约率、额外模型步数、首结果延迟与无声失败率；只有无障碍结果可读且违约率可接受时，才默认开启 `vasp` 的工具输出协议。旧会话的历史正文保留原样；新协议只约束启用后的新轮次。
+3. 在 VASP 预设内挂接输出闸门，验证：无效候选不会向 Agent Loop 交付任何分片，也不会触发同批工具；普通工具目录直通。
+4. 重启 DSH 后通过真实模型对话回归，记录违约率、额外模型步数、首结果延迟与无声失败率。旧会话历史正文保留原样；新协议只约束启用后的新轮次。若未来移至 DSH 上游，继续保留这些验收门槛。
 
 回归样例至少包括：纯问答；缺模板选择；扫描后核查；构建预览后切换对话再确认；直接构建后输入检查；部分写入失败；工具超时/权限拒绝；模型混合正文与工具；模型只输出正文；取消与恢复会话。普通预设须确认行为不变。
 

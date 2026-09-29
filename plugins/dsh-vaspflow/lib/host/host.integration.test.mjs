@@ -127,8 +127,8 @@ test('apply registers routes globally and VASP tools only through the preset ser
   const toolNames = registered.map((t) => t.name);
   assert.deepEqual(toolNames.sort(), [
     'vasp_build_inputs', 'vasp_check_inputs',
-    'vasp_convergence', 'vasp_discover_inputs', 'vasp_inspect_task',
-    'vasp_scan', 'vasp_structure_scene',
+    'vasp_convergence', 'vasp_discover_inputs', 'vasp_done', 'vasp_inspect_task',
+    'vasp_say', 'vasp_scan', 'vasp_structure_scene',
   ].sort());
 });
 
@@ -351,7 +351,7 @@ test('VASP preset bridge registers the host service only in its own scope', () =
   };
   vaspPresetTools.apply(presetCtx);
 
-  assert.equal(registered.length, 7);
+  assert.equal(registered.length, 9);
   for (const tool of registered) {
     assert.equal(Object.hasOwn(tool.parameters ?? {}, 'taskId'), false, `${tool.name} must not expose taskId`);
   }

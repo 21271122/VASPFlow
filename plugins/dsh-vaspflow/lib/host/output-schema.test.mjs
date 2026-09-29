@@ -145,24 +145,23 @@ test('model-visible tool renders keep the requested result details', () => {
   assert.match(buildText, /来源: POSCAR←src\/POSCAR/);
   assert.match(buildText, /未提供 submitSrc/);
   assert.match(buildText, /当前模式：用户预览确认/);
-  assert.match(buildText, /我计划构建 1 个任务，尚未写入磁盘/);
-  assert.match(buildText, /点击「确认构建」/);
-  assert.match(buildText, /不要再次调用 vasp_build_inputs/);
+  assert.match(buildText, /等待用户在任务树确认/);
+  assert.doesNotMatch(buildText, /建议回复/);
 
   const directText = renderedText(tool('vasp_build_inputs'), {}, {
     results: [{ dir: 'calc', wrote: true, warnings: [], errors: [] }],
     okCount: 1, warnCount: 0, errorCount: 0, dryRun: false, count: 1, wroteCount: 1, written: true, error: '',
   });
   assert.match(directText, /当前模式：交给 AI 直接构建/);
-  assert.match(directText, /已构建 1 个任务，文件已写入.*请在任务树和右侧看板检阅/);
+  assert.match(directText, /已写入 1\/1 个任务/);
   assert.doesNotMatch(directText, /确认构建/);
 
   const partialText = renderedText(tool('vasp_build_inputs'), {}, {
     results: [{ dir: 'calc', wrote: true, warnings: [], errors: [] }, { dir: 'failed', wrote: false, warnings: [], errors: ['源文件缺失'] }],
     okCount: 1, warnCount: 0, errorCount: 1, dryRun: false, count: 2, wroteCount: 1, written: true, error: '',
   });
-  assert.match(partialText, /本次写入 1\/2 个任务/);
-  assert.match(partialText, /不要声称全部构建完成/);
+  assert.match(partialText, /已写入 1\/2 个任务/);
+  assert.doesNotMatch(partialText, /建议回复/);
 
   const buildArgs = {
     projectRoot: 'E:\\project',
@@ -283,17 +282,35 @@ test('vasp_build_inputs defaults to a preview without writing', async () => {
   const dir = makeFixture();
   try {
     const tasks = [{ dir: 'out1', poscarSrc: 'struc/surface.vasp', template: 'tpl', submitSrc: 'tpl/submit.slurm', freeAtoms: [37, 38, 39, 40] }];
-    const result = await builder.execute({ projectRoot: dir, tasks }, {});
+    let concluded = 0;
+    const result = await builder.execute({ projectRoot: dir, tasks }, { concludeTurn() { concluded += 1; } });
     assertValidOutputs(builder, result);
     assert.equal(result.dryRun, true);
     assert.equal(result.written, false);
     assert.equal(result.count, 1);
     assert.equal(result.wroteCount, 0);
     assert.ok(result.planId);
+    assert.equal(concluded, 1, 'a successful preview ends the model turn');
     assert.ok(!existsSync(join(dir, 'out1')), 'preview must not create the task directory');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('vasp_say and vasp_done validate and conclude without echoing speech', async () => {
+  const say = tool('vasp_say');
+  const done = tool('vasp_done');
+  let concluded = 0;
+  const exec = { concludeTurn() { concluded += 1; } };
+  assert.deepEqual(await say.execute({ kind: 'answer', text: '  已确认。  ' }, exec), { delivered: true });
+  assert.deepEqual(await done.execute({}, exec), { done: true });
+  assert.equal(concluded, 2);
+  await assert.rejects(() => say.execute({ kind: 'answer', text: '  ' }, exec));
+  await assert.rejects(() => say.execute({ kind: 'unknown', text: 'hello' }, exec));
+  assert.equal(concluded, 2);
+  assertValidOutputs(say, { delivered: true });
+  assertValidOutputs(done, { done: true });
+  assert.doesNotMatch(renderedText(say, {}, { delivered: true }), /已确认/);
 });
 
 test('vasp_build_inputs does not expose or honor a model-supplied dryRun switch', async () => {
