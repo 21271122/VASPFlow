@@ -6,8 +6,8 @@
  * (validateJsonSchemaValue). This guards two past contract breaks:
  *  - vasp_check_inputs returned error:null under a { type: 'string' } schema,
  *    so any normal invocation was rejected by the host validator;
- *  - vasp_build_inputs defaulted into dry-run (args.dryRun !== false) while
- *    the tool description claimed "default false", silently building nothing.
+ *  - vasp_build_inputs must use the plugin-owned preview mode instead of
+ *    accepting a model-supplied dryRun switch.
  *
  * Run: node --test lib/host/*.test.mjs
  */
@@ -140,10 +140,59 @@ test('model-visible tool renders keep the requested result details', () => {
 
   const buildText = renderedText(tool('vasp_build_inputs'), {}, {
     results: [{ status: 'warn', dir: 'calc', sd: '1F, 1T', potcar: 'OK', sources: { POSCAR: 'src/POSCAR' }, sdNotes: [], warnings: ['未提供 submitSrc'], errors: [] }],
-    okCount: 0, warnCount: 1, errorCount: 0, dryRun: true, count: 1, wroteCount: 0, written: false, error: '',
+    okCount: 0, warnCount: 1, errorCount: 0, dryRun: true, planId: 'preview-1', count: 1, wroteCount: 0, written: false, error: '',
   });
   assert.match(buildText, /来源: POSCAR←src\/POSCAR/);
   assert.match(buildText, /未提供 submitSrc/);
+  assert.match(buildText, /当前模式：用户预览确认/);
+  assert.match(buildText, /我计划构建 1 个任务，尚未写入磁盘/);
+  assert.match(buildText, /点击「确认构建」/);
+  assert.match(buildText, /不要再次调用 vasp_build_inputs/);
+
+  const directText = renderedText(tool('vasp_build_inputs'), {}, {
+    results: [{ dir: 'calc', wrote: true, warnings: [], errors: [] }],
+    okCount: 1, warnCount: 0, errorCount: 0, dryRun: false, count: 1, wroteCount: 1, written: true, error: '',
+  });
+  assert.match(directText, /当前模式：交给 AI 直接构建/);
+  assert.match(directText, /已构建 1 个任务，文件已写入.*请在任务树和右侧看板检阅/);
+  assert.doesNotMatch(directText, /确认构建/);
+
+  const partialText = renderedText(tool('vasp_build_inputs'), {}, {
+    results: [{ dir: 'calc', wrote: true, warnings: [], errors: [] }, { dir: 'failed', wrote: false, warnings: [], errors: ['源文件缺失'] }],
+    okCount: 1, warnCount: 0, errorCount: 1, dryRun: false, count: 2, wroteCount: 1, written: true, error: '',
+  });
+  assert.match(partialText, /本次写入 1\/2 个任务/);
+  assert.match(partialText, /不要声称全部构建完成/);
+
+  const buildArgs = {
+    projectRoot: 'E:\\project',
+    linkPotcar: true,
+    tasks: [
+      { dir: 'task-001', poscarSrc: 'structures/POSCAR', freeAtoms: [1, 2] },
+      { dir: 'task-002', template: 'templates/relax' },
+    ],
+  };
+  const buildCall = tool('vasp_build_inputs').presentCall(buildArgs);
+  assert.equal(buildCall.card, 'generic');
+  assert.equal(buildCall.kind, 'edit');
+  assert.match(buildCall.content[0].text, /2 个任务/);
+  assert.match(buildCall.content[0].text, /目标：构建 2 个任务/);
+  assert.deepEqual(buildCall.locations.slice(0, 2), [{ path: 'task-001' }, { path: 'structures/POSCAR' }]);
+  const buildResultView = tool('vasp_build_inputs').presentResult(buildArgs, {
+    results: [{ dir: 'task-001', sd: '2T', potcar: 'OK', warnings: [], errors: [] }],
+    okCount: 1, warnCount: 0, errorCount: 0, dryRun: true, count: 1, wroteCount: 0, error: '',
+  });
+  assert.match(buildResultView.title, /预览完成/);
+  assert.match(buildResultView.content[0].text, /构建计划完成，未写入任何文件/);
+  assert.match(buildResultView.content[0].text, /task-001/);
+  const buildMeta = tool('vasp_build_inputs').output.presentationMeta(buildArgs, {
+    results: [{ dir: 'task-001', sd: '2T', potcar: 'OK', sources: { POSCAR: 'src/POSCAR' }, warnings: [], errors: [] }],
+    okCount: 1, warnCount: 0, errorCount: 0, dryRun: true, count: 1, wroteCount: 0, written: false, error: '',
+  });
+  const hostStyleResultView = tool('vasp_build_inputs').presentResult(buildArgs, {
+    content: [{ type: 'text', text: 'canonical output' }], isError: false, meta: buildMeta,
+  });
+  assert.match(hostStyleResultView.content[0].text, /来源: POSCAR←src\/POSCAR/);
 
   const checkText = renderedText(tool('vasp_check_inputs'), {}, {
     results: [{ dir: 'calc', resolved: 'C:\\calc', poscarPotcar: 'OK', sd: 'SDx1', incar: { NSW: '100' }, kpoints: '2x2x1', warnings: [], input_check: { code: 'PASS', label: '通过指定规则检查', profileId: 'structure-optimization', evidence: [{ message: '规则通过' }] }, error: '' }],
@@ -230,29 +279,29 @@ test('vasp_check_inputs output passes the host validator (good/bad/not-found)', 
   }
 });
 
-test('vasp_build_inputs without dryRun writes for real (default false)', async () => {
+test('vasp_build_inputs defaults to a preview without writing', async () => {
   const dir = makeFixture();
   try {
     const tasks = [{ dir: 'out1', poscarSrc: 'struc/surface.vasp', template: 'tpl', submitSrc: 'tpl/submit.slurm', freeAtoms: [37, 38, 39, 40] }];
     const result = await builder.execute({ projectRoot: dir, tasks }, {});
     assertValidOutputs(builder, result);
-    assert.equal(result.dryRun, false);                   // default is a REAL build
-    assert.equal(result.written, true);
+    assert.equal(result.dryRun, true);
+    assert.equal(result.written, false);
     assert.equal(result.count, 1);
-    assert.equal(result.wroteCount, 1);
-    assert.ok(existsSync(join(dir, 'out1/POSCAR')), 'out1/POSCAR must exist after a real build');
-    const poscar = await import('node:fs').then((fs) => fs.readFileSync(join(dir, 'out1/POSCAR'), 'utf-8'));
-    assert.ok(poscar.includes('Selective dynamics'));
+    assert.equal(result.wroteCount, 0);
+    assert.ok(result.planId);
+    assert.ok(!existsSync(join(dir, 'out1')), 'preview must not create the task directory');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('vasp_build_inputs with dryRun=true writes nothing (written=false)', async () => {
+test('vasp_build_inputs does not expose or honor a model-supplied dryRun switch', async () => {
   const dir = makeFixture();
   try {
     const tasks = [{ dir: 'out2', poscarSrc: 'struc/surface.vasp', template: 'tpl', submitSrc: 'tpl/submit.slurm', freeAtoms: [37, 38, 39, 40] }];
-    const result = await builder.execute({ projectRoot: dir, tasks, dryRun: true }, {});
+    assert.equal(Object.hasOwn(builder.parameters, 'dryRun'), false);
+    const result = await builder.execute({ projectRoot: dir, tasks, dryRun: false }, {});
     assertValidOutputs(builder, result);
     assert.equal(result.dryRun, true);
     assert.equal(result.written, false);

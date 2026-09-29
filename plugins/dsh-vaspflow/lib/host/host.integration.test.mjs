@@ -5,7 +5,7 @@
  */
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { apply } from '../index.js';
@@ -64,7 +64,7 @@ function makeFakeCtx() {
 }
 
 /** Drive a route handler with a request and return the parsed JSON body. */
-async function callRoute(matchFn, url, method = 'GET') {
+async function callRoute(matchFn, url, method = 'GET', payload) {
   const pathname = new URL(url, 'http://x').pathname;
   const route = matchFn(pathname);
   assert.ok(route !== undefined, `no route matched ${pathname}`);
@@ -78,7 +78,8 @@ async function callRoute(matchFn, url, method = 'GET') {
       body = chunk;
     },
   };
-  await route.handler({ url, method }, res);
+  const req = { url, method, async *[Symbol.asyncIterator]() { if (payload !== undefined) yield Buffer.from(JSON.stringify(payload)); } };
+  await route.handler(req, res);
   return { status: res._status, body: body === '' ? null : JSON.parse(body) };
 }
 
@@ -137,6 +138,51 @@ test('ping returns ok', async () => {
   const result = await callRoute(match, '/plugins/dsh-vaspflow/ping');
   assert.equal(result.status, 200);
   assert.equal(result.body.ok, true);
+});
+
+test('build preview confirmation writes selected tasks and user can switch direct mode', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-confirm-'));
+  try {
+    for (const name of ['POSCAR', 'INCAR', 'KPOINTS', 'POTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(root, name));
+    const { ctx, match, registered, services } = makeFakeCtx();
+    apply(ctx, { defaultScanRoot: '' });
+    services.get('vaspflowTools').register(ctx);
+    const builder = registered.find((tool) => tool.name === 'vasp_build_inputs');
+    const task = (dir) => ({ dir, poscarSrc: 'POSCAR', incarSrc: 'INCAR', kpointsSrc: 'KPOINTS', potcarSrc: 'POTCAR', sdPolicy: 'keep' });
+    const preview = await builder.execute({ projectRoot: root, tasks: [task('confirmed-one'), task('confirmed-two')] }, {});
+    assert.equal(preview.written, false);
+    assert.ok(preview.planId);
+    assert.equal(builder.output.presentationMeta({}, preview).planId, preview.planId);
+    assert.equal(existsSync(join(root, 'confirmed-two')), false);
+    const result = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, selectedIndices: [1] });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(result.body.wroteCount, 1);
+    assert.equal(existsSync(join(root, 'confirmed-one')), false);
+    assert.equal(existsSync(join(root, 'confirmed-two', 'POSCAR')), true);
+    const again = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, selectedIndices: [0] });
+    assert.equal(again.status, 404);
+    const secondPreview = await builder.execute({ projectRoot: root, tasks: [task('cancelled')] }, {});
+    const cancelled = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: secondPreview.planId, cancel: true });
+    assert.equal(cancelled.body.cancelled, true);
+    const afterCancel = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: secondPreview.planId, selectedIndices: [0] });
+    assert.equal(afterCancel.status, 404);
+    assert.equal(existsSync(join(root, 'cancelled')), false);
+    const thirdPreview = await builder.execute({ projectRoot: root, tasks: [task('enable-direct')] }, {});
+    const enabled = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: thirdPreview.planId, selectedIndices: [0], enableDirect: true });
+    assert.equal(enabled.status, 200, JSON.stringify(enabled.body));
+    assert.equal(enabled.body.dryRunMode, false);
+    const direct = await builder.execute({ projectRoot: root, tasks: [task('direct-build')], dryRun: true }, {});
+    assert.equal(direct.dryRun, false, 'legacy model argument must not override the global mode');
+    assert.equal(direct.wroteCount, 1);
+    assert.equal(existsSync(join(root, 'direct-build', 'POSCAR')), true);
+    const restored = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/mode', 'POST', { dryRun: true });
+    assert.equal(restored.body.dryRun, true);
+    const againPreview = await builder.execute({ projectRoot: root, tasks: [task('after-restore')] }, {});
+    assert.equal(againPreview.dryRun, true);
+    assert.equal(existsSync(join(root, 'after-restore')), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('scan returns tasks matching the Python field contract', async () => {

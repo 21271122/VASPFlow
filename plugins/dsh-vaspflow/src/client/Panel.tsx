@@ -12,6 +12,7 @@ import {
   AppstoreOutlined, UnorderedListOutlined, MessageOutlined, MenuOutlined, DownOutlined,
 } from '@ant-design/icons';
 import { panelStore, usePanelStore } from './store';
+import type { BuildTaskDetail } from './store';
 import { scanProject, scanProjectEvents, openTaskByPath, checkTaskInputs } from './api';
 import { StatusBadge, TaskTable, TreeView, taskStatusCode } from './components';
 import ConvergenceChart from './ConvergenceChart';
@@ -40,6 +41,34 @@ function absoluteTaskPath(rootPath: string, relPath: string): string {
 function immediateParent(relPath: string): string {
   const parts = relPath.split(/[\\/]+/).filter((part) => part && part !== '.');
   return parts.length > 1 ? parts[parts.length - 2] : '';
+}
+
+function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
+  const { task, result } = detail;
+  const status = result?.errors?.length ? '错误' : detail.phase === 'done' && result?.wrote ? '已写入' : result?.warnings?.length ? '需注意' : detail.phase === 'building' ? '构建中' : '可构建';
+  const sources = Object.entries(result?.sources ?? {}).length > 0
+    ? Object.entries(result?.sources ?? {})
+    : ([['POSCAR', task.poscarSrc], ['INCAR', task.incarSrc], ['KPOINTS', task.kpointsSrc], ['POTCAR', task.potcarSrc], ['提交脚本', task.submitSrc]] as Array<[string, string | undefined]>).filter(([, src]) => Boolean(src)) as Array<[string, string]>;
+  const target = detail.projectRoot ? absoluteTaskPath(detail.projectRoot, task.dir || '.') : task.dir || '未指定';
+  return (
+    <div className="vfp-build-detail">
+      <div className="vfp-build-detail-head"><strong>{task.dir || '未命名任务'}</strong><Tag color={result?.errors?.length ? 'error' : result?.warnings?.length ? 'warning' : 'success'}>{status}</Tag></div>
+      <div className="vfp-build-detail-path">{target}</div>
+      <div className="vfp-build-detail-section"><b>来源映射</b>
+        {task.template && <div>模板：{task.template}</div>}
+        {sources.length ? sources.map(([name, src]) => <div key={name}><span>{name}</span><span>{src}</span></div>) : <div>未指定文件来源</div>}
+      </div>
+      <div className="vfp-build-detail-section"><b>构建设置与检查</b>
+        <div>Selective dynamics：{result?.sd || (task.freeAtoms?.length ? `放开原子 ${task.freeAtoms.join(', ')}` : task.fixedAtoms?.length ? `固定原子 ${task.fixedAtoms.join(', ')}` : task.sdPolicy === 'keep' ? '沿用源文件' : '待预览')}</div>
+        <div>POTCAR：{result?.potcar || '待预览'} · {detail.linkPotcar ? '硬链接' : '复制'}</div>
+        {task.incarOverrides && Object.keys(task.incarOverrides).length > 0 && <div>INCAR 覆盖：{Object.entries(task.incarOverrides).map(([key, value]) => `${key}=${String(value)}`).join(' · ')}</div>}
+        {task.extraFiles?.length ? <div>额外文件：{task.extraFiles.map((item) => item.dest || item.src || item.fromTemplate).join('、')}</div> : null}
+        {result?.sdNotes?.map((note, index) => <div key={`sd-${index}`}>{note}</div>)}
+        {result?.warnings?.map((warning, index) => <div className="vfp-build-warning" key={`warn-${index}`}>提醒：{warning}</div>)}
+        {result?.errors?.map((error, index) => <div className="vfp-build-error" key={`error-${index}`}>错误：{error}</div>)}
+      </div>
+    </div>
+  );
 }
 
 async function copyText(value: string): Promise<void> {
@@ -139,7 +168,7 @@ export interface PanelProps {
 export function Panel(props: PanelProps) {
   const {
     projectPath, projectId, tasks, directories, loading, scanProgress,
-    selectedTask, viewTab, filterStatus, filterConverged, searchText, open,
+    selectedTask, selectedBuildTask, buildDryRun, buildModeError, viewTab, filterStatus, filterConverged, searchText, open,
     workspaceItems,
   } = usePanelStore();
   const [viewMode, setViewMode] = useState<'tree' | 'table'>('tree');
@@ -149,6 +178,7 @@ export function Panel(props: PanelProps) {
   const [, setInputTargetRevision] = useState(0);
   const [checkingInput, setCheckingInput] = useState(false);
   const [inputCheckError, setInputCheckError] = useState('');
+  const [modeActionError, setModeActionError] = useState('');
   const closeScanRef = useRef<(() => void) | null>(null);
 
   const startIncrementalScan = () => {
@@ -466,6 +496,26 @@ export function Panel(props: PanelProps) {
         </Tooltip>
       </div>
 
+      {buildModeError && <div style={{ flex: 'none', padding: '6px 10px', background: 'rgba(196,65,54,.11)', color: '#c44136', fontSize: 12 }}>{buildModeError}</div>}
+
+      {buildDryRun === false && <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 8, padding: '3px 10px', background: 'rgba(38,151,102,.09)', fontSize: 12 }}>
+        <span>AI 直接构建已开启</span>
+        <Button size="small" type="link" style={{ padding: 0, height: 22, fontSize: 12 }} onClick={async () => {
+          try {
+            const response = await fetch('/plugins/dsh-vaspflow/build-inputs/mode', {
+              method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dryRun: true }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || '切换失败');
+            panelStore.setBuildDryRun(true);
+            setModeActionError('');
+          } catch (error) {
+            setModeActionError(error instanceof Error ? error.message : String(error));
+          }
+        }}>恢复预览确认</Button>
+        {modeActionError && <span style={{ color: '#c44136' }}>{modeActionError}</span>}
+      </div>}
+
       {/* toolbar: stats + list popup trigger */}
       {hasTree && (
         <div style={{
@@ -558,7 +608,9 @@ export function Panel(props: PanelProps) {
 
       {/* body: detail fills the whole panel; the task list lives in the popup */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 10px' }}>
-        {!selectedTask ? (
+        {selectedBuildTask ? (
+          <BuildPreviewDetail detail={selectedBuildTask} />
+        ) : !selectedTask ? (
           <Empty style={{ marginTop: 30 }} description="点击「任务列表」选择任务" />
         ) : (
           <>

@@ -55,8 +55,9 @@
 |------|------|------|
 | `projectRoot` | ❌ | 任务 `dir` 与相对源路径的基准；缺省用当前会话工作空间 |
 | `tasks[]` | ✅ | 任务列表，字段见下 |
-| `dryRun` | ❌ | `true` 仅预览不写盘（**默认 `false` = 真实构建**）；返回 `written/wroteCount` 供断言 |
 | `linkPotcar` | ❌ | 用硬链接替代复制 POTCAR |
+
+`dryRun` 是插件全局构建模式，默认 `true`，不在 AI 可填写的工具参数中。默认调用产生对话内任务树预览；用户确认所选任务后写入。预览页的「交给 AI 直接构建」会执行本次所选任务，并将后续调用切换为直接写入；任务树可恢复预览确认。模式切换只影响执行方式，不改变 AI 提交的任务意图。
 
 **任务字段**：
 
@@ -132,7 +133,7 @@ INCAR、OUTCAR 等已属于任务目录的文件，统一由 `vasp_inspect_task`
 | 部件 | 内容 |
 |------|------|------|
 | persona | VASP 计算助手身份 + 硬规则（建作业前校验 INCAR/POTCAR 顺序、不覆盖 CONTCAR/WAVECAR、收敛判定与 VASP 错误签名识别、优先用 `vasp_*` 工具；构建用 `vasp_build_inputs`/`vasp_check_inputs`，不按元素序推断 SD，不自动探测模板/提交脚本） |
-| skills | `vasp-structure-opt`（工具驱动协议：源体检→模板候选→dry-run→构建→校验→汇报）、`vasp-zpe-setup`（Plan 模式五节点确认→执行→验证）、`vesta-view` |
+| skills | `vasp-structure-opt`（工具驱动协议：源体检→模板候选→构建调用→用户确认或直接写入→校验→汇报）、`vasp-zpe-setup`（Plan 模式五节点确认→执行→验证）、`vesta-view` |
 | 工具 bridge | 仅在该预设作用域注册全部 7 个 `vasp_*` 工具；文件解析由任务巡检、输入检查和扫描器完成 |
 
 职责分工：宿主插件持有任务数据和全部工具实现；预设只在选择“VASP 计算助手”的会话中注册工具。这样普通 Agent 不会得到 VASP 工具，而面板和 VASP Agent 始终共用同一 TaskStore。

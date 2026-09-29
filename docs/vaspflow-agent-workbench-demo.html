@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VASPFlow · Agent 工作台 Demo</title>
+  <style>
+    :root {
+      --bg: #09111f;
+      --bg-soft: #0f1a2d;
+      --surface: rgba(19, 31, 51, .9);
+      --surface-2: #16243b;
+      --surface-3: #1c2d47;
+      --line: rgba(151, 171, 204, .18);
+      --line-strong: rgba(151, 171, 204, .32);
+      --text: #e8eef8;
+      --muted: #93a3bb;
+      --faint: #647691;
+      --cyan: #68e3d0;
+      --blue: #6fa8ff;
+      --violet: #b69cff;
+      --green: #78df92;
+      --amber: #f2bd6b;
+      --red: #ff7e91;
+      --shadow: 0 18px 55px rgba(0, 0, 0, .24);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      min-width: 1080px;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 77% 0%, rgba(83, 123, 255, .16), transparent 31rem),
+        radial-gradient(circle at 12% 22%, rgba(79, 211, 185, .08), transparent 27rem),
+        var(--bg);
+      font: 14px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+    button { font: inherit; }
+    button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+    .app { min-height: 100vh; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      height: 74px; padding: 0 30px;
+      display: flex; align-items: center; gap: 20px;
+      background: rgba(9, 17, 31, .82);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(20px);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; min-width: 230px; }
+    .brand-mark {
+      width: 34px; height: 34px; display: grid; place-items: center;
+      border: 1px solid rgba(104, 227, 208, .48); border-radius: 11px;
+      color: var(--cyan); background: rgba(104, 227, 208, .1);
+      box-shadow: inset 0 0 20px rgba(104, 227, 208, .08);
+    }
+    .brand strong { font-size: 16px; letter-spacing: .02em; }
+    .brand small { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; }
+    .crumb { min-width: 0; flex: 1; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .crumb b { color: var(--text); font-weight: 550; }
+    .top-actions { display: flex; gap: 8px; align-items: center; }
+    .button, .icon-button {
+      border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text);
+      background: rgba(255,255,255,.04); cursor: pointer; transition: border-color .2s, background .2s, transform .2s;
+    }
+    .button { padding: 8px 13px; }
+    .button:hover, .icon-button:hover { border-color: rgba(104,227,208,.7); background: rgba(104,227,208,.09); }
+    .button:active, .icon-button:active { transform: translateY(1px); }
+    .button.primary { color: #06151b; border-color: var(--cyan); background: var(--cyan); font-weight: 700; }
+    .button.primary:hover { background: #8ceee0; }
+    .button.ghost { color: var(--muted); }
+    .icon-button { width: 34px; height: 34px; display: grid; place-items: center; }
+    .main { max-width: 1640px; margin: 0 auto; padding: 28px 30px 52px; }
+    .hero { display: flex; justify-content: space-between; gap: 30px; align-items: flex-end; margin-bottom: 22px; }
+    .eyebrow { color: var(--cyan); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; font-weight: 700; }
+    h1 { margin: 6px 0 7px; font-size: 29px; letter-spacing: -.035em; line-height: 1.18; }
+    .subtitle { max-width: 720px; color: var(--muted); }
+    .hero-actions { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+    .status-pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(120, 223, 146, .4); color: var(--green); background: rgba(120, 223, 146, .09); padding: 7px 10px; border-radius: 999px; font-size: 12px; }
+    .pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 5px rgba(120,223,146,.12); animation: pulse 1.8s infinite; }
+    @keyframes pulse { 0%,100% { opacity: .65; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.12); } }
+    .overview { display: grid; grid-template-columns: repeat(5, 1fr); gap: 11px; margin-bottom: 18px; }
+    .metric { padding: 15px 16px; min-height: 93px; background: linear-gradient(140deg, rgba(26, 43, 68, .92), rgba(18, 30, 49, .9)); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+    .metric-label { color: var(--muted); font-size: 12px; }
+    .metric-value { margin-top: 5px; font-size: 25px; font-weight: 680; letter-spacing: -.03em; }
+    .metric-note { margin-top: 4px; color: var(--faint); font-size: 11px; }
+    .metric.ai .metric-value { color: var(--cyan); }
+    .metric.green .metric-value { color: var(--green); }
+    .metric.blue .metric-value { color: var(--blue); }
+    .metric.amber .metric-value { color: var(--amber); }
+    .metric.red .metric-value { color: var(--red); }
+    .stagebar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 22px; }
+    .stage { position: relative; padding: 11px 13px; background: rgba(21,35,57,.75); border: 1px solid var(--line); border-radius: 11px; color: var(--muted); }
+    .stage strong { display: block; color: var(--text); font-size: 12px; font-weight: 600; }
+    .stage small { display: block; margin-top: 3px; font-size: 11px; }
+    .stage::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--faint); }
+    .stage.done::before { background: var(--green); }
+    .stage.active { border-color: rgba(104,227,208,.55); background: rgba(39, 70, 80, .46); }
+    .stage.active::before { background: var(--cyan); box-shadow: 0 0 0 5px rgba(104,227,208,.12); }
+    .stage.active strong { color: var(--cyan); }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+    .section-head { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 0 1px 11px; }
+    .section-head h2 { margin: 0; font-size: 15px; letter-spacing: .01em; }
+    .section-head p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .filters { display: flex; gap: 6px; }
+    .filter { border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; color: var(--muted); background: transparent; cursor: pointer; font-size: 12px; }
+    .filter.active, .filter:hover { color: var(--text); border-color: rgba(104,227,208,.5); background: rgba(104,227,208,.09); }
+    .timeline { position: relative; display: flex; flex-direction: column; gap: 11px; }
+    .timeline::before { content: ''; position: absolute; left: 21px; top: 25px; bottom: 25px; width: 1px; background: linear-gradient(var(--line-strong), transparent); }
+    .run-card { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgba(20, 35, 58, .95), rgba(15, 26, 44, .94)); box-shadow: 0 11px 35px rgba(0,0,0,.12); transition: border-color .2s, transform .2s; }
+    .run-card:hover { border-color: rgba(151,171,204,.38); }
+    .run-card.running { border-color: rgba(104,227,208,.5); box-shadow: 0 0 0 1px rgba(104,227,208,.06), 0 15px 45px rgba(0,0,0,.17); }
+    .run-card.attention { border-color: rgba(242,189,107,.45); }
+    .run-head { min-height: 72px; display: grid; grid-template-columns: 44px minmax(0,1fr) auto; align-items: center; gap: 12px; padding: 12px 16px 12px 11px; cursor: pointer; }
+    .run-index { width: 23px; height: 23px; margin-left: 0; display: grid; place-items: center; border-radius: 50%; background: var(--surface-3); color: var(--muted); font-size: 11px; border: 1px solid var(--line-strong); z-index: 1; }
+    .run-card.running .run-index { color: #08201d; border-color: var(--cyan); background: var(--cyan); }
+    .run-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .tool-icon { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 9px; color: var(--cyan); background: rgba(104,227,208,.09); border: 1px solid rgba(104,227,208,.18); }
+    .run-title strong { display: block; font-size: 14px; font-weight: 650; }
+    .run-title small { display: block; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .run-meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
+    .state { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; border-radius: 999px; padding: 5px 8px; font-size: 11px; border: 1px solid var(--line); }
+    .state::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .state.done { color: var(--green); border-color: rgba(120,223,146,.25); background: rgba(120,223,146,.07); }
+    .state.running { color: var(--cyan); border-color: rgba(104,227,208,.3); background: rgba(104,227,208,.08); }
+    .state.warn { color: var(--amber); border-color: rgba(242,189,107,.3); background: rgba(242,189,107,.08); }
+    .state.fail { color: var(--red); border-color: rgba(255,126,145,.3); background: rgba(255,126,145,.08); }
+    .chevron { color: var(--faint); transition: transform .2s; }
+    .run-card.open .chevron { transform: rotate(180deg); }
+    .run-body { display: none; padding: 0 16px 17px 66px; }
+    .run-card.open .run-body { display: block; }
+    .io-grid { display: grid; grid-template-columns: .82fr 1.18fr; gap: 10px; }
+    .io-panel { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: rgba(8, 16, 29, .38); }
+    .io-label { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .09em; font-size: 10px; font-weight: 700; }
+    .io-label span:last-child { color: var(--faint); text-transform: none; letter-spacing: 0; font-weight: 500; }
+    .kv { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px solid rgba(151,171,204,.1); font-size: 12px; }
+    .kv:last-child { border-bottom: 0; }
+    .kv span:first-child { color: var(--muted); }
+    .kv span:last-child { max-width: 65%; color: var(--text); text-align: right; overflow-wrap: anywhere; }
+    .path { color: var(--cyan) !important; }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chip { padding: 4px 7px; border-radius: 6px; background: rgba(151,171,204,.1); color: var(--muted); font-size: 11px; }
+    .chip.good { color: var(--green); background: rgba(120,223,146,.1); }
+    .chip.warn { color: var(--amber); background: rgba(242,189,107,.1); }
+    .chip.blue { color: var(--blue); background: rgba(111,168,255,.1); }
+    .output-head { margin: 13px 0 8px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; }
+    .output-head strong { color: var(--text); font-size: 13px; }
+    .mini-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .mini-table th { padding: 6px 7px; color: var(--faint); text-align: left; font-weight: 550; border-bottom: 1px solid var(--line); }
+    .mini-table td { padding: 7px; color: var(--muted); border-bottom: 1px solid rgba(151,171,204,.09); }
+    .mini-table tr:last-child td { border-bottom: 0; }
+    .mini-table td:first-child { color: var(--text); }
+    .mini-status { font-size: 10px; color: var(--green); }
+    .mini-status.amber { color: var(--amber); }
+    .file-flow { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 10px 11px; border: 1px solid rgba(104,227,208,.16); border-radius: 10px; background: rgba(104,227,208,.05); }
+    .file-node { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 7px; background: rgba(255,255,255,.06); color: var(--text); font-size: 11px; }
+    .file-node small { color: var(--muted); }
+    .arrow { color: var(--cyan); font-size: 16px; }
+    .progress-line { height: 6px; overflow: hidden; border-radius: 999px; background: rgba(151,171,204,.14); }
+    .progress-line > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--violet)); transition: width .35s ease; }
+    .progress-row { display: flex; align-items: center; gap: 9px; margin: 9px 0 4px; }
+    .progress-row .progress-line { flex: 1; }
+    .progress-row b { color: var(--text); font-size: 11px; }
+    .raw { display: none; margin-top: 10px; padding: 10px; max-height: 190px; overflow: auto; border: 1px solid var(--line); border-radius: 9px; color: #b7c8e2; background: #08101d; font: 11px/1.6 "SFMono-Regular", Consolas, monospace; white-space: pre-wrap; }
+    .raw.show { display: block; }
+    .card-actions { display: flex; gap: 7px; margin-top: 12px; }
+    .small-button { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 7px; padding: 5px 8px; cursor: pointer; font-size: 11px; }
+    .small-button:hover { color: var(--text); border-color: rgba(104,227,208,.5); }
+    .rail { display: flex; flex-direction: column; gap: 12px; }
+    .rail-card { padding: 15px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgba(20,35,58,.94), rgba(15,26,44,.9)); box-shadow: 0 11px 35px rgba(0,0,0,.12); }
+    .rail-card h3 { margin: 0; font-size: 13px; }
+    .rail-card p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .now { border-color: rgba(104,227,208,.34); background: linear-gradient(145deg, rgba(29,59,66,.72), rgba(15,29,46,.94)); }
+    .now-title { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .now-title strong { font-size: 15px; }
+    .now-task { display: flex; gap: 9px; align-items: flex-start; padding: 10px 0; border-top: 1px solid rgba(151,171,204,.13); }
+    .now-task-icon { flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; color: var(--cyan); background: rgba(104,227,208,.1); }
+    .now-task strong { display: block; font-size: 12px; }
+    .now-task small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .bar-row { display: grid; grid-template-columns: 76px 1fr 28px; gap: 7px; align-items: center; margin: 10px 0; color: var(--muted); font-size: 11px; }
+    .bar { height: 7px; overflow: hidden; border-radius: 999px; background: rgba(151,171,204,.13); }
+    .bar span { display: block; height: 100%; border-radius: inherit; }
+    .bar.green span { background: var(--green); }
+    .bar.blue span { background: var(--blue); }
+    .bar.red span { background: var(--red); }
+    .bar.amber span { background: var(--amber); }
+    .task-focus { margin-top: 10px; padding: 11px; border: 1px solid rgba(182,156,255,.26); border-radius: 10px; background: rgba(182,156,255,.07); }
+    .task-focus .focus-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .task-focus strong { font-size: 12px; }
+    .task-focus small { color: var(--muted); }
+    .focus-reason { margin-top: 8px; color: var(--muted); font-size: 11px; }
+    .evidence { margin-top: 9px; padding-left: 12px; border-left: 2px solid var(--amber); color: #c7d2e5; font-size: 11px; }
+    .evidence b { color: var(--amber); font-weight: 600; }
+    .legend { display: flex; flex-wrap: wrap; gap: 7px 12px; margin-top: 12px; color: var(--muted); font-size: 11px; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .legend i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .footer-note { margin-top: 20px; color: var(--faint); font-size: 11px; text-align: center; }
+    .hidden { display: none !important; }
+    @media (max-width: 1200px) {
+      body { min-width: 0; }
+      .topbar { padding: 0 18px; }
+      .main { padding-left: 18px; padding-right: 18px; }
+      .layout { grid-template-columns: minmax(0,1fr) 300px; }
+      .overview { gap: 7px; }
+      .metric { padding: 12px; }
+    }
+    @media (max-width: 900px) {
+      .topbar { position: static; height: auto; padding-top: 15px; padding-bottom: 15px; flex-wrap: wrap; }
+      .brand { min-width: 0; }
+      .crumb { order: 3; flex-basis: 100%; }
+      .hero { display: block; }
+      .hero-actions { margin-top: 15px; }
+      .overview { grid-template-columns: repeat(2, 1fr); }
+      .stagebar { grid-template-columns: repeat(2, 1fr); }
+      .layout { grid-template-columns: 1fr; }
+      .io-grid { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3.2"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(-25 12 12)"/><path d="M12 6.3v11.4"/></svg>
+        </div>
+        <div><strong>VASPFlow</strong><small>Agent 工作台 · 交互展示 Demo</small></div>
+      </div>
+      <div class="crumb"><b>ABN+LCBN</b><span> / client_verify / 批量输入检查</span></div>
+      <div class="top-actions">
+        <span class="status-pill"><span class="pulse"></span>工作台演示中</span>
+        <button class="icon-button" title="切换演示主题" aria-label="切换演示主题" id="themeBtn">◐</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="hero">
+        <div>
+          <div class="eyebrow">Transparent execution surface</div>
+          <h1>看见 Agent 如何工作</h1>
+          <div class="subtitle">工具输入、执行进度、任务状态和确定性证据放在同一条工作流中。这里展示的是工具事实，不是模型的隐藏思考过程。</div>
+        </div>
+        <div class="hero-actions">
+          <button class="button ghost" id="filterAttention">只看需要处理</button>
+          <button class="button primary" id="simulateBtn">继续模拟执行</button>
+        </div>
+      </section>
+
+      <section class="overview" aria-label="批次概览">
+        <div class="metric ai"><div class="metric-label">AI 当前工作</div><div class="metric-value" id="aiMetric">检查输入</div><div class="metric-note">vasp_check_inputs · 批量</div></div>
+        <div class="metric"><div class="metric-label">本次工作流</div><div class="metric-value">4 个步骤</div><div class="metric-note">从发现来源到输入检查</div></div>
+        <div class="metric green"><div class="metric-label">任务通过</div><div class="metric-value" id="passMetric">16</div><div class="metric-note">已完成指定规则检查</div></div>
+        <div class="metric amber"><div class="metric-label">需要注意</div><div class="metric-value" id="warnMetric">2</div><div class="metric-note">有警告或等待确认</div></div>
+        <div class="metric red"><div class="metric-label">未通过</div><div class="metric-value" id="failMetric">2</div><div class="metric-note">可点击查看证据</div></div>
+      </section>
+
+      <section class="stagebar" aria-label="工作流阶段">
+        <div class="stage done"><strong>发现输入来源</strong><small>12 个结构源 · 4 个模板</small></div>
+        <div class="stage done"><strong>生成构建计划</strong><small>20 个目标任务 · 仅预览</small></div>
+        <div class="stage active"><strong>执行文件操作</strong><small id="stageProgress">已完成 11 / 20</small></div>
+        <div class="stage"><strong>输入检查</strong><small>等待批量写入完成</small></div>
+      </section>
+
+      <div class="layout">
+        <section>
+          <div class="section-head">
+            <div><h2>Agent 工作轨迹</h2><p>每张卡片都能展开查看实际输入与结构化输出</p></div>
+            <div class="filters" role="group" aria-label="筛选工具调用">
+              <button class="filter active" data-filter="all">全部</button>
+              <button class="filter" data-filter="running">执行中</button>
+              <button class="filter" data-filter="attention">需处理</button>
+            </div>
+          </div>
+
+          <div class="timeline" id="timeline">
+            <article class="run-card open" data-state="done">
+              <div class="run-head" role="button" tabindex="0" aria-expanded="true">
+                <div class="run-index">01</div>
+                <div class="run-title">
+                  <div class="tool-icon"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6.5h16M4 12h16M4 17.5h10"/><circle cx="18" cy="17.5" r="2.3"/></svg></div>
+                  <div><strong>扫描 VASP 项目</strong><small>读取项目目录，识别任务和普通目录</small></div>
+                </div>
+                <div class="run-meta"><span class="state done">已完成</span><span>2.4 s</span><span class="chevron">⌄</span></div>
+              </div>
+              <div class="run-body">
+                <div class="io-grid">
+                  <div class="io-panel"><div class="io-label"><span>输入</span><span>只读</span></div><div class="kv"><span>项目根目录</span><span class="path">E:\Physics\...\ABN+LCBN</span></div><div class="kv"><span>识别规则</span><span>四个标准输入文件</span></div><div class="kv"><span>扫描方式</span><span>广度优先 · 增量事件</span></div></div>
+                  <div class="io-panel"><div class="io-label"><span>输出</span><span>TaskStore 已同步</span></div><div class="chips"><span class="chip blue">466 个任务</span><span class="chip">613 个目录</span><span class="chip good">279 个完成</span><span class="chip warn">107 个未发现输出</span><span class="chip" style="color:var(--red);background:rgba(255,126,145,.1)">72 个错误</span></div><div class="output-head"><strong>当前结果</strong><span>任务状态已写入面板</span></div><table class="mini-table"><thead><tr><th>任务</th><th>类型</th><th>状态</th></tr></thead><tbody><tr><td>client_verify/8-NH2OH</td><td>结构优化</td><td class="mini-status amber">检测到错误</td></tr><tr><td>client_verify/ZPE/0-Bi</td><td>频率 / ZPE</td><td class="mini-status amber">待检查</td></tr></tbody></table></div>
+                </div>
+                <div class="card-actions"><button class="small-button jump-task">查看任务矩阵</button><button class="small-button raw-toggle">查看原始输出</button></div>
+                <pre class="raw">{"tool":"vasp_scan","rootPath":"E:\\Physics\\...\\ABN+LCBN","tasks":466,"directories":613,"statusCounts":{"TASK_COMPLETED":279,"ERROR_DETECTED":72,"NO_OUTPUT_EVIDENCE":107,"RUNNING":4,"UNKNOWN":4}}</pre>
+              </div>
+            </article>
+
+            <article class="run-card open" data-state="done">
+              <div class="run-head" role="button" tabindex="0" aria-expanded="true">
+                <div class="run-index">02</div>
+                <div class="run-title"><div class="tool-icon" style="color:var(--violet);background:rgba(182,156,255,.09);border-color:rgba(182,156,255,.2)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5.5h6l2 2h8v11H4z"/><path d="M7.5 12.5h9M7.5 15.5h6"/></svg></div><div><strong>发现结构源与模板</strong><small>构建前盘点候选文件，不替用户做选择</small></div></div>
+                <div class="run-meta"><span class="state done">已完成</span><span>1.1 s</span><span class="chevron">⌄</span></div>
+              </div>
+              <div class="run-body">
+                <div class="io-grid">
+                  <div class="io-panel"><div class="io-label"><span>输入</span><span>只读</span></div><div class="kv"><span>搜索根目录</span><span class="path">ABN+LCBN</span></div><div class="kv"><span>搜索深度</span><span>10 层</span></div><div class="kv"><span>返回内容</span><span>结构源 + 模板</span></div></div>
+                  <div class="io-panel"><div class="io-label"><span>输出</span><span>候选，不是决定</span></div><div class="chips"><span class="chip blue">12 个结构源</span><span class="chip good">物种格式一致</span><span class="chip">4 个候选模板</span></div><div class="output-head"><strong>候选示例</strong><span>点击路径可复制</span></div><div class="file-flow"><span class="file-node">POSCAR-surface <small>· 76 atoms</small></span><span class="arrow">→</span><span class="file-node">relax-template <small>· IBRION=2</small></span></div></div>
+                </div>
+                <div class="card-actions"><button class="small-button">加入构建计划</button><button class="small-button raw-toggle">查看原始输出</button></div>
+                <pre class="raw">{"sources":{"count":12,"consistency":{"note":"元素和原子数可解析"}},"templates":[{"path":"templates/relax","files":["INCAR","KPOINTS","POTCAR"],"incar":{"IBRION":2,"NSW":300}}]}</pre>
+              </div>
+            </article>
+
+            <article class="run-card running open" data-state="running">
+              <div class="run-head" role="button" tabindex="0" aria-expanded="true">
+                <div class="run-index">03</div>
+                <div class="run-title"><div class="tool-icon"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7.5h14M5 12h14M5 16.5h9"/><path d="m17 15 2 2 3-3"/></svg></div><div><strong>构建 VASP 输入文件</strong><small>正在将来源文件写入目标任务目录</small></div></div>
+                <div class="run-meta"><span class="state running">执行中</span><span id="buildTime">正在进行</span><span class="chevron">⌄</span></div>
+              </div>
+              <div class="run-body">
+                <div class="io-grid">
+                  <div class="io-panel"><div class="io-label"><span>输入</span><span>将写入文件</span></div><div class="kv"><span>目标任务</span><span>20 个</span></div><div class="kv"><span>构建模式</span><span>已确认执行</span></div><div class="kv"><span>Selective dynamics</span><span>显式 freeAtoms</span></div><div class="kv"><span>POTCAR</span><span>硬链接</span></div><div class="kv"><span>覆盖风险</span><span class="path" style="color:var(--amber)!important">2 个目录</span></div></div>
+                  <div class="io-panel"><div class="io-label"><span>执行输出</span><span id="buildOutputLabel">文件事件实时到达</span></div><div class="progress-row"><div class="progress-line"><span id="buildProgress" style="width:55%"></span></div><b id="buildCount">11 / 20</b></div><div class="kv"><span>当前任务</span><span class="path" id="currentBuildTask">client_verify/12-NH2OH</span></div><div class="output-head"><strong>最近文件操作</strong><span id="fileEventLabel">刚刚</span></div><div class="file-flow" id="fileFlow"><span class="file-node">templates/INCAR <small>来源</small></span><span class="arrow">→</span><span class="file-node">12-NH2OH/INCAR <small style="color:var(--cyan)">写入</small></span></div></div>
+                </div>
+                <div class="card-actions"><button class="small-button" id="pauseBtn">在当前任务后暂停</button><button class="small-button">查看构建计划</button><button class="small-button raw-toggle">查看原始输出</button></div>
+                <pre class="raw">{"dryRun":false,"count":20,"wroteCount":11,"written":true,"results":[{"dir":"client_verify/12-NH2OH","status":"ok","sources":{"INCAR":"templates/INCAR","KPOINTS":"templates/KPOINTS"},"wrote":true}]}</pre>
+              </div>
+            </article>
+
+            <article class="run-card attention" data-state="attention">
+              <div class="run-head" role="button" tabindex="0" aria-expanded="false">
+                <div class="run-index">04</div>
+                <div class="run-title"><div class="tool-icon" style="color:var(--amber);background:rgba(242,189,107,.09);border-color:rgba(242,189,107,.2)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 4 21 19H3z"/><path d="M12 9v4.5M12 16.5v.2"/></svg></div><div><strong>检查输入文件</strong><small>等待构建完成后，对 20 个任务应用结构优化规则</small></div></div>
+                <div class="run-meta"><span class="state warn">等待中</span><span>下一步</span><span class="chevron">⌄</span></div>
+              </div>
+              <div class="run-body">
+                <div class="io-grid"><div class="io-panel"><div class="io-label"><span>输入</span><span>只读</span></div><div class="kv"><span>检查规则</span><span>结构优化</span></div><div class="kv"><span>检查文件</span><span>POSCAR / POTCAR / INCAR / KPOINTS</span></div></div><div class="io-panel"><div class="io-label"><span>预期输出</span><span>检查矩阵</span></div><div class="chips"><span class="chip good">POSCAR / POTCAR</span><span class="chip good">Selective dynamics</span><span class="chip good">IBRION / NSW</span><span class="chip good">KPOINTS</span></div></div></div>
+                <div class="card-actions"><button class="small-button">查看检查规则</button><button class="small-button raw-toggle">查看原始输出</button></div><pre class="raw">{"profileId":"structure-optimization","dirs":20,"status":"waiting_for_previous_step"}</pre>
+              </div>
+            </article>
+          </div>
+          <div class="footer-note">演示数据为模拟内容；真实版本将从 VASPFlow 工具的结构化输入、输出和事件流生成。</div>
+        </section>
+
+        <aside class="rail">
+          <section class="rail-card now">
+            <div class="now-title"><span class="pulse" style="color:var(--cyan)"></span><strong>AI 正在工作</strong></div>
+            <p>执行已确认的输入构建计划</p>
+            <div class="now-task"><div class="now-task-icon"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div><div><strong id="nowAction">写入第 12 个任务的 INCAR</strong><small id="nowDetail">来源：templates/INCAR · 目标：12-NH2OH/INCAR</small></div></div>
+            <div class="progress-row"><div class="progress-line"><span id="railProgress" style="width:55%"></span></div><b id="railCount">55%</b></div>
+            <button class="button" style="width:100%;margin-top:10px" id="focusBuild">聚焦当前操作</button>
+          </section>
+
+          <section class="rail-card">
+            <div class="section-head" style="margin:0"><div><h3>任务状态</h3><p>当前项目的 VASP 计算状态</p></div><span style="color:var(--muted);font-size:11px">466 个任务</span></div>
+            <div class="bar-row"><span>任务完成</span><div class="bar green"><span style="width:60%"></span></div><b style="color:var(--green)">279</b></div>
+            <div class="bar-row"><span>正在运行</span><div class="bar blue"><span style="width:18%"></span></div><b style="color:var(--blue)">4</b></div>
+            <div class="bar-row"><span>检测到错误</span><div class="bar red"><span style="width:35%"></span></div><b style="color:var(--red)">72</b></div>
+            <div class="bar-row"><span>未发现输出</span><div class="bar amber"><span style="width:48%"></span></div><b style="color:var(--amber)">107</b></div>
+            <div class="legend"><span><i style="background:var(--green)"></i>完成</span><span><i style="background:var(--blue)"></i>运行中</span><span><i style="background:var(--red)"></i>错误</span><span><i style="background:var(--amber)"></i>未发现输出</span></div>
+          </section>
+
+          <section class="rail-card">
+            <div class="section-head" style="margin:0"><div><h3>当前任务</h3><p>点击左侧任务结果查看详情</p></div></div>
+            <div class="task-focus" id="taskFocus">
+              <div class="focus-top"><strong id="focusName">client_verify/8-NH2OH</strong><span class="state fail">检测到错误</span></div>
+              <div class="focus-reason" id="focusReason">slurm-39058407.out 匹配错误签名 ZBRENT_FATAL</div>
+              <div class="evidence"><b>证据</b><br><span id="focusEvidence">ZBRENT: fatal error in bracketing</span></div>
+              <button class="small-button" style="margin-top:10px;width:100%" id="copyPath">复制任务路径</button>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const cards = [...document.querySelectorAll('.run-card')];
+    const filters = [...document.querySelectorAll('.filter')];
+    const buildCard = document.querySelector('.run-card.running');
+    let progress = 11;
+    let lightMode = false;
+
+    function toggleCard(card) {
+      card.classList.toggle('open');
+      const head = card.querySelector('.run-head');
+      head.setAttribute('aria-expanded', card.classList.contains('open') ? 'true' : 'false');
+    }
+    cards.forEach((card) => {
+      const head = card.querySelector('.run-head');
+      head.addEventListener('click', (event) => {
+        if (event.target.closest('button')) return;
+        toggleCard(card);
+      });
+      head.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleCard(card); }
+      });
+      card.querySelectorAll('.raw-toggle').forEach((button) => button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        button.closest('.run-body').querySelector('.raw').classList.toggle('show');
+        button.textContent = button.textContent.includes('查看') ? '收起原始输出' : '查看原始输出';
+      }));
+    });
+    function applyFilter(filter) {
+      filters.forEach((button) => button.classList.toggle('active', button.dataset.filter === filter));
+      cards.forEach((card) => {
+        const show = filter === 'all' || card.dataset.state === filter;
+        card.classList.toggle('hidden', !show);
+      });
+    }
+    filters.forEach((button) => button.addEventListener('click', () => applyFilter(button.dataset.filter)));
+    document.getElementById('filterAttention').addEventListener('click', () => applyFilter('attention'));
+
+    function setProgress(next) {
+      progress = Math.min(20, next);
+      const pct = Math.round(progress / 20 * 100);
+      document.getElementById('buildProgress').style.width = pct + '%';
+      document.getElementById('railProgress').style.width = pct + '%';
+      document.getElementById('buildCount').textContent = `${progress} / 20`;
+      document.getElementById('railCount').textContent = pct + '%';
+      document.getElementById('stageProgress').textContent = progress >= 20 ? '已完成 20 / 20' : `已完成 ${progress} / 20`;
+      document.getElementById('currentBuildTask').textContent = progress >= 20 ? '批次写入完成' : `client_verify/${String(progress + 1).padStart(2, '0')}-NH2OH`;
+      document.getElementById('nowAction').textContent = progress >= 20 ? '等待输入检查开始' : `写入第 ${progress + 1} 个任务的 ${progress % 2 ? 'INCAR' : 'POSCAR'}`;
+      document.getElementById('nowDetail').textContent = progress >= 20 ? '构建结果已准备好 · 可进入输入检查' : '来源：templates/relax · 目标目录正在生成';
+      document.getElementById('fileEventLabel').textContent = progress >= 20 ? '批次完成' : '刚刚';
+      document.getElementById('fileFlow').innerHTML = progress >= 20
+        ? '<span class="file-node">20 个目标目录 <small style="color:var(--green)">写入完成</small></span><span class="arrow">✓</span><span class="file-node">等待 vasp_check_inputs</span>'
+        : `<span class="file-node">templates/${progress % 2 ? 'INCAR' : 'POSCAR'} <small>来源</small></span><span class="arrow">→</span><span class="file-node">${String(progress + 1).padStart(2, '0')}-NH2OH/${progress % 2 ? 'INCAR' : 'POSCAR'} <small style="color:var(--cyan)">写入</small></span>`;
+      if (progress >= 20) {
+        buildCard.classList.remove('running'); buildCard.classList.add('attention'); buildCard.dataset.state = 'attention';
+        buildCard.querySelector('.state').className = 'state warn'; buildCard.querySelector('.state').textContent = '已完成';
+        document.getElementById('aiMetric').textContent = '等待检查';
+      }
+    }
+    document.getElementById('simulateBtn').addEventListener('click', () => {
+      if (progress < 20) setProgress(progress + 1);
+      else { progress = 0; buildCard.classList.add('running'); buildCard.classList.remove('attention'); buildCard.dataset.state = 'running'; buildCard.querySelector('.state').className = 'state running'; buildCard.querySelector('.state').textContent = '执行中'; document.getElementById('aiMetric').textContent = '构建输入'; setProgress(1); }
+    });
+    document.getElementById('focusBuild').addEventListener('click', () => { buildCard.scrollIntoView({ behavior: 'smooth', block: 'center' }); buildCard.classList.add('open'); });
+    document.getElementById('pauseBtn').addEventListener('click', (event) => { event.currentTarget.textContent = '已设置：当前任务完成后暂停'; event.currentTarget.style.color = 'var(--amber)'; });
+    document.querySelectorAll('.jump-task').forEach((button) => button.addEventListener('click', () => document.getElementById('focusName').scrollIntoView({ behavior: 'smooth', block: 'center' })));
+    document.getElementById('copyPath').addEventListener('click', async (event) => { const path = 'E:\\Physics\\Condensed_matter_physics\\Scientific_researches\\ABN+LCBN\\client_verify\\8-_NH2OH'; try { await navigator.clipboard.writeText(path); event.currentTarget.textContent = '已复制绝对路径'; } catch { event.currentTarget.textContent = '复制失败，请手动选择'; } });
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      lightMode = !lightMode;
+      document.documentElement.style.setProperty('--bg', lightMode ? '#f4f7fb' : '#09111f');
+      document.documentElement.style.setProperty('--bg-soft', lightMode ? '#edf2f8' : '#0f1a2d');
+      document.documentElement.style.setProperty('--text', lightMode ? '#142136' : '#e8eef8');
+      document.documentElement.style.setProperty('--muted', lightMode ? '#596b84' : '#93a3bb');
+      document.documentElement.style.setProperty('--faint', lightMode ? '#72819a' : '#647691');
+      document.documentElement.style.setProperty('--line', lightMode ? 'rgba(60,83,115,.18)' : 'rgba(151,171,204,.18)');
+      document.body.style.background = lightMode ? '#f4f7fb' : '';
+    });
+  </script>
+</body>
+</html>

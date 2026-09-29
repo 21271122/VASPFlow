@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VASPFlow · 构建输入确认 Demo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #171c24;
+      --glass: rgba(5, 12, 24, .025);
+      --glass-strong: rgba(5, 12, 24, .04);
+      --glass-soft: rgba(5, 12, 24, .015);
+      --line: rgba(255, 255, 255, .24);
+      --line-strong: rgba(255, 255, 255, .48);
+      --text: #f5f8fd;
+      --muted: #cad4e1;
+      --muted-2: #a9b8ca;
+      --cyan: #a7dcff;
+      --blue: #abc8ff;
+      --violet: #d0c1ff;
+      --green: #a4e8bf;
+      --amber: #ffd294;
+      --red: #ffacba;
+      --shadow: 0 28px 65px rgba(2, 8, 19, .34), 0 10px 22px rgba(2, 8, 19, .24), 0 2px 4px rgba(2, 8, 19, .18);
+      --radius-xl: 27px;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { min-width: 320px; background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: var(--font);
+      background:
+        radial-gradient(ellipse 36rem 30rem at 16% 18%, rgba(93, 136, 178, .38), transparent 75%),
+        radial-gradient(ellipse 37rem 32rem at 85% 28%, rgba(137, 113, 175, .25), transparent 76%),
+        radial-gradient(ellipse 36rem 29rem at 57% 87%, rgba(71, 143, 152, .20), transparent 76%),
+        linear-gradient(135deg, #111924, #253346 52%, #151c29);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(125deg, transparent 17%, rgba(203, 224, 248, .07) 31%, transparent 46%),
+        radial-gradient(ellipse 27rem 22rem at 29% 56%, rgba(113, 161, 203, .17), transparent 80%),
+        radial-gradient(ellipse 23rem 20rem at 79% 43%, rgba(158, 132, 194, .15), transparent 80%);
+    }
+    button, input { font: inherit; }
+    button:focus-visible, input:focus-visible + .checkmark { outline: 3px solid var(--cyan); outline-offset: 3px; }
+    button { cursor: pointer; }
+    .icon { width: 18px; height: 18px; flex: 0 0 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .shell { width: min(1360px, calc(100% - 36px)); margin: 0 auto; padding: 22px 0 48px; }
+
+    .topbar, .conversation, .tool-card, .inspector, .info-card {
+      position: relative;
+      border: 1px solid rgba(255,255,255,.34);
+      background: var(--glass);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.23), inset 0 -1px 0 rgba(255,255,255,.09), inset 0 -20px 24px -24px rgba(0,0,0,.55);
+      backdrop-filter: blur(3px) saturate(115%);
+      -webkit-backdrop-filter: blur(3px) saturate(115%);
+    }
+    .topbar::before, .conversation::before, .tool-card::before, .inspector::before, .info-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,.105), transparent 3px), linear-gradient(135deg, transparent 23%, rgba(255,255,255,.02) 30%, transparent 38%);
+    }
+    .topbar::after, .conversation::after, .tool-card::after, .inspector::after, .info-card::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      pointer-events: none;
+      border: 1px solid transparent;
+      border-top-color: rgba(255,255,255,.28);
+      border-left-color: rgba(255,255,255,.11);
+      border-bottom-color: rgba(255,255,255,.16);
+      border-radius: inherit;
+    }
+    .topbar > *, .conversation > *, .tool-card > *, .inspector > *, .info-card > * { position: relative; z-index: 1; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 16px; border-radius: 19px; }
+    .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .brand-mark { display: grid; width: 37px; height: 37px; place-items: center; color: #fff; border: 1px solid rgba(255,255,255,.42); border-radius: 12px; background: linear-gradient(145deg, rgba(173,205,236,.27), rgba(174,155,217,.11)); box-shadow: 0 7px 18px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.45); }
+    .brand-mark .icon { width: 21px; height: 21px; }
+    .brand-name { display: block; font-size: 14px; font-weight: 760; letter-spacing: .01em; }
+    .brand-caption { display: block; margin-top: 3px; color: var(--muted-2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .chip, .ghost-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 11px; color: var(--muted); background: var(--glass-strong); box-shadow: inset 0 1px 0 rgba(255,255,255,.19); font-size: 12px; white-space: nowrap; }
+    .chip.dev { color: var(--amber); border-color: rgba(255,210,148,.28); background: rgba(255, 210, 148, .08); }
+    .ghost-btn { transition: border-color .2s, background .2s, color .2s; }
+    .ghost-btn:hover { color: var(--text); border-color: var(--line-strong); background: rgba(255,255,255,.12); }
+
+    .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 30px; padding: 40px 5px 24px; }
+    .kicker { margin: 0 0 9px; color: var(--cyan); font-size: 11px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(30px, 4vw, 48px); line-height: 1.04; letter-spacing: -.05em; }
+    .lede { max-width: 650px; margin: 13px 0 0; color: var(--muted); font-size: 15px; line-height: 1.7; }
+    .heading-note { max-width: 300px; margin: 0; color: var(--muted-2); font-size: 12px; line-height: 1.65; text-align: right; }
+
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 350px; align-items: start; gap: 22px; }
+    .conversation { overflow: hidden; border-radius: var(--radius-xl); }
+    .conversation-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+    .conversation-title { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 750; }
+    .conversation-title small, .conversation-head small { color: var(--muted-2); font-size: 11px; font-weight: 500; }
+    .online-dot { width: 8px; height: 8px; border-radius: 50%; background: #78dca5; box-shadow: 0 0 0 4px rgba(120,220,165,.12); }
+    .stream { padding: 22px 24px 28px; }
+    .message { display: flex; gap: 12px; margin-bottom: 18px; }
+    .avatar { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--muted); background: var(--glass-strong); }
+    .avatar.ai { color: var(--cyan); border-color: rgba(167,220,255,.3); background: rgba(167,220,255,.06); }
+    .bubble { max-width: 780px; padding: 12px 15px; border: 1px solid var(--line); border-radius: 15px 15px 15px 5px; color: var(--text); background: var(--glass-strong); box-shadow: 0 6px 16px rgba(0,0,0,.13), inset 0 1px 0 rgba(255,255,255,.16); font-size: 14px; line-height: 1.6; }
+    .message.user { flex-direction: row-reverse; }
+    .message.user .bubble { border-radius: 15px 15px 5px 15px; color: var(--text); background: rgba(167,220,255,.07); border-color: rgba(167,220,255,.23); }
+    .message-meta { margin-top: 6px; color: var(--muted-2); font-size: 11px; }
+
+    .tool-card { overflow: hidden; border-radius: var(--radius-xl); }
+    .tool-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 20px 18px; border-bottom: 1px solid var(--line); }
+    .tool-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .tool-icon { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border: 1px solid rgba(255,255,255,.31); border-radius: 14px; color: var(--cyan); background: linear-gradient(145deg, rgba(255,255,255,.13), rgba(255,255,255,.025)); box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 5px 14px rgba(0,0,0,.12); }
+    .tool-icon .icon { width: 22px; height: 22px; }
+    .tool-heading h2 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+    .tool-heading p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .confirm-notice { display: flex; align-items: flex-start; gap: 11px; margin: 17px 19px 0; padding: 13px 14px; border: 1px solid rgba(255,210,148,.29); border-radius: 15px; color: var(--amber); background: linear-gradient(135deg, rgba(255,210,148,.09), rgba(255,255,255,.025)); }
+    .confirm-notice .icon { color: var(--amber); margin-top: 1px; }
+    .confirm-notice strong { display: block; font-size: 12px; }
+    .confirm-notice span { display: block; margin-top: 3px; color: #ead4b2; font-size: 11px; line-height: 1.5; }
+
+    .flow { display: flex; align-items: stretch; gap: 0; padding: 12px 19px; border-bottom: 1px solid var(--line); }
+    .flow-step { position: relative; flex: 1 1 0; min-width: 0; min-height: 56px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 11px; background: var(--glass-soft); box-shadow: 0 7px 15px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(0,0,0,.21); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); }
+    .flow-step:not(:last-child) { margin-right: 12px; }
+    .flow-step:not(:last-child)::after { content: ""; position: absolute; top: 26px; right: -13px; width: 12px; height: 1px; background: rgba(255,255,255,.24); }
+    .flow-step.done { border-color: rgba(164,232,191,.26); background: rgba(164,232,191,.035); }
+    .flow-step.current { border-color: rgba(255,210,148,.4); background: rgba(255,210,148,.035); box-shadow: 0 8px 18px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.19), inset 0 -1px 0 rgba(0,0,0,.2); }
+    .flow-step.pending { opacity: .70; }
+    .flow-marker { display: flex; align-items: center; gap: 7px; color: var(--muted-2); font-size: 10px; font-weight: 800; letter-spacing: .10em; text-transform: uppercase; }
+    .flow-step.done .flow-marker { color: var(--green); }
+    .flow-step.current .flow-marker { color: var(--amber); }
+    .flow-number { display: grid; width: 19px; height: 19px; place-items: center; border: 1px solid currentColor; border-radius: 7px; font-size: 10px; }
+    .flow-step strong { display: block; margin-top: 4px; font-size: 12px; }
+    .flow-note { display: none; }
+
+    .task-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 19px 9px; }
+    .task-toolbar strong { display: block; font-size: 14px; }
+    .task-count { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .task-count b { color: var(--text); font-size: 14px; }
+    .tree-list { padding: 0 19px 14px; }
+    .tree-group + .tree-group { border-top: 1px solid rgba(255,255,255,.14); }
+    .tree-group-head { display: grid; grid-template-columns: auto auto minmax(0,1fr) auto; align-items: center; gap: 9px; min-height: 42px; padding: 6px 0; }
+    .tree-group-toggle { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: var(--glass-strong); }
+    .tree-group-toggle:hover { color: var(--text); border-color: var(--line-strong); background: rgba(255,255,255,.11); }
+    .tree-group-toggle .icon { width: 14px; height: 14px; transition: transform .2s; }
+    .tree-group.collapsed .tree-group-toggle .icon { transform: rotate(-90deg); }
+    .tree-group-name { min-width: 0; }
+    .tree-group-name strong { display: block; overflow: hidden; color: var(--text); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-group-name span { display: block; margin-top: 2px; overflow: hidden; color: var(--muted-2); font: 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-group-count { color: var(--muted-2); font-size: 10px; white-space: nowrap; }
+    .tree-children { display: grid; gap: 6px; padding: 0 0 10px 23px; border-left: 1px solid rgba(167,220,255,.23); margin-left: 14px; }
+    .tree-group.collapsed .tree-children { display: none; }
+    .task-card { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--glass-strong); box-shadow: 0 4px 10px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.18); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); transition: border-color .2s, background .2s, box-shadow .2s; }
+    .task-card:hover { border-color: var(--line-strong); background: rgba(5,12,24,.08); }
+    .task-card.selected { border-color: rgba(167,220,255,.59); box-shadow: 0 0 0 1px rgba(167,220,255,.14), 0 8px 17px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.25); }
+    .task-card[aria-disabled="true"] { opacity: .68; }
+    .task-card-head { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; align-items: center; gap: 10px; min-height: 42px; padding: 6px 10px; }
+    .task-select { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; cursor: pointer; }
+    .task-select input { position: absolute; opacity: 0; pointer-events: none; }
+    .checkmark { display: grid; width: 20px; height: 20px; place-items: center; border: 1px solid rgba(255,255,255,.36); border-radius: 7px; background: rgba(255,255,255,.035); }
+    .task-select input:checked + .checkmark { border-color: #438cda; background: linear-gradient(145deg, #4799e8, #256dc5); box-shadow: 0 3px 9px rgba(42,108,198,.23); }
+    .task-select input:checked + .checkmark::after { content: ""; width: 8px; height: 4px; border-left: 2px solid #fff; border-bottom: 2px solid #fff; transform: rotate(-45deg) translate(1px,-1px); }
+    .task-main { min-width: 0; padding: 3px 0; border: 0; color: inherit; background: transparent; text-align: left; }
+    .task-main strong { display: block; overflow: hidden; color: var(--text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+    .status-pill { padding: 6px 8px; border-radius: 8px; color: var(--green); background: rgba(164,232,191,.09); font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .status-pill.warn { color: var(--amber); background: rgba(255,210,148,.1); }
+    .status-pill.error { color: var(--red); background: rgba(255,172,186,.1); }
+    .task-expand { display: grid; width: 28px; height: 28px; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 8px; color: var(--muted); background: transparent; }
+    .task-expand:hover { color: var(--text); border-color: var(--line); background: rgba(255,255,255,.08); }
+    .task-expand .icon { width: 14px; height: 14px; }
+    .task-card.selected .task-expand { color: var(--cyan); }
+    .tool-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 19px; border-top: 1px solid var(--line); color: var(--muted-2); font-size: 11px; }
+    .tool-foot span { display: inline-flex; align-items: center; gap: 7px; }
+    .raw-toggle { border: 0; color: var(--muted); background: transparent; font-size: 11px; }
+    .raw-toggle:hover { color: var(--text); }
+    .raw-json { display: none; margin: 0 19px 17px; padding: 13px; border: 1px solid var(--line); border-radius: 12px; color: #d4e8f9; background: rgba(255,255,255,.035); font: 11px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow: auto; }
+    .raw-json.open { display: block; }
+
+    .right-rail { display: grid; gap: 20px; position: sticky; top: 20px; }
+    .inspector, .info-card { overflow: hidden; border-radius: var(--radius-xl); }
+    .inspector[hidden] { display: none; }
+    .inspector-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 17px 18px; border-bottom: 1px solid var(--line); }
+    .inspector-head strong { font-size: 13px; }
+    .inspector-head span { color: var(--muted-2); font-size: 11px; }
+    .inspect-body { padding: 18px; }
+    .selected-status { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+    .selected-status strong { font-size: 18px; letter-spacing: -.02em; }
+    .selected-status span { color: var(--muted); font-size: 11px; }
+    .status-dot { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; background: #78dca5; box-shadow: 0 0 0 4px rgba(120,220,165,.13); }
+    .status-dot.warn { background: #f2bd76; box-shadow: 0 0 0 4px rgba(242,189,118,.14); }
+    .status-dot.error { background: #f28fa4; box-shadow: 0 0 0 4px rgba(242,143,164,.14); }
+    .inspect-path { padding: 10px 11px; border: 1px solid var(--line); border-radius: 11px; color: #e0ebf7; background: rgba(255,255,255,.035); font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+    .inspect-block { margin-top: 18px; }
+    .inspect-label { margin-bottom: 8px; color: var(--muted-2); font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .source-grid, .evidence { display: grid; gap: 7px; }
+    .source-line { display: grid; grid-template-columns: 74px 1fr; gap: 9px; align-items: baseline; font-size: 11px; }
+    .source-line b { color: var(--muted); font-weight: 600; }
+    .source-line span { color: var(--text); overflow-wrap: anywhere; }
+    .evidence-line { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .evidence-line .icon { width: 14px; height: 14px; margin-top: 1px; color: var(--green); }
+    .evidence-line.warn .icon { color: var(--amber); }
+    .evidence-line.error .icon { color: var(--red); }
+
+    .confirm-bar { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 0 19px 19px; padding: 15px 15px 15px 16px; border: 1px solid rgba(255,255,255,.3); border-radius: 17px; background: var(--glass-soft); box-shadow: 0 9px 19px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(0,0,0,.2); }
+    .confirm-copy strong { display: block; font-size: 13px; }
+    .confirm-copy span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .confirm-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .cancel-btn, .confirm-btn { min-height: 40px; padding: 0 15px; border-radius: 11px; font-size: 12px; font-weight: 750; transition: opacity .2s, background .2s, border-color .2s, transform .2s; }
+    .cancel-btn { border: 1px solid var(--line); color: var(--muted); background: rgba(255,255,255,.055); box-shadow: inset 0 1px 0 rgba(255,255,255,.18); }
+    .cancel-btn:hover { color: var(--text); border-color: var(--line-strong); background: rgba(255,255,255,.12); }
+    .confirm-btn { border: 1px solid rgba(255,255,255,.45); color: #fff; background: linear-gradient(155deg, #499fea, #226bc8); box-shadow: 0 8px 22px rgba(38,111,204,.26), inset 0 1px 0 rgba(255,255,255,.35); }
+    .confirm-btn:hover:not(:disabled) { background: linear-gradient(155deg, #5eaff2, #307ddd); transform: translateY(-1px); }
+    .confirm-btn:disabled { cursor: not-allowed; opacity: .42; box-shadow: none; }
+    .confirm-bar.blocked { border-color: rgba(255,172,186,.36); background: linear-gradient(135deg, rgba(255,172,186,.08), rgba(255,255,255,.015)); }
+    .confirm-bar.complete { border-color: rgba(164,232,191,.36); background: linear-gradient(135deg, rgba(164,232,191,.08), rgba(255,255,255,.015)); }
+
+    .info-card { padding: 18px; }
+    .info-card h3 { margin: 0; font-size: 13px; }
+    .info-card p { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.65; }
+    .rules { display: grid; gap: 9px; margin-top: 15px; }
+    .rule { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .rule .icon { width: 14px; height: 14px; flex: 0 0 14px; color: var(--cyan); margin-top: 1px; }
+
+    @media (max-width: 1080px) { .workspace { grid-template-columns: 1fr; } .right-rail { position: static; grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 22px, 680px); padding-top: 12px; }
+      .topbar, .page-heading { align-items: flex-start; flex-direction: column; }
+      .top-actions { justify-content: flex-start; }
+      .heading-note { max-width: none; text-align: left; }
+      .stream { padding: 16px 12px 22px; }
+      .flow { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+      .flow-step:not(:last-child) { margin-right: 0; }
+      .flow-step:not(:last-child)::after { display: none; }
+      .tree-group-name span { display: none; }
+      .task-card-head { gap: 6px; }
+      .confirm-bar { align-items: stretch; flex-direction: column; }
+      .confirm-actions { justify-content: stretch; }
+      .cancel-btn, .confirm-btn { flex: 1; }
+      .right-rail { grid-template-columns: 1fr; }
+      .tool-head { align-items: flex-start; flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M4 17.5 12 4l8 13.5"/><path d="M7.5 12h9M5.8 17.5h12.4"/></svg></div><div><span class="brand-name">VASPFlow <span style="color:var(--muted-2);font-weight:400">/</span> 构建确认</span><span class="brand-caption">透明批量构建输入文件 · 独立设计 Demo</span></div></div>
+      <div class="top-actions"><span class="chip dev">开发演示</span><button class="ghost-btn" type="button" id="resetDemo"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 0 15.3 6.4L21 15.7"/><path d="M21 12a9 9 0 0 0-15.3-6.4L3 8.3"/><path d="M21 5v5h-5M3 19v-5h5"/></svg>重置演示</button></div>
+    </header>
+
+    <section class="page-heading"><div><p class="kicker">Preview · Confirm · Build</p><h1>先看清计划，再一次写入</h1><p class="lede">dry-run 只生成构建计划。你可以逐个查看任务、取消不需要的任务；确认后由插件直接执行这份计划，不会再次调用相同的构建工具。</p></div><p class="heading-note">本 Demo 展示的是确认卡片的目标交互，不会修改真实目录，也不会触发 VASP 计算。</p></section>
+
+    <section class="workspace" aria-label="VASPFlow 构建确认演示">
+      <article class="conversation" aria-label="对话与构建计划">
+        <div class="conversation-head"><div class="conversation-title"><span class="online-dot"></span>AI 工作流 <small>· 构建输入</small></div><small>一次预览 · 一次确认</small></div>
+        <div class="stream">
+          <div class="message user"><div class="avatar" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.8 7.5 9.6 9.6 0 0 1-4.2-1L4 19l1.1-3.2A7.3 7.3 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5c4.2 0 8 2.9 8 7Z"/></svg></div><div><div class="bubble">请根据当前结构源，批量构建 3 个结构优化任务。先预览，不要写入文件。</div><div class="message-meta" style="text-align:right">用户 · 18:41</div></div></div>
+          <div class="message"><div class="avatar ai" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3v3M5.6 6.2l2.1 2.1M18.4 6.2l-2.1 2.1M4 13h3M17 13h3M7 18.4l2-2M17 18.4l-2-2"/><circle cx="12" cy="13" r="5"/></svg></div><div><div class="bubble">我已经生成构建计划。请检查下方任务卡片；确认后插件会直接执行，不会再次调用构建工具。</div><div class="message-meta">VASPFlow Agent · 等待确认</div></div></div>
+
+          <section class="tool-card" aria-label="vasp_build_inputs 构建确认卡片">
+            <div class="tool-head"><div class="tool-heading"><div class="tool-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24"><path d="M4 6.5 12 3l8 3.5v11L12 21l-8-3.5v-11Z"/><path d="M4 6.5 12 10l8-3.5M12 10v11"/><path d="M8 5l8 3.5"/></svg></div><div><h2>构建 VASP 输入</h2><p>检查构建计划 · 用户确认后由插件直接写入</p></div></div></div>
+            <div class="confirm-notice"><svg class="icon" viewBox="0 0 24 24"><path d="m12 4 9 16H3L12 4Z"/><path d="M12 9v5M12 17v.1"/></svg><div><strong>请检查构建计划</strong><span>这是一次安全预览：当前不会创建目录或修改文件。你可以取消单个任务，再确认剩余任务。</span></div></div>
+            <div class="flow" aria-label="构建计划流程">
+              <div class="flow-step done"><div class="flow-marker"><span class="flow-number">1</span>已完成</div><strong>读取来源</strong><span class="flow-note">结构源与模板已定位</span></div>
+              <div class="flow-step done"><div class="flow-marker"><span class="flow-number">2</span>已完成</div><strong>生成计划</strong><span class="flow-note">SD、POTCAR 与文件映射</span></div>
+              <div class="flow-step current" id="flowConfirm"><div class="flow-marker"><span class="flow-number">3</span>当前阶段</div><strong>等待确认</strong><span class="flow-note">检查任务后决定写入</span></div>
+              <div class="flow-step pending" id="flowWrite"><div class="flow-marker"><span class="flow-number">4</span>尚未执行</div><strong>正式写入</strong><span class="flow-note">确认后执行一次</span></div>
+            </div>
+            <div class="task-toolbar"><strong>构建任务</strong><div class="task-count"><b id="selectedCount">3</b>/<span id="totalCount">3</span> 个任务将写入</div></div>
+            <div class="tree-list" id="taskList"></div>
+            <div class="confirm-bar" id="confirmBar"><div class="confirm-copy"><strong id="confirmTitle">3 个任务已选中</strong><span id="confirmHint">1 个任务有提醒；确认后插件将执行这份计划。</span></div><div class="confirm-actions"><button class="cancel-btn" type="button" id="cancelPlan">取消预览</button><button class="confirm-btn" type="button" id="confirmBuild">仍然构建 3 个任务</button></div></div>
+            <div class="tool-foot"><span><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.8 1.7"/></svg><span id="planFoot">计划有效 · 来源尚未变化</span></span><button class="raw-toggle" id="rawToggle" type="button" aria-expanded="false">查看原始 JSON</button></div>
+            <pre class="raw-json" id="rawJson" aria-label="原始工具结果">{
+  "tool": "vasp_build_inputs",
+  "planId": "preview-20260928-1842",
+  "dryRun": true,
+  "requiresUserConfirmation": true,
+  "count": 3,
+  "selected": ["demo-input-1", "demo-input-2", "demo-input-3"],
+  "written": false
+}</pre>
+          </section>
+        </div>
+      </article>
+
+      <aside class="right-rail" aria-label="任务详情与确认规则">
+        <section class="inspector" id="inspector" hidden><div class="inspector-head"><strong>任务详情</strong><span id="detailIndex"></span></div><div class="inspect-body"><div class="selected-status"><span class="status-dot" id="detailDot"></span><div><strong id="detailStatus"></strong><span id="detailLabel"></span></div></div><div class="inspect-path" id="detailPath"></div><div class="inspect-block"><div class="inspect-label">来源映射</div><div class="source-grid" id="sourceGrid"></div></div><div class="inspect-block"><div class="inspect-label">构建计划</div><div class="evidence" id="evidenceList"></div></div></div></section>
+        <section class="info-card"><h3>确认规则</h3><p>确认按钮控制的是这一次预览计划。插件会复用计划直接写入，不会让 Agent 再调用一次相同的构建工具。</p><div class="rules"><div class="rule"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg><span>无警告：显示“确认构建”。</span></div><div class="rule"><svg class="icon" viewBox="0 0 24 24"><path d="m12 4 9 16H3L12 4Z"/><path d="M12 9v5M12 17v.1"/></svg><span>有警告：显示“仍然构建”，由你决定。</span></div><div class="rule"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg><span>有错误：禁止确认，需先修正计划。</span></div><div class="rule"><svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M7 4v3M17 4v3M5 10h14v10H5z"/></svg><span>来源文件发生变化，计划自动失效。</span></div></div></section>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const initialTasks = [
+      { id: 'demo-input-1', selected: true, status: 'ok', statusText: '可执行', label: '输入源完整', group: 'client_verify / relax / clean', groupLabel: 'clean', sourceRoot: 'structures / ABN', path: 'client_verify / relax / clean / 01-clean', source: [['POSCAR', 'structures / ABN-POSCAR'], ['INCAR', 'templates / relax / INCAR'], ['KPOINTS', 'templates / relax / KPOINTS'], ['POTCAR', 'potentials / ABN / POTCAR']], evidence: [['ok', '结构源已解析，共 48 个原子'], ['ok', 'Selective dynamics：沿用源文件旗标'], ['ok', '将复制 4 个标准输入文件']] },
+      { id: 'demo-input-2', selected: true, status: 'ok', statusText: '可执行', label: '输入源完整', group: 'client_verify / relax / adsorbates', groupLabel: 'adsorbates', sourceRoot: 'structures / ABN-NH2OH', path: 'client_verify / relax / adsorbates / 02-adsorbate', source: [['POSCAR', 'structures / ABN-NH2OH'], ['INCAR', 'templates / relax / INCAR'], ['KPOINTS', 'templates / relax / KPOINTS'], ['POTCAR', 'potentials / ABN / POTCAR']], evidence: [['ok', '结构源与任务目录已建立映射'], ['ok', 'POTCAR 与 POSCAR 物种顺序一致'], ['ok', '提交脚本来源已明确']] },
+      { id: 'demo-input-3', selected: true, status: 'warn', statusText: '需确认', label: '存在提醒', group: 'client_verify / relax / adsorbates', groupLabel: 'adsorbates', sourceRoot: 'structures / ABN-test', path: 'client_verify / relax / adsorbates / 03-test', source: [['POSCAR', 'structures / ABN-test'], ['INCAR', 'templates / relax / INCAR'], ['KPOINTS', 'templates / relax / KPOINTS'], ['POTCAR', '待确认'], ['提交脚本', 'templates / submit.slurm']], evidence: [['warn', '模板目录中缺少 POTCAR，需确认后补充'], ['warn', '该任务仍可纳入本次构建'], ['warn', 'dry-run 不会写入任何文件']] }
+    ];
+    let tasks = structuredClone(initialTasks);
+    let selected = null;
+    let phase = 'confirm';
+    const openGroups = new Set(['client_verify / relax / clean', 'client_verify / relax / adsorbates']);
+
+    const taskList = document.getElementById('taskList');
+    const selectedCount = document.getElementById('selectedCount');
+    const totalCount = document.getElementById('totalCount');
+    const confirmBar = document.getElementById('confirmBar');
+    const confirmTitle = document.getElementById('confirmTitle');
+    const confirmHint = document.getElementById('confirmHint');
+    const confirmBuild = document.getElementById('confirmBuild');
+    const cancelPlan = document.getElementById('cancelPlan');
+    const planFoot = document.getElementById('planFoot');
+    const flowConfirm = document.getElementById('flowConfirm');
+    const flowWrite = document.getElementById('flowWrite');
+    const inspector = document.getElementById('inspector');
+    const detailIndex = document.getElementById('detailIndex');
+    const detailDot = document.getElementById('detailDot');
+    const detailStatus = document.getElementById('detailStatus');
+    const detailLabel = document.getElementById('detailLabel');
+    const detailPath = document.getElementById('detailPath');
+    const sourceGrid = document.getElementById('sourceGrid');
+    const evidenceList = document.getElementById('evidenceList');
+
+    function icon(type) {
+      if (type === 'warn') return '<svg class="icon" viewBox="0 0 24 24"><path d="m12 4 9 16H3L12 4Z"/><path d="M12 9v5M12 17v.1"/></svg>';
+      if (type === 'error') return '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/></svg>';
+      return '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg>';
+    }
+    function selectedTasks() { return tasks.filter((task) => task.selected); }
+    function selectedHasError() { return selectedTasks().some((task) => task.status === 'error'); }
+    function displayStatus(task) {
+      if (phase === 'done' && task.selected) return task.status === 'warn' ? '部分写入' : '已写入';
+      return task.statusText;
+    }
+
+    function groupedTasks() {
+      const groups = new Map();
+      tasks.forEach((task, index) => {
+        if (!groups.has(task.group)) groups.set(task.group, { key: task.group, label: task.groupLabel, tasks: [] });
+        groups.get(task.group).tasks.push({ task, index });
+      });
+      return [...groups.values()];
+    }
+    function groupSelectionState(items) {
+      const all = items.every(({ task }) => task.selected);
+      const some = items.some(({ task }) => task.selected);
+      return { all, some };
+    }
+    function taskMarkup(task, index) {
+      const statusClass = task.status === 'warn' ? 'warn' : task.status === 'error' ? 'error' : '';
+      const expanded = index === selected;
+      return `
+        <article class="task-card ${expanded ? 'selected' : ''}" data-index="${index}">
+          <div class="task-card-head">
+            <label class="task-select" title="选择或取消该任务"><input type="checkbox" data-select="${index}" aria-label="选择 ${task.id}" ${task.selected ? 'checked' : ''} ${phase !== 'confirm' ? 'disabled' : ''} /><span class="checkmark" aria-hidden="true"></span></label>
+            <button class="task-main" type="button" data-open="${index}" aria-expanded="${expanded}" aria-label="查看 ${task.id} 详情"><strong>${task.id}</strong></button>
+            <span class="status-pill ${statusClass}">${displayStatus(task)}</span>
+            <button class="task-expand" type="button" data-open="${index}" aria-expanded="${expanded}" aria-label="查看 ${task.id} 详情"><svg class="icon" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+          </div>
+        </article>
+      `;
+    }
+    function renderTasks() {
+      const groups = groupedTasks();
+      taskList.innerHTML = groups.map((group) => {
+            const state = groupSelectionState(group.tasks);
+            const expanded = openGroups.has(group.key);
+            return `<section class="tree-group ${expanded ? '' : 'collapsed'}" data-group="${group.key}">
+              <div class="tree-group-head">
+                <button class="tree-group-toggle" type="button" data-toggle-group="${group.key}" aria-expanded="${expanded}"><svg class="icon" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+                <label class="task-select" title="选择或取消该目录下的全部任务"><input type="checkbox" class="group-select" data-group-select="${group.key}" aria-label="选择 ${group.label} 分组" ${state.all ? 'checked' : ''} ${phase !== 'confirm' ? 'disabled' : ''} /><span class="checkmark" aria-hidden="true"></span></label>
+                <div class="tree-group-name"><strong>${group.label}</strong><span>${group.key}</span></div>
+                <span class="tree-group-count">${group.tasks.length} 个任务</span>
+              </div>
+              <div class="tree-children">${group.tasks.map(({ task, index }) => taskMarkup(task, index)).join('')}</div>
+            </section>`;
+          }).join('');
+      taskList.querySelectorAll('[data-group-select]').forEach((input) => {
+        const group = groups.find(({ key }) => key === input.dataset.groupSelect);
+        const state = groupSelectionState(group.tasks);
+        input.indeterminate = state.some && !state.all;
+        input.addEventListener('change', () => {
+        group.tasks.forEach(({ task }) => { task.selected = input.checked; });
+        selected = null;
+        renderTasks(); renderDetails(); renderConfirm();
+        });
+      });
+      taskList.querySelectorAll('[data-toggle-group]').forEach((button) => button.addEventListener('click', () => {
+        const key = button.dataset.toggleGroup;
+        if (openGroups.has(key)) { openGroups.delete(key); if (selected !== null && tasks[selected].group === key) selected = null; }
+        else openGroups.add(key);
+        renderTasks(); renderDetails();
+      }));
+      taskList.querySelectorAll('[data-open]').forEach((button) => button.addEventListener('click', () => {
+        const index = Number(button.dataset.open);
+        selected = selected === index ? null : index;
+        renderTasksSelectionOnly(); renderDetails();
+      }));
+      taskList.querySelectorAll('[data-select]').forEach((input) => input.addEventListener('change', () => { tasks[Number(input.dataset.select)].selected = input.checked; selected = null; renderTasks(); renderDetails(); renderConfirm(); }));
+    }
+    function renderTasksSelectionOnly() { taskList.querySelectorAll('.task-card').forEach((card) => { const active = Number(card.dataset.index) === selected; card.classList.toggle('selected', active); card.querySelectorAll('[data-open]').forEach((control) => control.setAttribute('aria-expanded', String(active))); }); }
+    function renderDetails() {
+      inspector.hidden = selected === null;
+      if (selected === null) return;
+      const task = tasks[selected];
+      detailIndex.textContent = `${String(selected + 1).padStart(2, '0')} / ${String(tasks.length).padStart(2, '0')}`;
+      detailDot.className = `status-dot ${task.status === 'warn' ? 'warn' : task.status === 'error' ? 'error' : ''}`;
+      detailStatus.textContent = displayStatus(task);
+      detailLabel.textContent = ` · ${task.label}`;
+      detailPath.textContent = task.path;
+      sourceGrid.innerHTML = `<div class="source-line"><b>结构源</b><span>${task.sourceRoot}</span></div>` + task.source.map(([name, value]) => `<div class="source-line"><b>${name}</b><span>${value}</span></div>`).join('');
+      evidenceList.innerHTML = task.evidence.map(([type, text]) => {
+        const finalText = phase === 'done' && task.selected
+          ? text.replace('将复制', '已写入').replace('预览', '正式构建').replace('dry-run 不会写入任何文件', '已按确认计划写入可执行文件')
+          : text;
+        return `<div class="evidence-line ${type}">${icon(type)}<span>${finalText}</span></div>`;
+      }).join('');
+    }
+    function renderConfirm() {
+      const picked = selectedTasks();
+      const count = picked.length;
+      const warnings = picked.filter((task) => task.status === 'warn').length;
+      const errors = picked.filter((task) => task.status === 'error').length;
+      selectedCount.textContent = count;
+      totalCount.textContent = tasks.length;
+      confirmBar.classList.toggle('blocked', errors > 0);
+      confirmBar.classList.toggle('complete', phase === 'done');
+      if (phase === 'cancelled') { confirmTitle.textContent = '预览已取消'; confirmHint.textContent = '本次计划已丢弃，未创建任何目录或文件。'; confirmBuild.disabled = true; confirmBuild.textContent = '已取消'; cancelPlan.disabled = true; return; }
+      if (phase === 'executing') { confirmTitle.textContent = '正在执行构建计划'; confirmHint.textContent = '插件正在根据已确认的计划写入文件。'; confirmBuild.disabled = true; confirmBuild.textContent = '正在构建…'; cancelPlan.disabled = true; return; }
+      if (phase === 'done') { confirmTitle.textContent = `${count} 个任务已写入`; confirmHint.textContent = '构建完成；插件已完成本次计划的写入。'; confirmBuild.disabled = true; confirmBuild.textContent = '已完成'; cancelPlan.disabled = true; return; }
+      confirmTitle.textContent = `${count} 个任务已选中`;
+      confirmHint.textContent = errors > 0 ? `${errors} 个任务存在错误，修正后才能确认。` : warnings > 0 ? `${warnings} 个任务有提醒；确认后插件将执行这份计划。` : '计划无提醒；确认后插件将执行这份计划。';
+      confirmBuild.disabled = count === 0 || errors > 0;
+      confirmBuild.textContent = warnings > 0 ? `仍然构建 ${count} 个任务` : `确认构建 ${count} 个任务`;
+      cancelPlan.disabled = false;
+    }
+    function setFlowDone() { flowConfirm.className = 'flow-step done'; flowConfirm.querySelector('.flow-marker').innerHTML = '<span class="flow-number">3</span>已完成'; flowConfirm.querySelector('strong').textContent = '已确认'; flowConfirm.querySelector('.flow-note').textContent = '用户允许执行计划'; flowWrite.className = 'flow-step done'; flowWrite.querySelector('.flow-marker').innerHTML = '<span class="flow-number">4</span>已完成'; flowWrite.querySelector('strong').textContent = '正式写入'; flowWrite.querySelector('.flow-note').textContent = '已写入选中的任务'; }
+
+    confirmBuild.addEventListener('click', () => { if (confirmBuild.disabled) return; phase = 'executing'; renderConfirm(); setTimeout(() => { phase = 'done'; setFlowDone(); planFoot.textContent = '构建完成 · 已写入选中的任务'; renderTasks(); renderDetails(); renderConfirm(); }, 900); });
+    cancelPlan.addEventListener('click', () => { phase = 'cancelled'; planFoot.textContent = '计划已取消 · 未写入任何文件'; renderConfirm(); });
+    const rawToggle = document.getElementById('rawToggle');
+    const rawJson = document.getElementById('rawJson');
+    rawToggle.addEventListener('click', () => { const open = rawToggle.getAttribute('aria-expanded') === 'true'; rawToggle.setAttribute('aria-expanded', String(!open)); rawToggle.textContent = open ? '查看原始 JSON' : '收起原始 JSON'; rawJson.classList.toggle('open', !open); });
+    document.getElementById('resetDemo').addEventListener('click', () => { tasks = structuredClone(initialTasks); selected = null; phase = 'confirm'; openGroups.clear(); openGroups.add('client_verify / relax / clean'); openGroups.add('client_verify / relax / adsorbates'); flowConfirm.className = 'flow-step current'; flowConfirm.querySelector('.flow-marker').innerHTML = '<span class="flow-number">3</span>当前阶段'; flowConfirm.querySelector('strong').textContent = '等待确认'; flowConfirm.querySelector('.flow-note').textContent = '检查任务后决定写入'; flowWrite.className = 'flow-step pending'; flowWrite.querySelector('.flow-marker').innerHTML = '<span class="flow-number">4</span>尚未执行'; flowWrite.querySelector('strong').textContent = '正式写入'; flowWrite.querySelector('.flow-note').textContent = '确认后执行一次'; planFoot.textContent = '计划有效 · 来源尚未变化'; rawJson.classList.remove('open'); rawToggle.setAttribute('aria-expanded', 'false'); rawToggle.textContent = '查看原始 JSON'; renderTasks(); renderDetails(); renderConfirm(); });
+    renderTasks(); renderDetails(); renderConfirm();
+  </script>
+</body>
+</html>

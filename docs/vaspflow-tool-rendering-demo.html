@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VASPFlow · 工具结果统一渲染 Demo</title>
+  <style>
+    :root { font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; color-scheme: light; --bg:#f5f7f2; --paper:#fff; --ink:#1b332b; --muted:#65766e; --line:#dbe4d9; --soft:#edf4e9; --selected:#e0f0dd; --green:#196b4d; --orange:#a75b17; --red:#b44438; --accent:#e96b50; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--bg); color:var(--ink); }
+    button { font:inherit; cursor:pointer; }
+    button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:16px; min-height:58px; padding:0 max(24px,calc((100vw - 1420px)/2)); color:#fff; background:#183d33; }
+    .brand { display:flex; align-items:baseline; gap:13px; white-space:nowrap; }
+    .brand strong { font-size:16px; letter-spacing:-.02em; }
+    .brand span { color:#bbdda6; font-size:11px; }
+    .top-actions { display:flex; align-items:center; gap:8px; }
+    .demo-label { margin-right:9px; color:#bbdda6; font-size:11px; }
+    .top button { min-height:32px; padding:0 11px; border:1px solid #7ea68d; color:#fff; background:transparent; font-size:11px; }
+    .top button:hover { background:#295849; }
+    .layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(330px,390px); max-width:1420px; min-height:calc(100vh - 58px); margin:auto; background:var(--paper); }
+    .conversation { min-width:0; padding:30px clamp(22px,5vw,72px) 90px; }
+    .conversation-inner { max-width:770px; margin:auto; }
+    .thread-head { display:flex; justify-content:space-between; align-items:end; gap:16px; padding-bottom:13px; border-bottom:1px solid var(--line); }
+    .thread-head h1 { margin:0; font-size:17px; letter-spacing:-.025em; }
+    .thread-head small { color:var(--muted); font-size:11px; }
+    .chat-line { display:flex; gap:11px; margin:28px 0 12px; }
+    .chat-line.user { justify-content:flex-end; }
+    .avatar { display:grid; width:28px; height:28px; flex:0 0 28px; place-items:center; color:#fff; background:var(--accent); font-size:10px; font-weight:800; }
+    .bubble { max-width:615px; padding:10px 13px; background:#e9f2e5; font-size:13px; line-height:1.55; }
+    .assistant-copy { margin:18px 0 25px; color:var(--muted); font-size:13px; line-height:1.55; }
+    .tool { padding:0 0 10px; border-top:1px solid var(--line); }
+    .tool + .tool { margin-top:9px; }
+    .tool-head { display:flex; width:100%; align-items:center; gap:12px; min-height:48px; padding:3px 0; border:0; color:var(--ink); background:transparent; text-align:left; }
+    .tool-head:hover .tool-title { color:var(--green); }
+    .tool-number { width:27px; flex:0 0 27px; color:#91a69a; font:11px ui-monospace,Consolas,monospace; }
+    .tool-title { font-size:13px; font-weight:750; white-space:nowrap; }
+    .tool-summary { min-width:0; overflow:hidden; color:var(--muted); font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+    .tool-state { margin-left:auto; font-size:11px; font-weight:700; white-space:nowrap; }
+    .tool-state.ok { color:var(--green); } .tool-state.warn { color:var(--orange); } .tool-state.error { color:var(--red); }
+    .chevron { margin-left:4px; color:var(--muted); font-size:15px; transition:transform .18s; }
+    .tool[data-collapsed] .chevron { transform:rotate(-90deg); }
+    .tool-body { padding:1px 0 4px 39px; }
+    .tool[data-collapsed] .tool-body { display:none; }
+    .section-label { margin:8px 0 5px; color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.08em; }
+    .result-row { display:flex; align-items:center; gap:10px; width:100%; min-height:35px; margin:2px 0; padding:3px 8px; border:0; border-radius:5px; color:var(--ink); background:var(--soft); text-align:left; }
+    .result-row:hover,.result-row.active { background:var(--selected); }
+    .result-row .name { min-width:0; flex:1; overflow:hidden; font-size:12px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
+    .result-row .sub { color:var(--muted); font-size:11px; white-space:nowrap; }
+    .status { font-size:11px; font-weight:700; white-space:nowrap; }
+    .status.ok { color:var(--green); } .status.warn { color:var(--orange); } .status.error { color:var(--red); }
+    .row-arrow { color:var(--muted); font-size:16px; }
+    .quiet { margin:8px 0 4px; color:var(--muted); font-size:11px; line-height:1.5; }
+    .text-action { margin:5px 0; padding:4px 0; border:0; color:var(--green); background:transparent; font-size:11px; font-weight:700; text-align:left; }
+    .text-action:hover { text-decoration:underline; }
+    .candidate-detail { margin:2px 0 5px; padding:8px 10px 9px; border-left:2px solid #91c39c; background:#f5faf3; color:var(--muted); font-size:11px; line-height:1.6; }
+    .candidate-detail b { color:var(--ink); }
+    .build-group { display:flex; align-items:center; gap:7px; margin:9px 0 5px; color:var(--muted); font-size:11px; font-weight:700; }
+    .build-group::before { content:""; width:9px; height:9px; border:1px solid #94b4a1; border-radius:2px; }
+    .build-row { display:flex; align-items:center; gap:7px; min-height:35px; margin:2px 0 2px 14px; padding:0 6px; border-radius:5px; background:var(--soft); }
+    .build-row.active { background:var(--selected); }
+    .build-row input { width:15px; height:15px; margin:0; accent-color:var(--green); }
+    .build-row button { display:flex; align-items:center; gap:8px; flex:1; min-width:0; height:35px; padding:0; border:0; color:var(--ink); background:transparent; text-align:left; }
+    .build-row button span:first-child { flex:1; overflow:hidden; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+    .build-actions { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-top:11px; }
+    .build-actions .count { color:var(--muted); font-size:11px; }
+    .build-buttons { display:flex; gap:7px; flex-wrap:wrap; }
+    .build-buttons button { min-height:31px; padding:0 9px; border:1px solid #a5b8a8; border-radius:4px; color:var(--ink); background:#fff; font-size:11px; }
+    .build-buttons button:hover:not(:disabled) { background:#f4f8f0; }
+    .build-buttons .primary { border-color:var(--green); color:#fff; background:var(--green); font-weight:700; }
+    .build-buttons .primary:hover:not(:disabled) { background:#14563e; }
+    .build-buttons button:disabled { cursor:default; opacity:.55; }
+    .board { position:sticky; top:0; display:flex; flex-direction:column; align-self:start; height:calc(100vh - 58px); min-height:620px; border-left:1px solid var(--line); background:#fbfcf9; }
+    .board-top { padding:24px 25px 17px; border-bottom:1px solid var(--line); }
+    .board-kicker { color:var(--green); font-size:10px; font-weight:800; letter-spacing:.12em; }
+    .board-top h2 { margin:8px 0 5px; font-size:22px; letter-spacing:-.035em; }
+    .board-top p { margin:0; color:var(--muted); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+    .board-content { flex:1; overflow:auto; padding:21px 25px 40px; }
+    .board-section { margin:0 0 24px; }
+    .board-section h3 { margin:0 0 10px; color:var(--muted); font-size:10px; font-weight:800; letter-spacing:.08em; }
+    .detail-line { display:flex; justify-content:space-between; gap:16px; padding:9px 0; border-bottom:1px solid var(--line); font-size:12px; }
+    .detail-line span:first-child { color:var(--muted); }
+    .detail-line span:last-child { text-align:right; overflow-wrap:anywhere; }
+    .evidence { padding:11px 12px; border-left:3px solid var(--green); background:var(--soft); font-size:12px; line-height:1.6; }
+    .evidence.warn { border-color:var(--orange); background:#fff6e7; }
+    .evidence.error { border-color:var(--red); background:#fff0ec; }
+    .evidence + .evidence { margin-top:7px; }
+    .chart { display:block; width:100%; height:auto; margin:8px 0 5px; background:#f0f6eb; }
+    .chart-note { display:flex; justify-content:space-between; color:var(--muted); font-size:10px; }
+    .structure { display:grid; place-items:center; min-height:210px; margin-bottom:10px; background:#edf5e9; }
+    .structure svg { width:100%; max-width:270px; height:auto; }
+    .board-footer { padding:12px 25px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; }
+    .other-chat { display:grid; place-items:center; min-height:380px; color:var(--muted); font-size:13px; text-align:center; }
+    @media (max-width:980px) { .layout { grid-template-columns:minmax(0,1fr) 320px; } .conversation { padding:26px 25px 70px; } }
+    @media (max-width:740px) { .top { padding:12px 16px; } .brand span,.demo-label { display:none; } .layout { display:block; } .conversation { padding:24px 18px 50px; } .board { position:static; height:auto; min-height:0; border-left:0; border-top:1px solid var(--line); } .board-content { max-height:none; } .tool-summary { display:none; } }
+  </style>
+</head>
+<body>
+  <header class="top"><div class="brand"><strong>VASPFlow</strong><span>工具结果 · 统一渲染提案</span></div><div class="top-actions"><span class="demo-label">演示数据 · 不写入磁盘</span><button id="switchChat" type="button">切换对话</button><button id="resetDemo" type="button">重置</button></div></header>
+  <main class="layout">
+    <section class="conversation"><div class="conversation-inner" id="conversation"></div></section>
+    <aside class="board" aria-label="右侧 VASP 看板"><div class="board-top"><div class="board-kicker">VASP 看板 · 详情</div><h2 id="detailTitle">任务详情</h2><p id="detailPath">点击左侧工具结果中的任务或「查看」</p></div><div class="board-content" id="detailContent"></div><div class="board-footer" id="boardFooter">聊天显示调用时的结果快照 · 看板显示该条目的详情</div></aside>
+  </main>
+  <script>
+    const toolOrder = ['scan','inspect','convergence','structure','discover','build','check'];
+    const labels = {scan:'扫描项目',inspect:'核查任务',convergence:'收敛数据',structure:'结构场景',discover:'发现输入',build:'构建输入',check:'输入检查'};
+    const state = {open:new Set(toolOrder),more:new Set(),candidate:new Set(),detail:'scan-error',otherChat:false,build:'preview',picked:new Set([0,1,2]),direct:false};
+    const buildTasks = [
+      {name:'dz-p0.2',status:'可构建',source:'4-NO-scan/src/dzp0.2.vasp',sd:'N 固定 · O 放开'},
+      {name:'dz-p0.4',status:'可构建',source:'4-NO-scan/src/dzp0.4.vasp',sd:'N 固定 · O 放开'},
+      {name:'dz-p0.6',status:'需注意',source:'4-NO-scan/src/dzp0.6.vasp',sd:'N 固定 · O 放开'}
+    ];
+    const conversation = document.getElementById('conversation');
+    const detailTitle = document.getElementById('detailTitle');
+    const detailPath = document.getElementById('detailPath');
+    const detailContent = document.getElementById('detailContent');
+    const boardFooter = document.getElementById('boardFooter');
+    const row = (key,name,sub,status='查看',tone='ok') => `<button type="button" class="result-row ${state.detail===key?'active':''}" data-detail="${key}"><span class="name">${name}</span><span class="sub">${sub}</span><span class="status ${tone}">${status}</span><span class="row-arrow" aria-hidden="true">›</span></button>`;
+    const line = (a,b) => `<div class="detail-line"><span>${a}</span><span>${b}</span></div>`;
+    const section = (title,html) => `<section class="board-section"><h3>${title}</h3>${html}</section>`;
+    function summary(key) {
+      if(key==='scan') return ['14 个任务 · 运行 2 · 错误 1','需注意','warn'];
+      if(key==='inspect') return ['2-NO · 已完成','完成','ok'];
+      if(key==='convergence') return ['2-NO · 8 个离子步 · −304.287 eV','可查看','ok'];
+      if(key==='structure') return ['CONTCAR · Bi₅₄NO · 56 原子','可查看','ok'];
+      if(key==='discover') return ['2 个结构源 · 2 个模板 · SD 不一致','需确认','warn'];
+      if(key==='build') return state.build==='preview' ? ['3 个任务 · 预览未写入','待确认','warn'] : state.build==='done' ? [`${state.picked.size}/3 已写入${state.direct?' · 后续 AI 直接构建':''}`,'已完成','ok'] : ['预览已取消 · 未写入','已取消','warn'];
+      return ['2 通过 · 1 警告 · 批次不一致','需注意','warn'];
+    }
+    function body(key) {
+      if(key==='scan') return `<div class="quiet">先显示需要关注的任务；展开后可查看其他状态示例。</div>${row('scan-error','3-NO-scan/dz-p6.0','结构优化','错误','error')}${row('scan-running','2-NO','离子步 8','运行中','warn')}${state.more.has('scan')?`${row('scan-ready','4-NO-scan/dz-p0.2','输入齐全','待计算')}${row('scan-done','1-NO3','正常结束','已完成')}`:''}<button class="text-action" type="button" data-more="scan">${state.more.has('scan')?'收起示例':'查看更多任务示例'}</button>`;
+      if(key==='inspect') return `${row('inspect','2-NO','结构优化 · OUTCAR 正常结束','查看状态')}<p class="quiet">关键证据：电子步收敛，最后一个离子步有正常结束标记。</p>`;
+      if(key==='convergence') return `${row('convergence','2-NO','末步能量 −304.287 eV','查看曲线')}<p class="quiet">完整能量与最大力序列在右侧看板展示。</p>`;
+      if(key==='structure') return `${row('structure','2-NO/CONTCAR','Bi 54 · N 1 · O 1','查看结构')}<p class="quiet">点击后在右侧查看结构场景；聊天不显示原子与键的 JSON。</p>`;
+      if(key==='discover') return `<div class="section-label">结构源 · 2</div>${candidate('source-no','NO.vasp','54F / 2T','完整')}${candidate('source-contcar','2-NO/CONTCAR','55F / 1T','旗标不同','warn')}<div class="section-label">候选模板 · 2</div>${candidate('template-2no','2-NO','标准输入齐全','完整')}${candidate('template-scan','3-NO-scan/dz-p0.2','含提交脚本','完整')}<p class="quiet">这里只展示候选；模板选择仍由用户在对话中确认。</p>`;
+      if(key==='build') return `<p class="quiet">${state.build==='preview'?'我计划构建以下任务，尚未写入磁盘；请检查，无误后点击确认构建。':state.build==='done'?'我目前构建的文件如下，请检阅。':'本次预览已取消，未写入磁盘。'}</p><div class="build-group">4-NO-scan <span>3 个任务</span></div>${buildTasks.map((task,i)=>`<div class="build-row ${state.detail===`build-${i}`?'active':''}">${state.build==='preview'?`<input type="checkbox" data-pick="${i}" aria-label="选择 ${task.name}" ${state.picked.has(i)?'checked':''}>`:''}<button type="button" data-detail="build-${i}"><span>${task.name}</span><span class="status ${task.status==='需注意'?'warn':'ok'}">${state.build==='done'?(state.picked.has(i)?'已写入':'未写入'):state.build==='cancelled'?'已取消':task.status}</span><span class="row-arrow" aria-hidden="true">›</span></button></div>`).join('')}<div class="build-actions"><span class="count">${state.build==='preview'?`${state.picked.size} 个任务已选中` : state.build==='done'?'这次确认的结果已保留':'本次计划未写入'}</span><div class="build-buttons">${state.build==='preview'?`<button type="button" data-action="cancel">取消预览</button><button type="button" data-action="direct" ${state.picked.size?'':'disabled'}>交给 AI 直接构建</button><button class="primary" type="button" data-action="confirm" ${state.picked.size?'':'disabled'}>确认构建 ${state.picked.size} 个任务</button>`:`<button type="button" disabled>${state.build==='done'?'已完成':'已取消'}</button>`}</div></div>`;
+      return `<div class="quiet">规则：结构优化。只先列出异常；批次一致性问题不能被“2 项通过”掩盖。</div>${row('check-warning','4-NO-scan/dz-p0.6','SD 模式与同批不同','需注意','warn')}${state.more.has('check')?`${row('check-ok1','dz-p0.2','POSCAR / POTCAR 匹配','通过')}${row('check-ok2','dz-p0.4','POSCAR / POTCAR 匹配','通过')}`:''}<button class="text-action" type="button" data-more="check">${state.more.has('check')?'收起':'查看全部 3 项'}</button>`;
+    }
+    function candidate(key,name,sub,status,tone='ok') { return `${row(key,name,sub,status,tone)}${state.candidate.has(key)?`<div class="candidate-detail">${candidateDetails[key]}</div>`:''}`; }
+    const candidateDetails = {
+      'source-no':'<b>物种：</b>Bi 54、N 1、O 1<br><b>Selective dynamics：</b>54F / 2T；N 与 O 放开。',
+      'source-contcar':'<b>物种：</b>Bi 54、N 1、O 1<br><b>Selective dynamics：</b>55F / 1T；与 NO.vasp 不同。',
+      'template-2no':'<b>文件：</b>INCAR、KPOINTS、POTCAR、lqf.sh<br><b>参数：</b>ENCUT=400 · IBRION=2 · NSW=300。',
+      'template-scan':'<b>文件：</b>INCAR、KPOINTS、POTCAR、lqf.sh<br><b>参数：</b>结构优化模板；提交脚本已发现。'
+    };
+    function renderConversation() {
+      if(state.otherChat) { conversation.innerHTML='<div class="thread-head"><h1>另一段对话</h1><small>模拟切换</small></div><div class="other-chat">这是一段空对话。<br>再次点击「返回工具对话」查看确认状态是否保留。</div>'; return; }
+      conversation.innerHTML=`<div class="thread-head"><h1>NO 表面计算 / 工具结果</h1><small>7 种工具 · 同一视觉语法</small></div><div class="chat-line user"><div class="bubble">检查项目中的 NO 任务和结构源，构建位移输入并核对。</div></div><p class="assistant-copy">结果与关键异常在对话中；点击任务可在右侧查看详情。</p>${toolOrder.map((key,i)=>{const [sum,stateText,tone]=summary(key); return `<section class="tool" ${state.open.has(key)?'':'data-collapsed'}><button class="tool-head" type="button" data-toggle="${key}" aria-expanded="${state.open.has(key)}"><span class="tool-number">${String(i+1).padStart(2,'0')}</span><span class="tool-title">${labels[key]}</span><span class="tool-summary">${sum}</span><span class="tool-state ${tone}">${stateText}</span><span class="chevron" aria-hidden="true">⌄</span></button><div class="tool-body">${body(key)}</div></section>`;}).join('')}`;
+    }
+    function renderDetail() {
+      const key=state.detail;
+      if(key.startsWith('source-') || key.startsWith('template-')) { detailTitle.textContent='发现输入'; detailPath.textContent='候选信息在左侧展开；此结果尚无独立看板视图'; detailContent.innerHTML=section('设计说明','<div class="evidence">点击候选行可在对话中查看结构源或模板参数。这里不显示无效的右侧跳转。</div>'); boardFooter.textContent='候选选择需在对话中确认'; return; }
+      if(key.startsWith('build-')) { const i=Number(key.split('-')[1]), t=buildTasks[i]; detailTitle.textContent=t.name; detailPath.textContent=`D:/Projects/VASPFlow/test/4-NO-scan/${t.name}`; detailContent.innerHTML=section('构建状态',line('本次状态',state.build==='preview'?'预览 · 尚未写入':state.build==='done'?(state.picked.has(i)?'已写入':'未选中 · 未写入'):'已取消 · 未写入')+line('检查',t.status)+line('Selective dynamics',t.sd))+section('来源映射',line('POSCAR',t.source)+line('INCAR / KPOINTS / POTCAR','3-NO-scan-r3/dz-p0.2')+line('提交脚本','lqf.sh'))+section('说明',`<div class="evidence ${t.status==='需注意'?'warn':''}">${t.status==='需注意'?'本项有提醒；请核对来源与约束。':'POTCAR 与 POSCAR 物种顺序一致。'}</div>`); boardFooter.textContent='此处展示该次构建结果的快照'; return; }
+      if(key==='convergence') { detailTitle.textContent='收敛曲线'; detailPath.textContent='2-NO · 8 个离子步'; detailContent.innerHTML=section('能量 / 离子步',`<svg class="chart" viewBox="0 0 310 180" role="img" aria-label="能量逐步下降并趋于稳定"><path d="M35 16V145H294" fill="none" stroke="#a8bca9" stroke-width="1"/><path d="M36 30 L72 66 L108 93 L144 110 L180 126 L216 133 L252 136 L287 137" fill="none" stroke="#1b7654" stroke-width="3"/><circle cx="287" cy="137" r="4.5" fill="#e96b50"/><text x="10" y="29" fill="#65766e" font-size="9">−303.8</text><text x="10" y="140" fill="#65766e" font-size="9">−304.3</text><text x="278" y="162" fill="#65766e" font-size="9">step 8</text></svg><div class="chart-note"><span>初始 −303.812 eV</span><span>最终 −304.287 eV</span></div>`)+section('末步指标',line('最大力','0.021 eV/Å')+line('离子步','8')); boardFooter.textContent='曲线展示调用时的数据快照'; return; }
+      if(key==='structure') { detailTitle.textContent='结构场景'; detailPath.textContent='2-NO/CONTCAR · Bi₅₄NO'; detailContent.innerHTML=section('结构预览',`<div class="structure"><svg viewBox="0 0 270 210" role="img" aria-label="Bi 表面上方的 N O 分子示意图"><path d="M24 148H246 M24 164H246 M24 180H246" stroke="#a8c6aa" stroke-width="1"/><g fill="#729d83">${[42,85,128,171,214].map(x=>`<circle cx="${x}" cy="145" r="11"/><circle cx="${x+18}" cy="174" r="11"/>`).join('')}</g><line x1="137" y1="105" x2="152" y2="67" stroke="#5c7066" stroke-width="4"/><circle cx="137" cy="105" r="12" fill="#315f91"/><circle cx="152" cy="67" r="11" fill="#dc5b4d"/><text x="131" y="109" fill="#fff" font-size="11">N</text><text x="147" y="71" fill="#fff" font-size="11">O</text></svg></div><div class="quiet">示意图用于展示看板位置；实际插件仍使用现有 3D 结构视图。</div>`)+section('摘要',line('原子','Bi 54 · N 1 · O 1')+line('N–O','1.19 Å')+line('文件','CONTCAR')); boardFooter.textContent='聊天中不展开原子和键的原始 JSON'; return; }
+      if(key==='check-warning') { detailTitle.textContent='输入检查'; detailPath.textContent='4-NO-scan/dz-p0.6'; detailContent.innerHTML=section('检查规则',line('类型','结构优化')+line('POSCAR / POTCAR','等长同序 · 通过')+line('SD','55F / 1T'))+section('批次一致性','<div class="evidence warn">此任务的约束模式与同批基准不同，请核对 N/O 固定规则。</div>'); boardFooter.textContent='检查结果来自该次工具调用'; return; }
+      if(key.startsWith('check-')) { detailTitle.textContent='输入检查'; detailPath.textContent=key==='check-ok1'?'4-NO-scan/dz-p0.2':'4-NO-scan/dz-p0.4'; detailContent.innerHTML=section('检查结果',line('规则','结构优化')+line('POSCAR / POTCAR','通过')+line('SD','55F / 1T')+line('批次','存在其他任务不一致')); boardFooter.textContent='检查结果来自该次工具调用'; return; }
+      if(key==='inspect'||key.startsWith('scan-')) { const error=key==='scan-error', done=key==='scan-done'; detailTitle.textContent=key==='inspect'?'任务核查':error?'任务错误':'任务状态'; detailPath.textContent=error?'3-NO-scan/dz-p6.0':key==='scan-running'?'2-NO':done?'1-NO3':'4-NO-scan/dz-p0.2'; detailContent.innerHTML=section('当前状态',line('类型','结构优化')+line('状态',error?'错误':key==='scan-running'?'运行中':key==='inspect'||done?'已完成':'待计算'))+section('关键证据',`<div class="evidence ${error?'error':''}">${error?'OUTCAR 中发现结构优化错误；点击当前任务的状态页可查看完整证据。':key==='inspect'||done?'OUTCAR 正常结束，电子步与离子步收敛。':'输入文件齐全；尚未发现完整计算输出。'}</div>`); boardFooter.textContent='聊天保留扫描快照 · 右侧为任务详情'; return; }
+      detailTitle.textContent='VASP 看板'; detailPath.textContent='点击左侧结果查看'; detailContent.innerHTML=section('概览','<div class="evidence">7 种工具共用摘要、状态和详情跳转方式。</div>'); boardFooter.textContent='演示数据 · 不写入磁盘';
+    }
+    function render() { renderConversation(); renderDetail(); document.getElementById('switchChat').textContent=state.otherChat?'返回工具对话':'切换对话'; }
+    conversation.addEventListener('click',event=>{
+      const toggle=event.target.closest('[data-toggle]'); if(toggle){const key=toggle.dataset.toggle; state.open.has(key)?state.open.delete(key):state.open.add(key); renderConversation(); return;}
+      const more=event.target.closest('[data-more]'); if(more){const key=more.dataset.more; state.more.has(key)?state.more.delete(key):state.more.add(key); renderConversation(); return;}
+      const action=event.target.closest('[data-action]'); if(action){if(action.dataset.action==='cancel') state.build='cancelled'; else {state.build='done';state.direct=action.dataset.action==='direct';} render(); return;}
+      const detail=event.target.closest('[data-detail]'); if(detail){const key=detail.dataset.detail; if(key.startsWith('source-')||key.startsWith('template-')) state.candidate.has(key)?state.candidate.delete(key):state.candidate.add(key); else state.detail=key; render();}
+    });
+    conversation.addEventListener('change',event=>{const input=event.target.closest('[data-pick]'); if(!input)return; const i=Number(input.dataset.pick); input.checked?state.picked.add(i):state.picked.delete(i); renderConversation();});
+    document.getElementById('switchChat').addEventListener('click',()=>{state.otherChat=!state.otherChat;render();});
+    document.getElementById('resetDemo').addEventListener('click',()=>{state.open=new Set(toolOrder);state.more.clear();state.candidate.clear();state.detail='scan-error';state.otherChat=false;state.build='preview';state.picked=new Set([0,1,2]);state.direct=false;render();});
+    render();
+  </script>
+</body>
+</html>

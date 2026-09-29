@@ -7,6 +7,14 @@ import { useSyncExternalStore } from 'react';
 
 export type ViewTab = 'status' | 'chart' | 'structure' | 'files';
 
+export interface BuildTaskDetail {
+  projectRoot: string;
+  task: { dir?: string; template?: string; poscarSrc?: string; incarSrc?: string; kpointsSrc?: string; potcarSrc?: string; submitSrc?: string; freeAtoms?: number[]; fixedAtoms?: number[]; sdPolicy?: string; incarOverrides?: Record<string, unknown>; extraFiles?: Array<{ src?: string; dest?: string; fromTemplate?: string }> };
+  result?: { status?: string; sources?: Record<string, string>; sd?: string; sdNotes?: string[]; potcar?: string; errors?: string[]; warnings?: string[]; wrote?: boolean };
+  phase: 'preview' | 'building' | 'done';
+  linkPotcar: boolean;
+}
+
 export interface PanelState {
   projectPath: string;
   projectId: number | null;
@@ -17,6 +25,9 @@ export interface PanelState {
   scanProgress: { batchId: string; scannedDirectories: number; discoveredDirectories: number } | null;
   loading: boolean;
   selectedTask: any | null;
+  selectedBuildTask: BuildTaskDetail | null;
+  buildDryRun: boolean | null;
+  buildModeError: string | null;
   viewTab: ViewTab;
   filterStatus: string | null;
   filterConverged: boolean | null;
@@ -46,6 +57,9 @@ const initial: PanelState = {
   scanProgress: null,
   loading: false,
   selectedTask: null,
+  selectedBuildTask: null,
+  buildDryRun: null,
+  buildModeError: null,
   viewTab: 'chart',
   filterStatus: null,
   filterConverged: null,
@@ -75,7 +89,10 @@ class PanelStore {
   setTasks(tasks: any[]) { this.set({ tasks }); }
   setDirectories(directories: any[]) { this.set({ directories }); }
   setLoading(loading: boolean) { this.set({ loading }); }
-  setSelectedTask(task: any | null) { this.set({ selectedTask: task }); }
+  setSelectedTask(task: any | null) { this.set({ selectedTask: task, selectedBuildTask: null }); }
+  setSelectedBuildTask(detail: BuildTaskDetail | null) { this.set({ selectedBuildTask: detail, open: detail ? true : this.state.open }); }
+  setBuildDryRun(dryRun: boolean) { this.set({ buildDryRun: dryRun }); }
+  setBuildModeError(error: string | null) { this.set({ buildModeError: error }); }
   setTaskInputCheck(taskId: number, inputCheck: any) {
     const patchTask = (task: any) => task?.id === taskId ? { ...task, input_check: inputCheck } : task;
     this.set({

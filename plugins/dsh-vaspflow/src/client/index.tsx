@@ -14,7 +14,8 @@ import zhCN from 'antd/locale/zh_CN';
 import { Panel, buildTaskContext } from './Panel';
 import type { PanelProps } from './Panel';
 import { mountPanelLayout } from './layout';
-import { panelStore } from './store';
+import { panelStore, usePanelStore } from './store';
+import type { BuildTaskDetail } from './store';
 import type { Task } from './api';
 
 const ENTRY_ATTR = 'data-dsh-vaspflow-entry';
@@ -63,6 +64,41 @@ const CSS = [
   // conversation reply. Ant Design controls otherwise keep their 14px default.
   `[${PANEL_ATTR}] .ant-btn,[${PANEL_ATTR}] .ant-input,[${PANEL_ATTR}] .ant-input-affix-wrapper input,[${PANEL_ATTR}] .ant-select-selection-item,[${PANEL_ATTR}] .ant-select-selection-placeholder,[${PANEL_ATTR}] .ant-tabs-tab,[${PANEL_ATTR}] .ant-tag{font-size:15px!important}`,
   `[${PANEL_ATTR}] .ant-btn-sm{min-height:28px}`,
+  // Build tasks sit directly in the conversation. Details live in the dock.
+  '[data-dsh-vaspflow-tool]{margin:12px 0;color:var(--dsw-alias-label-primary,#1f2329);font-size:13px}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 0 7px;border-bottom:1px solid var(--dsw-alias-border-l2,#d4ded5)}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-head strong{font-size:14px}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-muted{color:var(--dsw-alias-label-secondary,#65746b)}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-group{display:flex;align-items:center;gap:7px;padding:7px 0 3px;font-weight:600}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-toggle{border:0;background:none;color:inherit;cursor:pointer;font:inherit;padding:0 3px;width:18px}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-task{display:flex;align-items:center;gap:8px;min-height:30px;margin:3px 0;padding:2px 6px 2px 25px;border-radius:4px;background:rgba(38,151,102,.09)}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-task[data-selected]{background:rgba(38,151,102,.19)}',
+  'body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-task{background:rgba(94,204,155,.11)}',
+  'body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-task[data-selected]{background:rgba(94,204,155,.22)}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-open{display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding:2px;border:0;background:none;color:inherit;text-align:left;cursor:pointer;font:inherit}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-open:hover{text-decoration:underline}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-status{margin-left:auto;white-space:nowrap;color:#248452;font-size:12px}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-status[data-status="warn"]{color:#ae7412}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-status[data-status="error"]{color:#c44136}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:12px}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-actions button{border:1px solid var(--dsw-alias-border-l2,#b4c6b5);border-radius:4px;background:transparent;color:inherit;padding:5px 10px;cursor:pointer;font:inherit}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-actions button.vfp-tree-confirm{background:#db4b32;border-color:#db4b32;color:#fff;font-weight:600}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-actions button:disabled{opacity:.5;cursor:default}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-message{margin-top:8px;white-space:pre-wrap;color:var(--dsw-alias-label-secondary,#65746b)}',
+  '[data-dsh-vaspflow-tool] .vfp-tree-message[data-error]{color:#c44136}',
+  `[${PANEL_ATTR}] .vfp-build-detail{font-size:14px;line-height:1.55}`,
+  `[${PANEL_ATTR}] .vfp-build-detail-head{display:flex;align-items:center;gap:8px;font-size:16px}`,
+  `[${PANEL_ATTR}] .vfp-build-detail-path{margin:5px 0 16px;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary,#65746b);font-family:ui-monospace,Consolas,monospace;font-size:12px}`,
+  `[${PANEL_ATTR}] .vfp-build-detail-section{display:grid;gap:7px;padding:13px 0;border-top:1px solid var(--dsw-alias-border-l2,#d4ded5);overflow-wrap:anywhere}`,
+  `[${PANEL_ATTR}] .vfp-build-detail-section>b{font-size:13px}`,
+  `[${PANEL_ATTR}] .vfp-build-detail-section>div:has(>span){display:grid;grid-template-columns:95px minmax(0,1fr);gap:8px}`,
+  `[${PANEL_ATTR}] .vfp-build-warning{color:#ae7412}`,
+  `[${PANEL_ATTR}] .vfp-build-error{color:#c44136}`,
+  // The host also renders the model-facing tool result as a following
+  // assistant-step. Keep that payload for the agent/history, but avoid showing
+  // the same summary twice after our human-readable tool row.
+  '[data-chat-flow-kind="tool-call"]:has([data-dsh-vaspflow-tool="vasp_build_inputs"]) + [data-chat-flow-kind="assistant-step"]{display:none!important}',
 ].join('\n');
 
 let cssInjected = false;
@@ -227,6 +263,198 @@ function getDarkTheme(): boolean {
     || window.matchMedia?.('(prefers-color-scheme: dark)').matches === true;
 }
 
+// ---- conversation tool row --------------------------------------------------
+
+type BuildInputsArgs = {
+  projectRoot?: string;
+  linkPotcar?: boolean;
+  tasks?: BuildTaskDetail['task'][];
+};
+
+type BuildTask = NonNullable<BuildInputsArgs['tasks']>[number];
+type BuildRow = NonNullable<BuildTaskDetail['result']>;
+type BuildResult = { planId?: string; projectRoot?: string; error?: string; results?: BuildRow[]; errorCount?: number; wroteCount?: number; dryRun?: boolean; dryRunMode?: boolean };
+type BuildOutcome = { phase: 'done' | 'cancelled' | 'unavailable'; selectedIndices: number[]; writeRows: Record<number, BuildRow>; message: string; requestError: boolean };
+const buildOutcomes = new Map<string, BuildOutcome>();
+const buildOutcomeListeners = new Set<() => void>();
+
+function subscribeBuildOutcomes(listener: () => void): () => void {
+  buildOutcomeListeners.add(listener);
+  return () => buildOutcomeListeners.delete(listener);
+}
+
+function readBuildOutcome(planId?: string): BuildOutcome | null {
+  if (!planId) return null;
+  const cached = buildOutcomes.get(planId);
+  if (cached) return cached;
+  try {
+    const raw = sessionStorage.getItem(`dsh-vaspflow:build-outcome:${planId}`);
+    if (!raw) return null;
+    const outcome = JSON.parse(raw) as BuildOutcome;
+    if ((outcome.phase !== 'done' && outcome.phase !== 'cancelled' && outcome.phase !== 'unavailable')
+      || !Array.isArray(outcome.selectedIndices) || !outcome.writeRows || typeof outcome.message !== 'string') return null;
+    buildOutcomes.set(planId, outcome);
+    return outcome;
+  } catch { return null; }
+}
+
+function saveBuildOutcome(planId: string | undefined, outcome: BuildOutcome): void {
+  if (!planId) return;
+  buildOutcomes.set(planId, outcome);
+  try { sessionStorage.setItem(`dsh-vaspflow:build-outcome:${planId}`, JSON.stringify(outcome)); } catch { /* in-memory state still survives conversation switches */ }
+  buildOutcomeListeners.forEach((listener) => listener());
+}
+
+function parseToolArgs(block: any): BuildInputsArgs {
+  const raw = block?.kind === 'tool-result' ? block.call?.argsRaw : block?.argsRaw;
+  if (typeof raw !== 'string') return {};
+  try {
+    return JSON.parse(raw) as BuildInputsArgs;
+  } catch {
+    return {};
+  }
+}
+
+function parseBuildResult(block: any): BuildResult {
+  for (const candidate of [block?.result?.value, block?.result?.meta, block?.resultView?.meta, block?.meta, block?.value, block?.result]) {
+    if (candidate && typeof candidate === 'object' && ('results' in candidate || 'planId' in candidate)) return candidate as BuildResult;
+  }
+  return {};
+}
+
+function taskGroup(dir: string): string {
+  const parts = dir.split(/[\\/]+/).filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1).join(' / ') : '项目根目录';
+}
+
+function BuildInputsToolRow({ block }: { block: any }) {
+  const { buildDryRun, buildModeError } = usePanelStore();
+  const args = React.useMemo(() => parseToolArgs(block), [block]);
+  const tasks = Array.isArray(args.tasks) ? args.tasks : [];
+  const settled = block?.kind === 'tool-result';
+  const preview = React.useMemo(() => parseBuildResult(block), [block]);
+  const [selectedState, setSelected] = React.useState<Set<number>>(() => new Set(tasks.map((_, index) => index)));
+  const [focused, setFocused] = React.useState<number | null>(null);
+  const [collapsed, setCollapsed] = React.useState<Set<string>>(() => new Set());
+  const [phaseState, setPhase] = React.useState<'preview' | 'building' | BuildOutcome['phase']>('preview');
+  const [writeRowsState, setWriteRows] = React.useState<Record<number, BuildRow>>({});
+  const [messageState, setMessage] = React.useState('');
+  const [requestErrorState, setRequestError] = React.useState(false);
+  const saved = React.useSyncExternalStore<BuildOutcome | null>(subscribeBuildOutcomes, () => readBuildOutcome(preview.planId), () => null);
+  const selected: Set<number> = saved ? new Set<number>(saved.selectedIndices) : selectedState;
+  const phase = saved?.phase ?? phaseState;
+  const writeRows = saved?.writeRows ?? writeRowsState;
+  const message = messageState || saved?.message || '';
+  const requestError = messageState ? requestErrorState : saved?.requestError ?? requestErrorState;
+  const directMode = buildDryRun === false;
+  const submitLock = React.useRef(false);
+  const isPreview = preview.dryRun !== false;
+  const groups = new Map<string, number[]>();
+  tasks.forEach((task, index) => {
+    const group = taskGroup(task.dir || '');
+    groups.set(group, [...(groups.get(group) || []), index]);
+  });
+  const canConfirm = settled && isPreview && !!preview.planId && !preview.error && !buildModeError && phase === 'preview';
+  const selectedIndices = [...selected].sort((a, b) => a - b);
+  const selectedErrors = selectedIndices.filter((index) => preview.results?.[index]?.errors?.length).length;
+
+  const showTask = (index: number, row?: BuildRow, nextPhase: BuildTaskDetail['phase'] = (phase === 'done' && selected.has(index)) || (settled && !isPreview) ? 'done' : 'preview') => {
+    setFocused(index);
+    panelStore.setSelectedBuildTask({
+      task: tasks[index], result: row ?? writeRows[index] ?? preview.results?.[index],
+      projectRoot: preview.projectRoot || args.projectRoot || '',
+      linkPotcar: !!args.linkPotcar, phase: nextPhase,
+    });
+    panelStore.setOpen(true);
+  };
+  const confirm = async (enableDirect = false) => {
+    if (!canConfirm || selectedIndices.length === 0 || selectedErrors > 0 || submitLock.current) return;
+    submitLock.current = true;
+    setPhase('building');
+    setRequestError(false);
+    setMessage('正在构建所选任务…');
+    try {
+      const response = await fetch('/plugins/dsh-vaspflow/build-inputs/confirm', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ planId: preview.planId, selectedIndices, enableDirect }),
+      });
+      const result = await response.json() as BuildResult;
+      if (!response.ok) throw new Error(result.error || '构建失败');
+      const rows = Object.fromEntries(selectedIndices.map((index, position) => [index, result.results?.[position] ?? {}])) as Record<number, BuildRow>;
+      const nextMessage = `已写入 ${result.wroteCount ?? 0}/${selectedIndices.length} 个任务${result.errorCount ? `，${result.errorCount} 个任务失败` : ''}${result.dryRunMode === false ? '；后续由 AI 直接构建' : enableDirect ? '；仍保持预览确认' : ''}`;
+      saveBuildOutcome(preview.planId, { phase: 'done', selectedIndices, writeRows: rows, message: nextMessage, requestError: false });
+      setWriteRows(rows);
+      setPhase('done');
+      panelStore.setBuildDryRun(result.dryRunMode !== false);
+      setMessage(nextMessage);
+      if (focused !== null) showTask(focused, rows[focused], selected.has(focused) ? 'done' : 'preview');
+    } catch (error) {
+      const nextMessage = error instanceof Error ? error.message : String(error);
+      saveBuildOutcome(preview.planId, { phase: 'unavailable', selectedIndices, writeRows: {}, message: nextMessage, requestError: true });
+      setPhase('unavailable');
+      setRequestError(true);
+      setMessage(nextMessage);
+    }
+  };
+  const restorePreview = async () => {
+    try {
+      const response = await fetch('/plugins/dsh-vaspflow/build-inputs/mode', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dryRun: true }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || '切换失败');
+      panelStore.setBuildDryRun(true);
+      setRequestError(false);
+      setMessage('已恢复预览确认；后续构建将先交给你确认');
+    } catch (error) {
+      setRequestError(true);
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  };
+  return (
+    <div data-dsh-vaspflow-tool="vasp_build_inputs">
+      <div className="vfp-tree-head"><strong>构建任务</strong><span className="vfp-tree-muted">{!settled ? '处理中' : phase === 'done' ? '构建结果' : phase === 'cancelled' ? '已取消' : phase === 'unavailable' ? '不可确认' : isPreview ? '安全预览' : '构建结果'} · {tasks.length} 个任务</span></div>
+      {Array.from(groups, ([name, indices]) => (
+        <div key={name}>
+          <div className="vfp-tree-group">
+            <button type="button" className="vfp-tree-toggle" aria-label={`${collapsed.has(name) ? '展开' : '收起'} ${name}`} aria-expanded={!collapsed.has(name)} onClick={() => setCollapsed((old) => { const next = new Set(old); if (next.has(name)) next.delete(name); else next.add(name); return next; })}>{collapsed.has(name) ? '›' : '⌄'}</button>
+            {canConfirm && <input type="checkbox" aria-label={`选择 ${name} 全部任务`} checked={indices.every((index) => selected.has(index))} ref={(node) => { if (node) node.indeterminate = indices.some((index) => selected.has(index)) && !indices.every((index) => selected.has(index)); }} onChange={(event) => setSelected((old) => { const next = new Set(old); indices.forEach((index) => event.target.checked ? next.add(index) : next.delete(index)); return next; })} />}
+            <span>{name}</span><span className="vfp-tree-muted">{indices.length}</span>
+          </div>
+          {!collapsed.has(name) && indices.map((index) => {
+            const row = writeRows[index] ?? preview.results?.[index];
+            const status = row?.errors?.length ? 'error' : row?.warnings?.length ? 'warn' : 'ok';
+            const label = !settled ? '处理中' : status === 'error' ? '错误' : row?.wrote ? '已写入' : phase === 'cancelled' ? '已取消' : phase === 'unavailable' ? '待核查' : phase === 'done' && selected.has(index) ? '未写入' : status === 'warn' ? '需注意' : isPreview ? '可构建' : '完成';
+            return <div className="vfp-tree-task" key={`${taskGroup(tasks[index].dir || '')}-${index}`} data-selected={focused === index ? '' : undefined}>
+              {canConfirm && <input type="checkbox" aria-label={`选择 ${tasks[index].dir || `任务 ${index + 1}`}`} checked={selected.has(index)} onChange={(event) => setSelected((old) => { const next = new Set(old); if (event.target.checked) next.add(index); else next.delete(index); return next; })} />}
+              <button type="button" className="vfp-tree-open" onClick={() => showTask(index)} aria-label={`在右侧查看 ${tasks[index].dir || `任务 ${index + 1}`} 详情`}><span className="vfp-tree-name">{tasks[index].dir?.split(/[\\/]+/).filter(Boolean).at(-1) || `任务 ${index + 1}`}</span><span className="vfp-tree-status" data-status={status}>{label}</span><span aria-hidden="true">›</span></button>
+            </div>;
+          })}
+        </div>
+      ))}
+      {tasks.length === 0 && <div className="vfp-tree-message">没有构建任务</div>}
+      {isPreview && tasks.length > 0 && <div className="vfp-tree-actions"><span>{selected.size} 个任务已选中{selectedErrors ? ` · ${selectedErrors} 个任务存在错误` : ''}</span><span>
+        {phase === 'preview' && <button type="button" onClick={() => {
+          saveBuildOutcome(preview.planId, { phase: 'cancelled', selectedIndices, writeRows: {}, message: '预览已取消，未写入文件', requestError: false });
+          setPhase('cancelled');
+          setMessage('预览已取消，未写入文件');
+          if (preview.planId) void fetch('/plugins/dsh-vaspflow/build-inputs/confirm', {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ planId: preview.planId, cancel: true }),
+          }).catch(() => {});
+        }}>取消预览</button>}
+        {phase === 'preview' && <button type="button" disabled={!canConfirm || selected.size === 0 || selectedErrors > 0} title="执行本次所选任务，并让后续 AI 调用直接构建" onClick={() => { void confirm(true); }}>交给 AI 直接构建</button>}
+        <button type="button" className="vfp-tree-confirm" disabled={!canConfirm || selected.size === 0 || selectedErrors > 0} onClick={() => { void confirm(); }}>{phase === 'building' ? '正在构建…' : phase === 'done' ? '已完成' : phase === 'cancelled' ? '已取消' : phase === 'unavailable' ? '不可确认' : `确认构建 ${selected.size} 个任务`}</button>
+      </span></div>}
+      {directMode && settled && <div className="vfp-tree-actions"><span className="vfp-tree-muted">后续 AI 调用将直接构建</span><button type="button" onClick={() => { void restorePreview(); }}>恢复预览确认</button></div>}
+      {preview.error && <div className="vfp-tree-message" data-error="">{preview.error}</div>}
+      {buildModeError && <div className="vfp-tree-message" data-error="">{buildModeError}</div>}
+      {settled && isPreview && !preview.planId && !preview.error && <div className="vfp-tree-message">此预览缺少确认凭据，请在对话中重新运行预览。</div>}
+      {message && <div className="vfp-tree-message" data-error={requestError ? '' : undefined}>{message}</div>}
+    </div>
+  );
+}
+
 /** Panel wrapped in a theme-aware ConfigProvider (dark/light adaptive). */
 function PanelRoot(props: PanelProps) {
   const dark = useSyncExternalStore(subscribeDarkTheme, getDarkTheme, getDarkTheme);
@@ -250,6 +478,30 @@ const panelLayoutApi: { current: { setWidth: (w: number) => void; getWidth: () =
 
 function apply(ctx: any) {
   injectCss();
+
+  void fetch('/plugins/dsh-vaspflow/build-inputs/mode')
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .then((result) => {
+      if (typeof result.dryRun !== 'boolean') throw new Error('invalid build mode response');
+      panelStore.setBuildDryRun(result.dryRun);
+      panelStore.setBuildModeError(null);
+    })
+    .catch(() => panelStore.setBuildModeError('VASPFlow 插件服务仍是旧版或未启动。请重启 DSH 并刷新页面后再构建。'));
+
+  // Replace the generic “Tool call …” row for this one VASP tool only. The
+  // host still owns the call/result data; this component only changes how that
+  // data is shown in the conversation.
+  try {
+    ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
+      name: 'tool.call.toolview',
+      key: 'vasp_build_inputs',
+    }, BuildInputsToolRow));
+  } catch (error) {
+    console.error('[dsh-vaspflow] conversation tool row mount failed:', error);
+  }
 
   // S5 workspace reuse: subscribe to the workspaces store so the "从工作区"
   // picker stays populated as workspaces load/change.

@@ -1,16 +1,16 @@
 ---
 name: vasp-structure-opt
-description: VASP 结构优化输入文件构建（工具驱动协议）。用 vasp_discover_inputs / vasp_build_inputs / vasp_check_inputs 完成源体检、模板确认、构建（dry-run 先行）、校验与汇报；工具参数以工具 schema 为准。当用户提到"构建输入文件"、"生成结构优化"、"建目录"、"搭INCAR"、"构造fix"、"批量建任务"、"结构优化输入"时使用。
+description: VASP 结构优化输入文件构建（工具驱动协议）。用 vasp_discover_inputs / vasp_build_inputs / vasp_check_inputs 完成源体检、模板确认、构建、校验与汇报；工具参数以工具 schema 为准。当用户提到"构建输入文件"、"生成结构优化"、"建目录"、"搭INCAR"、"构造fix"、"批量建任务"、"结构优化输入"时使用。
 ---
 
 # 协议（编排；执行细节以各工具 schema 为准）
 
 1. **源体检与候选发现**：`vasp_discover_inputs` 一次盘点结构源（物种/SD 分布/尾行）和模板候选；跨文件不一致先汇报，不带着分歧构建；
 2. **确认模板与提交脚本**：根据 `vasp_discover_inputs` 的候选，由**用户确认** `template`（可再用 `sources`/`*Src` 逐文件指定不同来源）；`submitSrc` 缺失时询问或按分段构建跳过（仅警告）；
-3. **dry-run 预览**：`vasp_build_inputs` 传 `dryRun: true`——检查每任务 SD 计划与 **`sdNotes` 旗标改写提示**（`override` 模式下源旗标被改必须可见）、POTCAR 匹配；
-4. **正式执行**：用户确认后 `vasp_build_inputs`（不传`dryRun`=真实构建），核对 `written`/`wroteCount` 与逐任务 status；
-5. **验证**：`vasp_check_inputs`（传 `projectRoot`）逐目录核对，并检查顶层 `consistency.uniform`——批次间 SD/物种/K 点/关键参数不一致必须向用户报告；
-6. **汇报**：表格输出 目录 / 输入来源 / SD / POTCAR / 错误与修正。
+3. **构建调用**：只向 `vasp_build_inputs` 提交来源与任务；插件默认返回预览。检查每任务 SD 计划与 **`sdNotes` 旗标改写提示**、POTCAR 匹配。若返回 `dryRun: true` 和 `planId`，在本轮回复中明确告诉用户：可在本条工具结果下方的「构建任务」树勾选任务，点击「确认构建」写入（或点击「交给 AI 直接构建」写入本次并开启后续直接构建）。此时文件尚未写入；不要为确认而重复调用构建工具；
+4. **确认结果**：以本次工具返回的 `dryRun` 判断模式。预览时说“计划构建，尚未写入”，由用户在任务树确认后写入；按钮不会自动续接当前 AI 回复，汇报预览后结束本轮。直接构建时核对 `written`/`wroteCount` 与逐任务 status，只对实际写入的任务说“已构建，请检阅”；部分失败如实报告。用户后续要求核查时再检查预览确认后的写入结果；
+5. **验证**：仅在已写入后使用 `vasp_check_inputs`（传 `projectRoot`）逐目录核对，并检查顶层 `consistency.uniform`——批次间 SD/物种/K 点/关键参数不一致必须向用户报告；
+6. **汇报**：默认只报预览或写入状态、任务总数、异常和下一步；逐任务来源、SD、POTCAR 已在任务树及右侧看板展示。仅在用户要求明细或各任务存在不同异常时列出表格。
 
 ## 要点（决定“如何”的默认值）
 

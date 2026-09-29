@@ -43,12 +43,14 @@ import { scanTemplates } from './host/scan-templates.js';
 import { fileURLToPath } from 'node:url';
 import { join as joinPath, basename, dirname, resolve as resolvePath, relative as relativePath, isAbsolute, sep } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 
 export const name = 'dsh-vaspflow';
 export const inject = [];
 
 export const Config = z.object({
   defaultScanRoot: z.string().default(''),
+  dryRun: z.boolean().default(true),
 });
 
 const WEB_SERVER_KEYS = ['webServer', 'httpServer'];
@@ -214,6 +216,80 @@ function renderSeries(values, limit = 120) {
   return { head: values.slice(0, head), tail: values.slice(-head), omitted: values.length - head * 2 };
 }
 
+/**
+ * Conversation-page presentation for the input builder.
+ *
+ * `output.render()` is the model-facing text contract. These presenters are
+ * the separate, human-facing conversation card contract: keep the default
+ * view short and useful, while leaving the canonical JSON result untouched.
+ */
+function buildInputsCallContent(args) {
+  const tasks = Array.isArray(args?.tasks) ? args.tasks : [];
+  const names = tasks.slice(0, 4).map((task) => task?.dir).filter(Boolean);
+  const extra = tasks.length > names.length ? `；另有 ${tasks.length - names.length} 个任务` : '';
+  const options = [
+    args?.linkPotcar ? 'POTCAR 使用链接' : 'POTCAR 使用复制',
+    tasks.some((task) => task?.freeAtoms?.length || task?.fixedAtoms?.length) ? '按原子序号处理 SD' : '',
+  ].filter(Boolean);
+  return [{
+    type: 'text',
+    text: [
+      `目标：构建 ${tasks.length} 个任务`,
+      names.length > 0 ? `任务：${names.join('、')}${extra}` : '任务：未提供',
+      options.length > 0 ? `选项：${options.join('；')}` : '',
+    ].filter(Boolean).join('\n'),
+  }];
+}
+
+function buildInputsCallLocations(args) {
+  const tasks = Array.isArray(args?.tasks) ? args.tasks : [];
+  const locations = [];
+  for (const task of tasks.slice(0, 12)) {
+    if (task?.dir) locations.push({ path: String(task.dir) });
+    for (const source of [task?.poscarSrc, task?.incarSrc, task?.kpointsSrc, task?.potcarSrc, task?.submitSrc]) {
+      if (source) locations.push({ path: String(source) });
+    }
+  }
+  return locations.slice(0, 24);
+}
+
+function buildInputsResultContent(value) {
+  const data = value?.meta && typeof value.meta === 'object' ? value.meta : value;
+  if (data?.error) return [{ type: 'text', text: `输入文件构建失败\n${data.error}` }];
+  const results = Array.isArray(data?.results) ? data.results : [];
+  const count = data?.count ?? results.length;
+  const wroteCount = data?.wroteCount ?? 0;
+  const mode = data?.dryRun
+    ? '当前模式：用户预览确认；构建计划完成，未写入任何文件'
+    : `当前模式：交给 AI 直接构建；已写入 ${wroteCount}/${count} 个任务`;
+  const reply = data?.dryRun && data?.planId
+    ? `建议回复：我计划构建 ${count} 个任务，尚未写入磁盘。请检查任务树，无误请点击「确认构建」。不要再次调用 vasp_build_inputs 来确认。`
+    : !data?.dryRun && count > 0
+      ? wroteCount === count && !data?.errorCount
+        ? `建议回复：已构建 ${wroteCount} 个任务，文件已写入，请在任务树和右侧看板检阅。`
+        : `建议回复：本次写入 ${wroteCount}/${count} 个任务；请说明失败任务，不要声称全部构建完成。`
+      : '';
+  const rows = results.slice(0, 6).map((row) => {
+    const icon = row?.errors?.length ? '失败' : row?.warnings?.length ? '注意' : '通过';
+    const notes = [row?.sd && `SD ${row.sd}`, row?.potcar && `POTCAR ${row.potcar}`].filter(Boolean).join(' · ');
+    const sources = row?.sources && Object.keys(row.sources).length > 0
+      ? `来源: ${Object.entries(row.sources).map(([dest, src]) => `${dest}←${src}`).join('，')}`
+      : '';
+    const issue = row?.errors?.[0] ?? row?.warnings?.[0] ?? '';
+    return `${icon}：${row?.dir ?? '未命名任务'}${notes ? ` · ${notes}` : ''}${sources ? ` · ${sources}` : ''}${issue ? ` · ${issue}` : ''}`;
+  });
+  if (results.length > rows.length) rows.push(`…另有 ${results.length - rows.length} 个任务，展开结果可查看完整清单`);
+  return [{
+    type: 'text',
+    text: [
+      mode,
+      reply,
+      `结果：${data?.okCount ?? 0} 个通过 · ${data?.warnCount ?? 0} 个有注意项 · ${data?.errorCount ?? 0} 个失败`,
+      rows.length > 0 ? rows.join('\n') : '没有任务结果',
+    ].filter(Boolean).join('\n'),
+  }];
+}
+
 function json(res, status, body) {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
@@ -248,7 +324,7 @@ function parseQuery(url) {
  * that preset. `store` remains host-owned so agent scans and the dock panel
  * still observe the same task ids and task data.
  */
-export function registerVaspTools(ctx, store) {
+export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode = { dryRun: true }) {
 
   ctx.tools.register(defineTool({
     name: 'vasp_scan',
@@ -611,7 +687,7 @@ export function registerVaspTools(ctx, store) {
 
   ctx.tools.register(defineTool({
     name: 'vasp_build_inputs',
-    description: '批量创建 VASP 结构优化输入文件：建目录、复制 INCAR/KPOINTS/POTCAR/POSCAR/提交脚本、按 freeAtoms 或 fixedAtoms 显式规则写 Selective dynamics（绝不按元素序推断）、INCAR 参数覆盖（缺失 tag 会追加）、POTCAR-POSCAR 等长同序校验。提交脚本必须显式给出 submitSrc（不做自动探测；缺失时应向用户询问）。dryRun=true 时仅预览不写盘。',
+    description: '按明确来源批量构建 VASP 输入：建目录、复制 INCAR/KPOINTS/POTCAR/POSCAR/提交脚本、按 freeAtoms 或 fixedAtoms 显式规则写 Selective dynamics（绝不按元素序推断）、INCAR 参数覆盖、POTCAR-POSCAR 等长同序校验。提交脚本必须显式给出 submitSrc。工具调用始终表达同一构建意图；预览或直接写入由插件全局模式决定，AI 无需指定。以本次返回的 dryRun、wroteCount、count 判断当前模式与实际写入情况，不根据上轮状态猜测。dryRun 为 true 时，告诉用户在对话任务树检查并点击「确认构建」，不要为了确认再次调用工具；为 false 时，报告已写入的数量并请用户检阅。',
     parameters: {
       projectRoot: { type: 'string', description: '项目根目录：任务 dir 与相对源路径的基准；缺省用当前会话工作空间。' },
       tasks: {
@@ -642,7 +718,6 @@ export function registerVaspTools(ctx, store) {
           },
         },
       },
-      dryRun: { type: 'boolean', description: '仅预览不写盘（默认 false）。' },
       linkPotcar: { type: 'boolean', description: '用硬链接替代复制 POTCAR（默认 false）。' },
     },
     output: {
@@ -664,34 +739,70 @@ export function registerVaspTools(ctx, store) {
           okCount: { type: 'number' }, warnCount: { type: 'number' }, errorCount: { type: 'number' },
           dryRun: { type: 'boolean' }, count: { type: 'number' }, wroteCount: { type: 'number' },
           written: { type: 'boolean' },
+          planId: { type: 'string' }, projectRoot: { type: 'string' },
           error: { type: 'string', required: true },
         },
       },
       render: (_args, value) => [{
         type: 'text',
-        text: clipRenderText(value.error ? `输入构建失败：${value.error}` : value.results.map((r) => {
-          const prefix = value.dryRun ? '[dry-run] ' : '';
-          const line = prefix + '[' + r.status + '] ' + r.dir + ' | SD: ' + r.sd + ' | POTCAR: ' + r.potcar;
-          const notes = (r.sdNotes && r.sdNotes.length > 0) ? ' | ' + r.sdNotes.join(' | ') : '';
-          const sources = r.sources && Object.keys(r.sources).length > 0
-            ? ' | 来源: ' + Object.entries(r.sources).map(([dest, src]) => `${dest}←${src}`).join(', ')
-            : '';
-          const warnings = r.warnings?.length > 0 ? ' | WARNINGS: ' + r.warnings.join('; ') : '';
-          return (r.errors.length > 0 ? line + ' | ERRORS: ' + r.errors.join('; ') : line) + notes + sources + warnings;
-        }).join('\n') + '\n' + (value.dryRun
-          ? 'DRY-RUN MODE - 未写入任何文件（' + value.count + ' 个任务，written=false）'
-          : '落盘: written=' + value.written + '，wroteCount=' + value.wroteCount + '/' + value.count + '；' + value.okCount + ' ok, ' + value.warnCount + ' warn, ' + value.errorCount + ' error')),
+        text: clipRenderText(buildInputsResultContent(value)[0].text),
       }],
+      presentationMeta: (_args, value) => ({
+        error: value.error,
+        ...(value.planId ? { planId: value.planId } : {}),
+        ...(value.projectRoot ? { projectRoot: value.projectRoot } : {}),
+        dryRun: value.dryRun,
+        count: value.count,
+        wroteCount: value.wroteCount,
+        okCount: value.okCount,
+        warnCount: value.warnCount,
+        errorCount: value.errorCount,
+        results: Array.isArray(value.results) ? value.results.map((row) => ({
+          dir: row.dir,
+          sources: row.sources,
+          sd: row.sd,
+          sdNotes: row.sdNotes,
+          potcar: row.potcar,
+          errors: row.errors,
+          warnings: row.warnings,
+          wrote: row.wrote,
+        })) : [],
+      }),
     },
     async execute(args, exec) {
+      const dryRun = buildMode.dryRun;
       try {
-        const result = await buildInputs(args.projectRoot ?? workspaceOf(exec), args.tasks ?? [], { dryRun: !!args.dryRun, linkPotcar: !!args.linkPotcar });
-        return { ...result, error: '' };
+        const projectRoot = args.projectRoot ?? workspaceOf(exec);
+        const result = await buildInputs(projectRoot, args.tasks ?? [], { dryRun, linkPotcar: !!args.linkPotcar });
+        if (dryRun && Array.isArray(args.tasks) && args.tasks.length > 0) {
+          for (const [id, plan] of buildPlans) {
+            if (Date.now() - plan.createdAt > 30 * 60 * 1000) buildPlans.delete(id);
+          }
+          const planId = randomUUID();
+          buildPlans.set(planId, { projectRoot, tasks: structuredClone(args.tasks), linkPotcar: !!args.linkPotcar, createdAt: Date.now() });
+          return { ...result, projectRoot, planId, error: '' };
+        }
+        return { ...result, projectRoot, error: '' };
       } catch (caught) {
-        return { results: [], okCount: 0, warnCount: 0, errorCount: 0, dryRun: !!args.dryRun, count: 0, wroteCount: 0, written: false, error: `Build inputs failed: ${String(caught)}` };
+        return { results: [], okCount: 0, warnCount: 0, errorCount: 0, dryRun, count: 0, wroteCount: 0, written: false, error: `Build inputs failed: ${String(caught)}` };
       }
     },
-    presentCall: (args) => ({ card: 'generic', title: 'Build VASP inputs', kind: 'other', rawInput: args }),
+    presentCall: (args) => ({
+      card: 'generic',
+      title: '构建 VASP 输入文件',
+      kind: 'edit',
+      content: buildInputsCallContent(args),
+      locations: buildInputsCallLocations(args),
+    }),
+    presentResult: (args, value) => ({
+      card: 'generic',
+      title: value?.error
+        ? '构建 VASP 输入文件 · 失败'
+        : value?.dryRun
+          ? '构建 VASP 输入文件 · 预览完成'
+          : '构建 VASP 输入文件 · 执行完成',
+      content: buildInputsResultContent(value),
+    }),
   }));
   ctx.tools.register(defineTool({
     name: 'vasp_check_inputs',
@@ -864,12 +975,14 @@ export function registerVaspTools(ctx, store) {
 
 export function apply(ctx, config) {
   const store = new TaskStore();
+  const buildPlans = new Map();
+  const buildMode = { dryRun: config?.dryRun !== false };
 
   // This service is consumed only by preset/vasp/tools/vaspflow-tools.mjs.
   // Its tool definitions close over this store, preserving panel/Agent state.
   ctx.provide('vaspflowTools', {
     register(toolCtx) {
-      registerVaspTools(toolCtx, store);
+      registerVaspTools(toolCtx, store, buildPlans, buildMode);
     },
   });
 
@@ -904,6 +1017,70 @@ export function apply(ctx, config) {
         json(res, 200, { version: store.version, projectId: store.projects.size > 0 ? store.nextProjectId - 1 : null });
       },
     }), 'dsh-vaspflow: version route');
+
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: '/plugins/dsh-vaspflow/build-inputs/mode',
+      handler: async (req, res) => {
+        if (req.method === 'GET') return json(res, 200, { dryRun: buildMode.dryRun });
+        if (req.method !== 'POST') return json(res, 405, { error: 'GET or POST required' });
+        try {
+          let raw = '';
+          for await (const chunk of req) {
+            raw += chunk.toString();
+            if (raw.length > 1024) return json(res, 413, { error: 'Request too large' });
+          }
+          const body = JSON.parse(raw);
+          if (body?.dryRun !== true) return json(res, 400, { error: 'Only preview mode can be restored here' });
+          buildMode.dryRun = true;
+          return json(res, 200, { dryRun: true });
+        } catch (error) {
+          return json(res, 400, { error: String(error) });
+        }
+      },
+    }), 'dsh-vaspflow: input build mode');
+
+    // A preview creates an opaque server-side plan. Only its selected task
+    // indices may be confirmed; the browser cannot submit arbitrary paths.
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: '/plugins/dsh-vaspflow/build-inputs/confirm',
+      handler: async (req, res) => {
+        if (req.method !== 'POST') return json(res, 405, { error: 'POST required' });
+        try {
+          let raw = '';
+          for await (const chunk of req) {
+            raw += chunk.toString();
+            if (raw.length > 16384) return json(res, 413, { error: 'Request too large' });
+          }
+          const { planId, selectedIndices, cancel, enableDirect } = JSON.parse(raw);
+          const plan = typeof planId === 'string' ? buildPlans.get(planId) : null;
+          if (!plan || Date.now() - plan.createdAt > 30 * 60 * 1000) {
+            buildPlans.delete(planId);
+            return json(res, 404, { error: '预览已使用或过期，请重新预览' });
+          }
+          if (cancel === true) {
+            buildPlans.delete(planId);
+            return json(res, 200, { cancelled: true });
+          }
+          if (!Array.isArray(selectedIndices) || selectedIndices.length === 0
+            || selectedIndices.some((index) => !Number.isInteger(index) || index < 0 || index >= plan.tasks.length)
+            || new Set(selectedIndices).size !== selectedIndices.length) {
+            return json(res, 400, { error: '请选择有效的构建任务' });
+          }
+          buildPlans.delete(planId);
+          const tasks = selectedIndices.map((index) => plan.tasks[index]);
+          const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar });
+          if (preview.errorCount > 0) return json(res, 409, { error: '任务预览已出现错误，请重新检查', ...preview });
+          const result = await buildInputs(plan.projectRoot, tasks, { dryRun: false, linkPotcar: plan.linkPotcar });
+          if (enableDirect === true && result.errorCount === 0 && result.wroteCount === tasks.length) buildMode.dryRun = false;
+          store.version += 1;
+          return json(res, 200, { ...result, projectRoot: plan.projectRoot, dryRunMode: buildMode.dryRun, error: '' });
+        } catch (error) {
+          return json(res, 400, { error: String(error) });
+        }
+      },
+    }), 'dsh-vaspflow: confirm input build');
 
     // Project scan (POST /scan?root_path=)
     ctx.effect(() => webServer.register({
