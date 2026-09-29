@@ -2,7 +2,7 @@ export const name = 'vasp-tool-only-output';
 
 const TERMINAL = new Set(['vasp_say', 'vasp_done']);
 const RECOVERY = Symbol('vasp-tool-only-recovery');
-const RECOVERY_INSTRUCTION = '上一候选未遵守 VASP 工具输出协议，已被丢弃，任何工具都未执行。现在只调用一个当前可用工具：需要操作就调用对应工具；需要说明阻碍或提问就调用 vasp_say。不要输出普通 assistant 正文。';
+const RECOVERY_INSTRUCTION = '上一候选未遵守 VASP 工具输出协议，已被丢弃，任何工具都未执行。现在只调用一个当前可用工具：需要操作就调用对应工具；需要用户回答就调用 ask_user_question；仅需解释或说明阻碍才调用 vasp_say。不要输出普通 assistant 正文。';
 
 function hasDomainResultThisTurn(messages) {
   // DSH represents tool results as user-role messages. Only an actual user
@@ -44,7 +44,10 @@ export function validateCandidate(options, chunks) {
     || calls.some((call) => !allowed.has(call.name) || !call.arguments || !isJsonObject(call.arguments))) {
     throw new Error('VASP 工具输出协议：模型必须只调用当前可用工具，不能直接输出正文；本次候选未发布或执行。');
   }
-  if (calls.length > 1 && calls.some((call) => TERMINAL.has(call.name) || call.name === 'vasp_build_inputs')) {
+  if (calls.some((call) => call.name === 'vasp_say' && JSON.parse(call.arguments).kind === 'question')) {
+    throw new Error('VASP 工具输出协议：需要用户回答的问题必须使用 ask_user_question。');
+  }
+  if (calls.length > 1 && calls.some((call) => TERMINAL.has(call.name) || call.name === 'vasp_build_inputs' || call.name === 'ask_user_question')) {
     throw new Error('VASP 工具输出协议：发言、结束和构建工具必须独占一步；本次候选未执行。');
   }
   if (calls[0].name === 'vasp_done' && !hasDomainResultThisTurn(options.messages)) {

@@ -99523,6 +99523,108 @@ function VaspToolRow({ block, toolName }) {
   ] });
 }
 
+// src/client/work-collapse.ts
+var FLOW = "[data-chat-flow]";
+var ROW = "[data-chat-flow-kind]";
+var SUMMARY = "[data-vfp-work-summary]";
+function isWorkRow(row) {
+  if (row.dataset.chatFlowKind === "assistant-step") return !!row.querySelector('[data-variant="think"]');
+  if (row.dataset.chatFlowKind !== "tool-call") return false;
+  if (row.querySelector("[data-dsh-vaspflow-tool]")) return false;
+  return !row.querySelector('[data-tool="ask_user_question"]');
+}
+function workRuns(flow) {
+  const runs = [];
+  let pending = [];
+  for (const child of Array.from(flow.children)) {
+    const row = child;
+    if (row.matches(ROW) && isWorkRow(row)) {
+      pending.push(row);
+    } else {
+      if (pending.length > 1) runs.push(pending);
+      pending = [];
+    }
+  }
+  if (pending.length > 1) runs.push(pending);
+  return runs;
+}
+function setAttr(node2, name, value) {
+  if (value === null) {
+    if (node2.hasAttribute(name)) node2.removeAttribute(name);
+  } else if (node2.getAttribute(name) !== value) {
+    node2.setAttribute(name, value);
+  }
+}
+function mountWorkCollapse(sessions) {
+  const expanded = /* @__PURE__ */ new Set();
+  let scheduled = false;
+  let disposed = false;
+  const update = () => {
+    scheduled = false;
+    if (disposed) return;
+    const state = sessions.list.getSnapshot();
+    const sessionId = state.current;
+    const enabled = !!sessionId && state.byId[sessionId]?.agentPreset === "vasp";
+    for (const flow of document.querySelectorAll(FLOW)) {
+      const desired = /* @__PURE__ */ new Map();
+      if (enabled) for (const run of workRuns(flow)) {
+        const first = run[0];
+        const key = `${sessionId}:${first.dataset.chatFlowKey ?? ""}`;
+        const open = expanded.has(key);
+        const errors = run.some((row) => !!row.querySelector('[data-state="error"]'));
+        const active = run.some((row) => !!row.querySelector('[data-state="running"]'));
+        const label = `${active ? "\u6B63\u5728\u5DE5\u4F5C\u4E0E\u601D\u8003" : "\u5DE5\u4F5C\u4E0E\u601D\u8003"} \xB7 ${run.length} \u9879${errors ? " \xB7 \u6709\u9519\u8BEF" : ""}`;
+        desired.set(first, { first: true, open, label, key });
+        for (const row of run.slice(1)) desired.set(row, { first: false, open });
+      }
+      for (const row of Array.from(flow.children)) {
+        const group = desired.get(row);
+        setAttr(row, "data-vfp-work-first", group?.first ? "" : null);
+        setAttr(row, "data-vfp-work-member", group && !group.first && !group.open ? "" : null);
+        setAttr(row, "data-vfp-work-open", group?.first && group.open ? "" : null);
+        const button = row.querySelector(`:scope > ${SUMMARY}`);
+        if (!group?.first) {
+          button?.remove();
+          continue;
+        }
+        const summary = button ?? document.createElement("button");
+        if (!button) {
+          summary.type = "button";
+          summary.setAttribute("data-vfp-work-summary", "");
+          row.prepend(summary);
+        }
+        if (summary.textContent !== group.label) summary.textContent = group.label ?? "";
+        setAttr(summary, "aria-expanded", String(group.open));
+        summary.onclick = () => {
+          if (expanded.has(group.key)) expanded.delete(group.key);
+          else expanded.add(group.key);
+          schedule();
+        };
+      }
+    }
+  };
+  const schedule = () => {
+    if (disposed || scheduled) return;
+    scheduled = true;
+    queueMicrotask(update);
+  };
+  const observer = new MutationObserver(schedule);
+  observer.observe(document.body, { childList: true, subtree: true });
+  const unsubscribe = sessions.list.subscribe(schedule);
+  schedule();
+  return () => {
+    disposed = true;
+    observer.disconnect();
+    unsubscribe();
+    for (const row of document.querySelectorAll("[data-vfp-work-first],[data-vfp-work-member]")) {
+      row.querySelector(`:scope > ${SUMMARY}`)?.remove();
+      row.removeAttribute("data-vfp-work-first");
+      row.removeAttribute("data-vfp-work-member");
+      row.removeAttribute("data-vfp-work-open");
+    }
+  };
+}
+
 // src/client/index.tsx
 var import_jsx_runtime7 = require("react/jsx-runtime");
 var ENTRY_ATTR = "data-dsh-vaspflow-entry";
@@ -99602,6 +99704,10 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-result-row .vfp-tree-muted{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
   '[data-dsh-vaspflow-tool="vasp_say"].vfp-say{font-size:15px;line-height:1.65;white-space:pre-wrap}',
   '[data-chat-flow-kind="tool-call"]:has([data-dsh-vaspflow-tool="vasp_done"][data-complete]){display:none!important}',
+  "[data-vfp-work-first]>[data-vfp-work-summary]{display:flex;align-items:center;gap:8px;width:100%;min-height:30px;border:0;border-radius:6px;padding:3px 8px;background:var(--dsw-alias-interactive-bg-hover,rgba(100,120,150,.08));color:var(--dsw-alias-label-secondary,#65746b);text-align:left;font:inherit;font-size:13px;cursor:pointer}",
+  '[data-vfp-work-first]>[data-vfp-work-summary]::before{content:"\u25B8";font-size:12px}',
+  '[data-vfp-work-first][data-vfp-work-open]>[data-vfp-work-summary]::before{content:"\u25BE"}',
+  "[data-vfp-work-first]:not([data-vfp-work-open])>:not([data-vfp-work-summary]),[data-vfp-work-member]{display:none!important}",
   `[${PANEL_ATTR}] .vfp-build-detail{font-size:14px;line-height:1.55}`,
   `[${PANEL_ATTR}] .vfp-build-detail-head{display:flex;align-items:center;gap:8px;font-size:16px}`,
   `[${PANEL_ATTR}] .vfp-build-detail-path{margin:5px 0 16px;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary,#65746b);font-family:ui-monospace,Consolas,monospace;font-size:12px}`,
@@ -100053,6 +100159,7 @@ function apply(ctx) {
   const panel = /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(PanelRoot, { onAnalyzeTask: handleAnalyzeTask, onPickWorkspace });
   const disposers = [];
   try {
+    disposers.push(mountWorkCollapse(ctx.sessions));
     disposers.push(mountSidebarEntry(toggle, () => panelStore.getSnapshot().open, panelStore.subscribe));
     const layoutApi = mountPanelLayout({
       renderPanel: () => panel,

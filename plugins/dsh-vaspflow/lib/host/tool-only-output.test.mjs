@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { apply, gateStream, validateCandidate } from '../../preset/vasp/tools/tool-only-output.mjs';
 
-const tools = ['vasp_scan', 'vasp_build_inputs', 'vasp_say', 'vasp_done'].map((name) => ({ name }));
+const tools = ['vasp_scan', 'vasp_build_inputs', 'vasp_say', 'vasp_done', 'ask_user_question'].map((name) => ({ name }));
 const options = { sessionId: 'vasp-session', tools, messages: [{ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '扫描' }] }] };
 const finish = { type: 'finish', reason: { kind: 'tool-calls' } };
 const call = (name, index = 0) => ({ type: 'block-end', index, block: { type: 'tool-call', id: `call-${index}`, name, arguments: '{}' } });
@@ -40,6 +40,13 @@ test('done requires a VASP result since the last user message', () => {
   assert.throws(() => validateCandidate(nextUser, [call('vasp_done'), finish]));
 });
 
+test('questions use the built-in ask_user_question tool alone', () => {
+  const sayQuestion = { type: 'block-end', index: 0, block: { type: 'tool-call', id: 'call-0', name: 'vasp_say', arguments: '{"kind":"question","text":"确认吗？"}' } };
+  assert.throws(() => validateCandidate(options, [sayQuestion, finish]), /ask_user_question/);
+  assert.throws(() => validateCandidate(options, [call('ask_user_question'), call('vasp_scan', 1), finish]));
+  assert.doesNotThrow(() => validateCandidate(options, [call('ask_user_question'), finish]));
+});
+
 test('valid tool calls pass unchanged; unrelated sessions bypass the VASP gate', async () => {
   const chunks = [call('vasp_scan'), finish];
   const seen = [];
@@ -62,7 +69,7 @@ test('a rejected text candidate gets one tool-only retry without publishing the 
   const seen = [];
   for await (const chunk of gateStream({ ...options, system: 'original' }, stream(invalid), (retryOptions) => {
     attempts++;
-    assert.match(retryOptions.system, /^original\n\n.*vasp_say/);
+    assert.match(retryOptions.system, /^original\n\n.*ask_user_question/);
     assert.deepEqual(retryOptions.messages, options.messages);
     return stream(repaired);
   })) seen.push(chunk);

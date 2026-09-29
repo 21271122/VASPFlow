@@ -16,6 +16,7 @@ import type { PanelProps } from './Panel';
 import { mountPanelLayout } from './layout';
 import { panelStore, usePanelStore } from './store';
 import { VaspToolRow } from './tool-rows';
+import { mountWorkCollapse } from './work-collapse';
 import type { BuildTaskDetail } from './store';
 import type { Task } from './api';
 
@@ -98,6 +99,10 @@ const CSS = [
   '[data-dsh-vaspflow-tool] .vfp-result-row .vfp-tree-muted{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
   '[data-dsh-vaspflow-tool="vasp_say"].vfp-say{font-size:15px;line-height:1.65;white-space:pre-wrap}',
   '[data-chat-flow-kind="tool-call"]:has([data-dsh-vaspflow-tool="vasp_done"][data-complete]){display:none!important}',
+  '[data-vfp-work-first]>[data-vfp-work-summary]{display:flex;align-items:center;gap:8px;width:100%;min-height:30px;border:0;border-radius:6px;padding:3px 8px;background:var(--dsw-alias-interactive-bg-hover,rgba(100,120,150,.08));color:var(--dsw-alias-label-secondary,#65746b);text-align:left;font:inherit;font-size:13px;cursor:pointer}',
+  '[data-vfp-work-first]>[data-vfp-work-summary]::before{content:"▸";font-size:12px}',
+  '[data-vfp-work-first][data-vfp-work-open]>[data-vfp-work-summary]::before{content:"▾"}',
+  '[data-vfp-work-first]:not([data-vfp-work-open])>:not([data-vfp-work-summary]),[data-vfp-work-member]{display:none!important}',
   `[${PANEL_ATTR}] .vfp-build-detail{font-size:14px;line-height:1.55}`,
   `[${PANEL_ATTR}] .vfp-build-detail-head{display:flex;align-items:center;gap:8px;font-size:16px}`,
   `[${PANEL_ATTR}] .vfp-build-detail-path{margin:5px 0 16px;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary,#65746b);font-family:ui-monospace,Consolas,monospace;font-size:12px}`,
@@ -571,6 +576,7 @@ function apply(ctx: any) {
 
   const disposers: Array<() => void> = [];
   try {
+    disposers.push(mountWorkCollapse(ctx.sessions));
     disposers.push(mountSidebarEntry(toggle, () => panelStore.getSnapshot().open, panelStore.subscribe));
     const layoutApi = mountPanelLayout({
       renderPanel: () => panel,

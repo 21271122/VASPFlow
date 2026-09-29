@@ -974,9 +974,9 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
   }));
   ctx.tools.register(defineTool({
     name: 'vasp_say',
-    description: '仅在需要提问、回答解释性问题或说明工具结果无法表达的阻碍时，向用户发送一条简短消息。本调用必须单独进行；不能复述已有工具视图。',
+    description: '仅在回答解释性问题或说明工具结果无法表达的阻碍时，向用户发送一条简短消息。需要用户回答的问题必须调用内置 ask_user_question。本调用必须单独进行；不能复述已有工具视图。',
     parameters: {
-      kind: { type: 'string', required: true, enum: ['question', 'answer', 'blocker'] },
+      kind: { type: 'string', required: true, enum: ['answer', 'blocker'] },
       text: { type: 'string', required: true, description: '向用户展示的正文；直接回答，避免过程播报。' },
     },
     output: {
@@ -984,7 +984,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
       render: () => [{ type: 'text', text: '消息已展示，当前轮次结束。' }],
     },
     execute(args, exec) {
-      if (!['question', 'answer', 'blocker'].includes(args.kind) || typeof args.text !== 'string' || !args.text.trim() || args.text.length > 4000) {
+      if (!['answer', 'blocker'].includes(args.kind) || typeof args.text !== 'string' || !args.text.trim() || args.text.length > 4000) {
         throw new Error('vasp_say requires a kind and 1–4000 characters of text');
       }
       exec.concludeTurn();

@@ -330,6 +330,7 @@ test('vasp_say and vasp_done validate and conclude without echoing speech', asyn
   assert.deepEqual(await done.execute({}, exec), { done: true });
   assert.equal(concluded, 2);
   await assert.rejects(() => say.execute({ kind: 'answer', text: '  ' }, exec));
+  await assert.rejects(() => say.execute({ kind: 'question', text: '确认吗？' }, exec));
   await assert.rejects(() => say.execute({ kind: 'unknown', text: 'hello' }, exec));
   assert.equal(concluded, 2);
   assertValidOutputs(say, { delivered: true });
