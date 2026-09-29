@@ -91,6 +91,7 @@ const CSS = [
   '[data-dsh-vaspflow-tool] .vfp-result-summary{padding:8px 0;line-height:1.5}',
   '[data-dsh-vaspflow-tool] .vfp-result-summary[data-error]{color:#c44136}',
   '[data-dsh-vaspflow-tool] .vfp-result-rows{display:grid;gap:3px}',
+  '[data-dsh-vaspflow-tool="vasp_inspect_tasks"] .vfp-result-rows{max-height:320px;overflow:auto}',
   '[data-dsh-vaspflow-tool] .vfp-result-row{display:flex;align-items:center;gap:10px;min-height:30px;padding:4px 8px;border:0;border-radius:4px;background:rgba(38,151,102,.09);color:inherit;text-align:left;font:inherit;cursor:pointer}',
   '[data-dsh-vaspflow-tool] .vfp-result-row:disabled{cursor:default}',
   'body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-result-row{background:rgba(94,204,155,.11)}',
@@ -504,7 +505,7 @@ function apply(ctx: any) {
       name: 'tool.call.toolview',
       key: 'vasp_build_inputs',
     }, BuildInputsToolRow));
-    for (const toolName of ['vasp_scan', 'vasp_inspect_task', 'vasp_convergence', 'vasp_structure_scene', 'vasp_discover_inputs', 'vasp_check_inputs', 'vasp_say', 'vasp_done']) {
+    for (const toolName of ['vasp_scan', 'vasp_inspect_task', 'vasp_inspect_tasks', 'vasp_convergence', 'vasp_structure_scene', 'vasp_discover_inputs', 'vasp_check_inputs', 'vasp_say', 'vasp_done']) {
       ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
         name: 'tool.call.toolview',
         key: toolName,

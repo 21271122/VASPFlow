@@ -188,6 +188,34 @@ function renderTaskInspection(args, value) {
   return [{ type: 'text', text: clipRenderText(lines.join('\n\n')) }];
 }
 
+function renderBatchInspection(value) {
+  if (value.error) return [{ type: 'text', text: `批量核查失败：${value.error}` }];
+  const rows = value.results.map((row) => row.error
+    ? `${row.rel_path} | 核查失败：${row.error}`
+    : `${row.rel_path} | ${row.status?.label ?? row.status?.code ?? '未知'} | 输入检查：${row.input_check?.label ?? '未检查'} | 文件：${renderFileList(row.files, 16)}`);
+  return [{ type: 'text', text: clipRenderText(`批量核查 ${value.results.length} 个任务：\n${rows.join('\n')}`) }];
+}
+
+function inspectScannedTask(rootPath, relPath, scanResult, store, includes, file) {
+  const task = scanResult.tasks.find((candidate) => normalizeRelPath(candidate.rel_path) === normalizeRelPath(relPath));
+  if (!task) return { root_path: rootPath, rel_path: relPath, files: [], dirs: [], preview: null, error: '目录不是已识别的 VASP 任务：需要四个标准输入文件，或符合 NEB 父目录结构' };
+  const info = store.getTask(task.id) ?? { ...task, root_path: rootPath };
+  const entries = includes.has('files') ? listFilesAndDirs(taskDir(info)) : { files: [], dirs: [] };
+  return {
+    root_path: rootPath,
+    rel_path: task.rel_path,
+    task_type: task.task_type,
+    status: task.status_record,
+    input_check: task.input_check,
+    output_files: task.output_files,
+    recommended_actions: statusActions(task.status_record.code),
+    files: entries.files,
+    dirs: entries.dirs,
+    preview: includes.has('preview') ? taskPreview(info, file) : null,
+    error: '',
+  };
+}
+
 function renderScanResult(value) {
   if (value.error) return [{ type: 'text', text: `扫描失败：${value.error}` }];
   const counts = {};
@@ -385,7 +413,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
 
   ctx.tools.register(defineTool({
     name: 'vasp_inspect_task',
-    description: '按稳定的 rootPath + relPath 核查一个 VASP 任务。一次返回状态、输入检查、输出证据和目录文件清单；可选预览一个文件。文件预览的 cursor 是不透明续读标记，不需要也不应计算字节偏移。',
+    description: '按稳定的 rootPath + relPath 核查单个 VASP 任务。多个任务需要相同核查时使用 vasp_inspect_tasks。此工具返回状态、输入检查、输出证据和目录文件清单，并可预览一个文件；预览 cursor 是不透明续读标记。',
     parameters: {
       rootPath: { type: 'string', required: true, description: '项目根目录绝对路径。' },
       relPath: { type: 'string', required: true, description: '任务相对项目根目录的路径。' },
@@ -421,30 +449,51 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
       try {
         const scanResult = await scanProject(args.rootPath);
         store.addProject(args.rootPath, scanResult.tasks, scanResult.directories);
-        const normalized = normalizeRelPath(args.relPath);
-        const task = scanResult.tasks.find((candidate) => normalizeRelPath(candidate.rel_path) === normalized);
-        if (!task) return { root_path: args.rootPath, rel_path: args.relPath, files: [], dirs: [], preview: null, error: '目录不是已识别的 VASP 任务：需要四个标准输入文件，或符合 NEB 父目录结构' };
         const includes = new Set(args.include?.length ? args.include : ['status', 'files']);
-        const info = store.getTask(task.id) ?? { ...task, root_path: args.rootPath };
-        const entries = includes.has('files') ? listFilesAndDirs(taskDir(info)) : { files: [], dirs: [] };
-        return {
-          root_path: args.rootPath,
-          rel_path: task.rel_path,
-          task_type: task.task_type,
-          status: task.status_record,
-          input_check: task.input_check,
-          output_files: task.output_files,
-          recommended_actions: statusActions(task.status_record.code),
-          files: entries.files,
-          dirs: entries.dirs,
-          preview: includes.has('preview') ? taskPreview(info, args.file) : null,
-          error: '',
-        };
+        return inspectScannedTask(args.rootPath, args.relPath, scanResult, store, includes, args.file);
       } catch (caught) {
         return { root_path: args.rootPath, rel_path: args.relPath, files: [], dirs: [], preview: null, error: `Task inspection failed: ${String(caught)}` };
       }
     },
     presentCall: (args) => ({ card: 'generic', title: 'Inspect VASP task', kind: 'other', rawInput: args }),
+  }));
+
+  ctx.tools.register(defineTool({
+    name: 'vasp_inspect_tasks',
+    description: '一次核查多个已识别的 VASP 任务，只扫描项目一次。返回每个任务的状态、输入检查、输出证据和可选文件清单；单文件内容预览仍使用 vasp_inspect_task。多个任务需要同类核查时优先使用此工具，不要逐个调用单任务工具。',
+    parameters: {
+      rootPath: { type: 'string', required: true, description: '项目根目录绝对路径。' },
+      relPaths: { type: 'array', required: true, items: { type: 'string' }, description: '相对于项目根目录的任务路径列表。' },
+      include: { type: 'array', items: { type: 'string', enum: ['status', 'files'] }, description: '需要的部分；默认返回状态和文件清单。' },
+    },
+    output: {
+      schema: { type: 'object', additionalProperties: false, properties: {
+        root_path: { type: 'string' },
+        results: { type: 'array', items: { type: 'object', additionalProperties: true } },
+        error: { type: 'string', required: true },
+      } },
+      render: (_args, value) => renderBatchInspection(value),
+      presentationMeta: (_args, value) => ({ rootPath: value.root_path, error: value.error, results: value.results.map((row) => ({ relPath: row.rel_path, status: row.status, inputCheck: row.input_check, fileCount: row.files?.length ?? 0, error: row.error })) }),
+    },
+    async execute(args) {
+      const error = directoryError(args.rootPath);
+      if (error) return { root_path: args.rootPath, results: [], error };
+      const relPaths = [...new Set((args.relPaths ?? []).map(normalizeRelPath))];
+      if (relPaths.length === 0 || relPaths.length > 200) return { root_path: args.rootPath, results: [], error: '请提供 1–200 个任务路径' };
+      try {
+        const scanResult = await scanProject(args.rootPath);
+        store.addProject(args.rootPath, scanResult.tasks, scanResult.directories);
+        const includes = new Set(args.include?.length ? args.include : ['status', 'files']);
+        const results = relPaths.map((relPath) => {
+          try { return inspectScannedTask(args.rootPath, relPath, scanResult, store, includes); }
+          catch (caught) { return { root_path: args.rootPath, rel_path: relPath, files: [], dirs: [], preview: null, error: `Task inspection failed: ${String(caught)}` }; }
+        });
+        return { root_path: args.rootPath, results, error: '' };
+      } catch (caught) {
+        return { root_path: args.rootPath, results: [], error: `Batch inspection failed: ${String(caught)}` };
+      }
+    },
+    presentCall: (args) => ({ card: 'generic', title: `核查 ${args.relPaths?.length ?? 0} 个 VASP 任务`, kind: 'other', rawInput: args }),
   }));
 
   ctx.tools.register(defineTool({

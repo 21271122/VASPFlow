@@ -5,6 +5,7 @@ import { panelStore } from './store';
 const titles: Record<string, string> = {
   vasp_scan: '扫描项目',
   vasp_inspect_task: '核查任务',
+  vasp_inspect_tasks: '批量核查任务',
   vasp_convergence: '收敛数据',
   vasp_structure_scene: '结构场景',
   vasp_discover_inputs: '发现输入来源',
@@ -69,6 +70,16 @@ export function VaspToolRow({ block, toolName }: { block: any; toolName: string 
   } else if (toolName === 'vasp_inspect_task') {
     summary = [value.status?.label ?? value.status?.code, value.inputCheck?.label, value.status?.reason].filter(Boolean).join(' · ');
     rows = relPath ? [{ path: relPath, label: relPath, note: '在右侧查看证据' }] : [];
+  } else if (toolName === 'vasp_inspect_tasks') {
+    const results = Array.isArray(value.results) ? value.results : [];
+    const failed = results.filter((row: any) => row.error).length;
+    summary = `${results.length} 个任务 · ${failed} 个核查失败`;
+    rows = results.map((row: any) => ({
+      path: row.error ? '' : row.relPath,
+      label: row.relPath,
+      note: row.error || [row.status?.label, row.inputCheck?.label, `${row.fileCount ?? 0} 个文件`].filter(Boolean).join(' · '),
+      status: row.error || row.status?.code === 'ERROR_DETECTED' ? 'error' : row.inputCheck?.code === 'FAIL' || row.status?.code === 'UNKNOWN' ? 'warn' : undefined,
+    }));
   } else if (toolName === 'vasp_convergence') {
     summary = `${value.ionSteps ?? 0} 个离子步${Number.isFinite(value.finalEnergy) ? ` · 末步能量 ${Number(value.finalEnergy).toFixed(6)} eV` : ''}`;
     rows = relPath ? [{ path: relPath, label: relPath, note: '在右侧查看曲线' }] : [];

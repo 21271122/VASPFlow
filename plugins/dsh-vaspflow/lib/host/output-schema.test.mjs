@@ -230,6 +230,7 @@ test('all vasp_* tools honor the shared top-level error contract', async () => {
       ['vasp_convergence', { rootPath: dir, relPath: 'calc' }],
       ['vasp_structure_scene', { rootPath: dir, relPath: 'calc' }],
       ['vasp_inspect_task', { rootPath: dir, relPath: 'calc', include: ['status', 'files', 'preview'], file: { name: 'INCAR', part: 'head' } }],
+      ['vasp_inspect_tasks', { rootPath: dir, relPaths: ['calc', 'good'], include: ['status', 'files'] }],
       ['vasp_build_inputs', { projectRoot: dir, tasks: [{ dir: 'built', poscarSrc: 'struc/surface.vasp', template: 'tpl', submitSrc: 'tpl/submit.slurm' }], dryRun: true }],
       ['vasp_check_inputs', { projectRoot: dir, dirs: ['good'] }],
       ['vasp_discover_inputs', { rootPath: dir }],
@@ -244,6 +245,7 @@ test('all vasp_* tools honor the shared top-level error contract', async () => {
     const failureCases = [
       ['vasp_scan', { rootPath: join(dir, 'missing') }],
       ['vasp_inspect_task', { rootPath: join(dir, 'missing'), relPath: 'calc' }],
+      ['vasp_inspect_tasks', { rootPath: join(dir, 'missing'), relPaths: ['calc'] }],
       ['vasp_convergence', { rootPath: join(dir, 'missing'), relPath: 'calc' }],
       ['vasp_structure_scene', { rootPath: join(dir, 'missing'), relPath: 'calc' }],
       ['vasp_discover_inputs', { rootPath: join(dir, 'missing') }],
@@ -255,6 +257,28 @@ test('all vasp_* tools honor the shared top-level error contract', async () => {
       assert.equal(typeof result.error, 'string');
       assert.notEqual(result.error, '', `${name} must explain its failed call`);
     }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('vasp_inspect_tasks checks several tasks in one call and keeps per-task failures', async () => {
+  const dir = makeFixture();
+  try {
+    mkdirSync(join(dir, 'good2'));
+    for (const [name, content] of [['POSCAR', POSCAR], ['POTCAR', POTCAR], ['INCAR', INCAR], ['KPOINTS', KPOINTS]]) {
+      writeFileSync(join(dir, 'good2', name), content);
+    }
+    const batch = tool('vasp_inspect_tasks');
+    const result = await batch.execute({ rootPath: dir, relPaths: ['good', 'good2', 'missing'], include: ['status', 'files'] }, {});
+    assertValidOutputs(batch, result);
+    assert.equal(result.error, '');
+    assert.deepEqual(result.results.map((row) => row.rel_path), ['good', 'good2', 'missing']);
+    assert.ok(result.results[0].files.some((file) => file.name === 'INCAR'));
+    assert.ok(result.results[1].status?.code);
+    assert.match(result.results[2].error, /不是已识别的 VASP 任务/);
+    assert.match(renderedText(batch, {}, result), /good2/);
+    assert.equal(batch.output.presentationMeta({}, result).results.length, 3);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

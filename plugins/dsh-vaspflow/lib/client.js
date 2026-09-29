@@ -99409,6 +99409,7 @@ var import_jsx_runtime6 = require("react/jsx-runtime");
 var titles = {
   vasp_scan: "\u626B\u63CF\u9879\u76EE",
   vasp_inspect_task: "\u6838\u67E5\u4EFB\u52A1",
+  vasp_inspect_tasks: "\u6279\u91CF\u6838\u67E5\u4EFB\u52A1",
   vasp_convergence: "\u6536\u655B\u6570\u636E",
   vasp_structure_scene: "\u7ED3\u6784\u573A\u666F",
   vasp_discover_inputs: "\u53D1\u73B0\u8F93\u5165\u6765\u6E90",
@@ -99477,6 +99478,16 @@ function VaspToolRow({ block, toolName }) {
   } else if (toolName === "vasp_inspect_task") {
     summary = [value.status?.label ?? value.status?.code, value.inputCheck?.label, value.status?.reason].filter(Boolean).join(" \xB7 ");
     rows = relPath ? [{ path: relPath, label: relPath, note: "\u5728\u53F3\u4FA7\u67E5\u770B\u8BC1\u636E" }] : [];
+  } else if (toolName === "vasp_inspect_tasks") {
+    const results = Array.isArray(value.results) ? value.results : [];
+    const failed = results.filter((row) => row.error).length;
+    summary = `${results.length} \u4E2A\u4EFB\u52A1 \xB7 ${failed} \u4E2A\u6838\u67E5\u5931\u8D25`;
+    rows = results.map((row) => ({
+      path: row.error ? "" : row.relPath,
+      label: row.relPath,
+      note: row.error || [row.status?.label, row.inputCheck?.label, `${row.fileCount ?? 0} \u4E2A\u6587\u4EF6`].filter(Boolean).join(" \xB7 "),
+      status: row.error || row.status?.code === "ERROR_DETECTED" ? "error" : row.inputCheck?.code === "FAIL" || row.status?.code === "UNKNOWN" ? "warn" : void 0
+    }));
   } else if (toolName === "vasp_convergence") {
     summary = `${value.ionSteps ?? 0} \u4E2A\u79BB\u5B50\u6B65${Number.isFinite(value.finalEnergy) ? ` \xB7 \u672B\u6B65\u80FD\u91CF ${Number(value.finalEnergy).toFixed(6)} eV` : ""}`;
     rows = relPath ? [{ path: relPath, label: relPath, note: "\u5728\u53F3\u4FA7\u67E5\u770B\u66F2\u7EBF" }] : [];
@@ -99584,6 +99595,7 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-result-summary{padding:8px 0;line-height:1.5}",
   "[data-dsh-vaspflow-tool] .vfp-result-summary[data-error]{color:#c44136}",
   "[data-dsh-vaspflow-tool] .vfp-result-rows{display:grid;gap:3px}",
+  '[data-dsh-vaspflow-tool="vasp_inspect_tasks"] .vfp-result-rows{max-height:320px;overflow:auto}',
   "[data-dsh-vaspflow-tool] .vfp-result-row{display:flex;align-items:center;gap:10px;min-height:30px;padding:4px 8px;border:0;border-radius:4px;background:rgba(38,151,102,.09);color:inherit;text-align:left;font:inherit;cursor:pointer}",
   "[data-dsh-vaspflow-tool] .vfp-result-row:disabled{cursor:default}",
   "body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-result-row{background:rgba(94,204,155,.11)}",
@@ -99987,7 +99999,7 @@ function apply(ctx) {
       name: "tool.call.toolview",
       key: "vasp_build_inputs"
     }, BuildInputsToolRow));
-    for (const toolName of ["vasp_scan", "vasp_inspect_task", "vasp_convergence", "vasp_structure_scene", "vasp_discover_inputs", "vasp_check_inputs", "vasp_say", "vasp_done"]) {
+    for (const toolName of ["vasp_scan", "vasp_inspect_task", "vasp_inspect_tasks", "vasp_convergence", "vasp_structure_scene", "vasp_discover_inputs", "vasp_check_inputs", "vasp_say", "vasp_done"]) {
       ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
         name: "tool.call.toolview",
         key: toolName

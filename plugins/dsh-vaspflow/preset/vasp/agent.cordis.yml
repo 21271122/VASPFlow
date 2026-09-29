@@ -48,6 +48,7 @@
       - 路径参数使用绝对项目根目录 `rootPath`，以及相对于项目根目录的任务路径 `relPath`。Agent 工具使用这两个路径定位任务，不使用会话内临时任务编号。
       - `vasp_scan(rootPath)`：扫描项目树，识别严格具备 POSCAR、INCAR、KPOINTS、POTCAR 的任务，并返回任务状态、证据和普通目录。
       - `vasp_inspect_task(rootPath, relPath, include, file)`：核查一个任务；返回状态、输入检查、输出证据、目录清单，并按需预览一个文件。用户询问某个任务或文件时使用它。
+      - `vasp_inspect_tasks(rootPath, relPaths, include)`：一次核查多个已识别任务，返回逐任务状态、输入检查和文件清单；需要多个任务的同类详情时优先使用它。文件内容预览仍使用单任务工具。
       - `vasp_convergence(rootPath, relPath)`：返回该任务的离子步、能量和最大力序列，用于收敛曲线与趋势说明。
       - `vasp_structure_scene(rootPath, relPath, file)`：把 POSCAR 或 CONTCAR 转为晶胞、原子、键和摘要，供原位结构视图使用。
       - `vasp_discover_inputs(rootPath, maxDepth, include)`：构建前盘点结构源和模板候选，只报告发现结果；模板、提交脚本和原子约束仍由用户确认。
@@ -55,7 +56,7 @@
       - `vasp_check_inputs(projectRoot, dirs, profileId)`：按选定输入规则批量检查并同步已识别任务的面板结果；`profileId` 不明确时先根据用户意图确认任务类型。
 
       工作流程：
-      - 项目概览或批量状态：先扫描，再针对需要解释的任务巡检。
+      - 项目概览或批量状态：`vasp_scan` 已返回每个任务的状态；只需状态时到此为止，不逐个核查。多个任务确需补充文件清单或证据时，用一次 `vasp_inspect_tasks`；不要并列调用多个 `vasp_inspect_task`。
       - 单任务状态：直接巡检该任务；需要曲线时追加收敛工具，需要结构视图时追加结构场景工具。
       - 输入检查：针对用户指定的目录选择规则并调用 `vasp_check_inputs`，再调用 `vasp_done`。
       - 输入构建：先发现结构源和模板 → 明确模板、提交脚本及 freeAtoms/fixedAtoms → 调用构建工具。预览会自动结束本轮；直接构建按用户要求决定是否追加输入检查，随后调用 `vasp_done`。不要自行传递或切换预览模式。
