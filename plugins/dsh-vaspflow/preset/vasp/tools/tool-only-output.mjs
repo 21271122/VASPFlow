@@ -1,6 +1,8 @@
 export const name = 'vasp-tool-only-output';
 
 const TERMINAL = new Set(['vasp_say', 'vasp_done']);
+const RECOVERY = Symbol('vasp-tool-only-recovery');
+const RECOVERY_INSTRUCTION = '上一候选未遵守 VASP 工具输出协议，已被丢弃，任何工具都未执行。现在只调用一个当前可用工具：需要操作就调用对应工具；需要说明阻碍或提问就调用 vasp_say。不要输出普通 assistant 正文。';
 
 function hasDomainResultThisTurn(messages) {
   // DSH represents tool results as user-role messages. Only an actual user
@@ -57,10 +59,21 @@ function isJsonObject(raw) {
   } catch { return false; }
 }
 
-export async function* gateStream(options, stream) {
+export async function* gateStream(options, stream, retry) {
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
-  validateCandidate(options, chunks);
+  try {
+    validateCandidate(options, chunks);
+  } catch (error) {
+    const finish = chunks.findLast((chunk) => chunk.type === 'finish')?.reason;
+    if (!retry || options.signal?.aborted || (finish?.kind !== 'stop' && finish?.kind !== 'tool-calls')) throw error;
+    const retryOptions = { ...options, system: `${options.system ?? ''}\n\n${RECOVERY_INSTRUCTION}`, [RECOVERY]: true };
+    const retried = [];
+    for await (const chunk of retry(retryOptions)) retried.push(chunk);
+    validateCandidate(retryOptions, retried);
+    yield* retried;
+    return;
+  }
   yield* chunks;
 }
 
@@ -68,6 +81,8 @@ export function apply(ctx) {
   ctx.on('llm/stream', (options, next) => {
     if (!options.sessionId || !options.tools?.some((tool) => tool.name === 'vasp_say')
       || !options.tools.some((tool) => tool.name === 'vasp_done')) return next();
-    return gateStream(options, next());
+    const llm = ctx.get?.('llm') ?? ctx.llm;
+    const retry = options[RECOVERY] || !llm ? undefined : (retryOptions) => llm.stream(retryOptions);
+    return gateStream(options, next(), retry);
   }, { global: true });
 }
