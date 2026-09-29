@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { apply, gateStream, validateCandidate } from '../../preset/vasp/tools/tool-only-output.mjs';
 
 const tools = ['vasp_scan', 'vasp_build_inputs', 'vasp_say', 'vasp_done'].map((name) => ({ name }));
-const options = { sessionId: 'vasp-session', tools, messages: [{ role: 'user', content: [{ type: 'text', text: '扫描' }] }] };
+const options = { sessionId: 'vasp-session', tools, messages: [{ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '扫描' }] }] };
 const finish = { type: 'finish', reason: { kind: 'tool-calls' } };
 const call = (name, index = 0) => ({ type: 'block-end', index, block: { type: 'tool-call', id: `call-${index}`, name, arguments: '{}' } });
 
@@ -27,9 +27,16 @@ test('candidate gate rejects visible text and mixed terminal batches before yiel
 
 test('done requires a VASP result since the last user message', () => {
   assert.throws(() => validateCandidate(options, [call('vasp_done'), finish]));
-  const afterScan = { ...options, messages: [...options.messages, { role: 'assistant', content: [{ type: 'tool-call', name: 'vasp_scan' }] }] };
+  const afterScan = { ...options, messages: [
+    ...options.messages,
+    { role: 'user', source: { kind: 'agent-instructions' }, content: [{ type: 'text', text: 'AGENTS.md' }] },
+    { role: 'user', source: { kind: 'plugin' }, content: [{ type: 'text', text: 'system prompt' }] },
+    { role: 'user', source: { kind: 'skill-catalog' }, content: [{ type: 'text', text: 'skills' }] },
+    { role: 'assistant', source: { kind: 'model' }, content: [{ type: 'tool-call', name: 'vasp_scan', id: 'scan-1' }] },
+    { role: 'user', source: { kind: 'tool', callId: 'scan-1' }, content: [{ type: 'tool-result', toolCallId: 'scan-1' }] },
+  ] };
   assert.doesNotThrow(() => validateCandidate(afterScan, [call('vasp_done'), finish]));
-  const nextUser = { ...options, messages: [...afterScan.messages, { role: 'user', content: [{ type: 'text', text: '再检查' }] }] };
+  const nextUser = { ...options, messages: [...afterScan.messages, { role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '再检查' }] }] };
   assert.throws(() => validateCandidate(nextUser, [call('vasp_done'), finish]));
 });
 

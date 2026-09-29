@@ -3,7 +3,10 @@ export const name = 'vasp-tool-only-output';
 const TERMINAL = new Set(['vasp_say', 'vasp_done']);
 
 function hasDomainResultThisTurn(messages) {
-  const lastUser = messages.findLastIndex((message) => message.role === 'user');
+  // DSH represents tool results as user-role messages. Only an actual user
+  // message starts a new turn; injected context and tool replies do not.
+  const lastUser = messages.findLastIndex((message) => message.role === 'user' && message.source?.kind === 'user');
+  if (lastUser < 0) return false;
   return messages.slice(lastUser + 1).some((message) =>
     message.role === 'assistant' && message.content?.some((block) =>
       block.type === 'tool-call' && block.name.startsWith('vasp_') && !TERMINAL.has(block.name)));
