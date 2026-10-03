@@ -33,9 +33,10 @@ function parseGridTracks(input) {
  * Inlined copy of the observer syncOnce: given grid/base/open/width returns
  * { grid, base, changed }.
  */
-function makeSync(baseRef) {
+function makeSync(baseRef, hasAionui = true) {
   const isOpen = () => true;
-  const insertionIndex = (tracks) => (tracks.length >= 3 ? Math.min(3, tracks.length) : tracks.length);
+  const insertionIndex = (tracks, includesOurTrack = false) =>
+    hasAionui && tracks.length >= 3 ? Math.min(3, tracks.length) : tracks.length - Number(includesOurTrack);
   const syncOnce = (gridStr, width) => {
     const tracks = parseGridTracks(gridStr);
     if (tracks.length === 0) return { grid: gridStr, changed: false };
@@ -43,7 +44,7 @@ function makeSync(baseRef) {
     const w = `${Math.round(width)}px`;
     const hasOurs = tracks.length === baseRef.value.length + 1 && baseRef.value.length > 0;
     if (hasOurs) {
-      const at = insertionIndex(tracks);
+      const at = insertionIndex(tracks, true);
       if (tracks[at] === w) return { grid: gridStr, changed: false };
       const next = [...tracks];
       next[at] = w;
@@ -97,11 +98,13 @@ test('aionui drag rewrite (5 tracks, no ours) triggers restore once', () => {
 
 test('no aionui present: appends at end (4 tracks)', () => {
   const baseRef = { value: ['260px', 'minmax(0px, 1fr)', '0px'] };
-  const syncOnce = makeSync(baseRef);
+  const syncOnce = makeSync(baseRef, false);
   const r = syncOnce('260px minmax(0px, 1fr) 0px', 420);
   assert.equal(r.changed, true);
   assert.equal(parseGridTracks(r.grid).length, 4);
   assert.equal(parseGridTracks(r.grid)[3], '420px');
+  assert.equal(syncOnce(r.grid, 420).changed, false, 'store updates must not append another panel track');
+  assert.equal(baseRef.value.length, 3);
 });
 
 test('drag resize updates our width without adding tracks', () => {

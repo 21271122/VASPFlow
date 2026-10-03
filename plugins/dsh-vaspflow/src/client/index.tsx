@@ -15,11 +15,11 @@ import { Panel, buildTaskContext } from './Panel';
 import type { PanelProps } from './Panel';
 import { mountPanelLayout } from './layout';
 import { panelStore, usePanelStore } from './store';
-import { VaspToolRow } from './tool-rows';
+import { VaspToolRow, useToolCardCollapse } from './tool-rows';
 import { mountWorkCollapse } from './work-collapse';
 import type { BuildTaskDetail } from './store';
 import type { Task } from './api';
-import { readStructureDrag, STRUCTURE_DRAG_TYPE } from './structure-drag';
+import { readStructureDrag, startStructureDrag, STRUCTURE_DRAG_TYPE } from './structure-drag';
 import { scrollExpandedTreeRow } from './tree-scroll';
 
 const ENTRY_ATTR = 'data-dsh-vaspflow-entry';
@@ -75,6 +75,10 @@ const CSS = [
   '[data-dsh-vaspflow-tool] .vfp-tree-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 0 4px;margin-bottom:4px}',
   '[data-dsh-vaspflow-tool] .vfp-tree-head strong{font-size:15px;color:#3279bf}',
   'body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong{color:#78b9f1}',
+  '[data-dsh-vaspflow-tool] .vfp-card-toggle{display:inline-flex;align-items:center;gap:7px;min-width:0;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;text-align:left}',
+  '[data-dsh-vaspflow-tool] .vfp-card-toggle>span{width:12px;color:var(--dsw-alias-label-secondary,#65746b)}',
+  '[data-dsh-vaspflow-tool] .vfp-card-toggle:focus-visible{outline:2px solid #4f8fd2;outline-offset:3px}',
+  '[data-dsh-vaspflow-tool] [hidden]{display:none!important}',
   '[data-dsh-vaspflow-tool] .vfp-tree-muted{color:var(--dsw-alias-label-secondary,#65746b)}',
   '[data-dsh-vaspflow-tool] .vfp-tree-group{display:flex;align-items:center;gap:7px;padding:7px 0 3px;font-weight:600}',
   '[data-dsh-vaspflow-tool] .vfp-tree-toggle{border:0;background:none;color:inherit;cursor:pointer;font:inherit;padding:0 3px;width:18px}',
@@ -94,6 +98,18 @@ const CSS = [
   '[data-dsh-vaspflow-tool] .vfp-tree-actions button:disabled{opacity:.5;cursor:default}',
   '[data-dsh-vaspflow-tool] .vfp-tree-message{margin-top:8px;white-space:pre-wrap;color:var(--dsw-alias-label-secondary,#65746b)}',
   '[data-dsh-vaspflow-tool] .vfp-tree-message[data-error]{color:#c44136}',
+  '[data-dsh-vaspflow-tool] .vfp-build-steps{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 0;font-size:12px;border-bottom:1px solid var(--dsw-alias-border-l2,#e5e6eb)}',
+  '[data-dsh-vaspflow-tool] .vfp-build-steps span{color:var(--dsw-alias-label-secondary,#65746b)}',
+  '[data-dsh-vaspflow-tool] .vfp-build-steps [data-stage="done"]{color:#248452}',
+  '[data-dsh-vaspflow-tool] .vfp-build-steps [data-stage="current"]{color:#3279bf;font-weight:600}',
+  '[data-dsh-vaspflow-tool] .vfp-build-steps [data-stage="stopped"]{color:#c44136}',
+  '[data-dsh-vaspflow-tool] .vfp-build-changes{padding:8px 0;border-bottom:1px solid var(--dsw-alias-border-l2,#e5e6eb);font-size:12px}',
+  '[data-dsh-vaspflow-tool] .vfp-build-changes summary{cursor:pointer;color:#ae7412}',
+  '[data-dsh-vaspflow-tool] .vfp-build-changes>div{display:flex;flex-wrap:wrap;gap:4px 8px;padding:5px 0;overflow-wrap:anywhere}',
+  '[data-dsh-vaspflow-tool] .vfp-build-changes>div strong{width:100%;font-weight:600}',
+  '[data-dsh-vaspflow-tool] .vfp-build-changes>div span{max-width:45%;color:var(--dsw-alias-label-secondary,#65746b)}',
+  '[data-dsh-vaspflow-tool] .vfp-build-changes p{display:flex;gap:8px;margin:5px 0;color:var(--dsw-alias-label-secondary,#65746b)}',
+  '[data-dsh-vaspflow-tool] .vfp-build-changes time{flex:none;font-variant-numeric:tabular-nums}',
   '[data-vasp-structure-mount]:focus-visible{outline:2px solid #4f8fd2;outline-offset:2px}',
   '.vfp-structure-toolbar{min-height:30px}',
   '.vfp-structure-toolbar .vfp-source-location{flex:1;min-width:0}',
@@ -108,6 +124,7 @@ const CSS = [
   '[data-dsh-vaspflow-tool="vasp_inspect_tasks"] .vfp-result-rows{max-height:320px;overflow:auto}',
   '[data-dsh-vaspflow-tool] .vfp-result-row{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;min-width:0;min-height:30px;padding:4px 8px;border:0;border-radius:4px;background:var(--vfp-tree-leaf-bg);color:inherit;text-align:left;font:inherit;cursor:pointer}',
   '[data-dsh-vaspflow-tool] .vfp-result-row:disabled{cursor:default}',
+  '[data-dsh-vaspflow-tool] .vfp-result-row[draggable="true"], [data-dsh-vaspflow-tool] .vfp-inspection-item>summary[draggable="true"], [data-dsh-vaspflow-tool] .vfp-visual-tree-leaf[draggable="true"], [data-dsh-vaspflow-tool] .vfp-tree-task[draggable="true"]{cursor:grab}',
   '[data-dsh-vaspflow-tool] .vfp-result-row>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
   '[data-dsh-vaspflow-tool] .vfp-result-row .vfp-tree-muted{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
   '[data-dsh-vaspflow-tool] .vfp-scan-path{font-size:12px;color:var(--dsw-alias-label-secondary,#65746b);overflow-wrap:anywhere;padding-top:9px}',
@@ -122,8 +139,13 @@ const CSS = [
   '[data-dsh-vaspflow-tool] .vfp-pie-title{font-weight:600;padding-bottom:9px}',
   '[data-dsh-vaspflow-tool] .vfp-pie-body{display:flex;align-items:center;gap:11px}',
   '[data-dsh-vaspflow-tool] .vfp-pie{width:130px;height:130px;flex:none;border-radius:50%}',
+  '[data-dsh-vaspflow-tool] .vfp-pie[role="img"]{cursor:pointer}',
   '[data-dsh-vaspflow-tool] .vfp-pie-legend{display:grid;gap:5px;min-width:0;flex:1;font-size:12px}',
   '[data-dsh-vaspflow-tool] .vfp-pie-legend-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto 39px;align-items:center;gap:5px}',
+  '[data-dsh-vaspflow-tool] button.vfp-pie-legend-row{width:100%;padding:2px 4px;border:0;border-radius:3px;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}',
+  '[data-dsh-vaspflow-tool] button.vfp-pie-legend-row:hover,[data-dsh-vaspflow-tool] button.vfp-pie-legend-row[data-selected]{background:var(--vfp-tree-folder-bg)}',
+  '[data-dsh-vaspflow-tool] button.vfp-pie-legend-row[data-selected]{font-weight:600}',
+  '[data-dsh-vaspflow-tool] .vfp-clear-filter{border:0;background:none;color:#3279bf;cursor:pointer;font:inherit;font-size:12px}',
   '[data-dsh-vaspflow-tool] .vfp-pie-legend-row>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
   '[data-dsh-vaspflow-tool] .vfp-pie-legend i{width:8px;height:8px;border-radius:1px}',
   '[data-dsh-vaspflow-tool] .vfp-pie-legend-row strong{text-align:right}',
@@ -147,6 +169,7 @@ const CSS = [
   '[data-dsh-vaspflow-tool] .vfp-path-children>.vfp-path-folder::before{content:"";position:absolute;left:-12px;top:15px;width:8px;border-top:1px solid rgba(112,146,173,.28)}',
   '[data-dsh-vaspflow-tool] .vfp-source-file{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;min-height:30px;margin:3px 0;padding:4px 8px;border:0;border-radius:4px;background:var(--vfp-tree-leaf-bg);color:inherit;text-align:left;font:inherit;cursor:pointer;transition:background .12s ease}',
   '[data-dsh-vaspflow-tool] .vfp-source-file:hover{background:rgba(38,151,102,.17)}',
+  '[data-dsh-vaspflow-tool] .vfp-source-file[draggable="true"]{cursor:grab}',
   '[data-dsh-vaspflow-tool] .vfp-source-file small{margin-left:auto;color:var(--dsw-alias-label-secondary,#65746b)}',
   '[data-dsh-vaspflow-tool] .vfp-source-file>span:last-child{color:var(--dsw-alias-label-secondary,#65746b);white-space:nowrap}',
   '[data-dsh-vaspflow-tool] .vfp-source-file:hover>span:last-child{color:#3279bf}',
@@ -160,6 +183,8 @@ const CSS = [
   '[data-dsh-vaspflow-tool] .vfp-discovery-heading{font-weight:600;padding:10px 0 6px}',
   '[data-dsh-vaspflow-tool] .vfp-discovery-list{max-height:260px;overflow:auto;padding:6px 0 6px 14px}',
   '[data-dsh-vaspflow-tool] .vfp-discovery-list>div{display:flex;gap:10px;justify-content:space-between;padding:4px 0;font-size:12px}',
+  '[data-dsh-vaspflow-tool] .vfp-discovery-list>div[draggable="true"]{cursor:grab}',
+  '[data-dsh-vaspflow-tool] .vfp-discovery-list>div[draggable="true"]:hover{background:var(--vfp-tree-folder-bg)}',
   '[data-dsh-vaspflow-tool] .vfp-discovery-list code{font:inherit;overflow-wrap:anywhere}',
   '[data-dsh-vaspflow-tool] .vfp-discovery-list span{color:var(--dsw-alias-label-secondary,#65746b);text-align:right}',
   '[data-dsh-vaspflow-tool] .vfp-inline-tree{margin:4px 0 8px}',
@@ -180,7 +205,9 @@ const CSS = [
   'body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-visual-tabs button[data-user-added][aria-selected="true"]{color:#f4c65d;border-color:#f4c65d}',
   '[data-dsh-vaspflow-tool][data-drop-active]{outline:2px dashed #d7a62d;outline-offset:2px;background:rgba(215,166,45,.1)}',
   '[data-dsh-vaspflow-tool] .vfp-structure-drop-hint{padding:6px 0;color:#bc870e}',
+  '[data-dsh-vaspflow-tool] .vfp-structure-drop-hint[data-rejected]{color:#c44136}',
   'body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-structure-drop-hint{color:#f4c65d}',
+  'body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-structure-drop-hint[data-rejected]{color:#ff7875}',
   '[data-dsh-vaspflow-tool] .vfp-file-preview{max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}',
   '[data-dsh-vaspflow-tool] .vfp-tool-intent{font-size:13px;line-height:1.55;padding:10px 0 1px;color:inherit}',
   '[data-dsh-vaspflow-tool] .vfp-source-flow{display:grid;grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr);gap:10px;align-items:center;margin:16px 0 12px}',
@@ -426,6 +453,7 @@ type BuildInputsArgs = {
 type BuildTask = NonNullable<BuildInputsArgs['tasks']>[number];
 type BuildRow = NonNullable<BuildTaskDetail['result']>;
 type BuildResult = { planId?: string; projectRoot?: string; error?: string; results?: BuildRow[]; errorCount?: number; wroteCount?: number; dryRun?: boolean; dryRunMode?: boolean };
+type BuildAction = { at: number; text: string };
 type BuildOutcome = { phase: 'done' | 'cancelled' | 'unavailable'; selectedIndices: number[]; writeRows: Record<number, BuildRow>; message: string; requestError: boolean };
 const buildOutcomes = new Map<string, BuildOutcome>();
 const buildOutcomeListeners = new Set<() => void>();
@@ -493,6 +521,7 @@ function buildTaskTree(tasks: BuildTask[]): BuildTreeNode {
 }
 
 function BuildInputsToolRow({ block }: { block: any }) {
+  const { collapsed, setCardCollapsed } = useToolCardCollapse(block, 'vasp_build_inputs');
   const { buildDryRun, buildModeError } = usePanelStore();
   const args = React.useMemo(() => parseToolArgs(block), [block]);
   const settled = block?.kind === 'tool-result';
@@ -504,6 +533,17 @@ function BuildInputsToolRow({ block }: { block: any }) {
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
+  const historyKey = originalPreview.planId ? `dsh-vaspflow:build-history:${originalPreview.planId}` : '';
+  const [history, setHistory] = React.useState<BuildAction[]>(() => {
+    try { const saved = JSON.parse(sessionStorage.getItem(historyKey) || '[]'); return Array.isArray(saved) ? saved : []; } catch { return []; }
+  });
+  const historyRef = React.useRef(history);
+  const recordAction = (text: string) => {
+    const next = [...historyRef.current, { at: Date.now(), text }].slice(-20);
+    historyRef.current = next;
+    setHistory(next);
+    if (historyKey) try { sessionStorage.setItem(historyKey, JSON.stringify(next)); } catch { /* current view keeps the record */ }
+  };
   const tasks = revision?.tasks ?? (Array.isArray(args.tasks) ? args.tasks : []);
   const preview = revision?.preview ?? originalPreview;
   const [selectedState, setSelected] = React.useState<Set<number>>(() => new Set(tasks.map((_, index) => index)));
@@ -516,6 +556,7 @@ function BuildInputsToolRow({ block }: { block: any }) {
   const [requestErrorState, setRequestError] = React.useState(false);
   const [dropBusy, setDropBusy] = React.useState<number | null>(null);
   const [dropActive, setDropActive] = React.useState<number | null>(null);
+  const [cancelBusy, setCancelBusy] = React.useState(false);
   const saved = React.useSyncExternalStore<BuildOutcome | null>(subscribeBuildOutcomes, () => readBuildOutcome(preview.planId), () => null);
   const selected: Set<number> = saved ? new Set<number>(saved.selectedIndices) : selectedState;
   const phase = saved?.phase ?? phaseState;
@@ -526,9 +567,18 @@ function BuildInputsToolRow({ block }: { block: any }) {
   const submitLock = React.useRef(false);
   const isPreview = preview.dryRun !== false;
   const taskTree = buildTaskTree(tasks);
-  const canConfirm = settled && isPreview && !!preview.planId && !preview.error && !buildModeError && phase === 'preview' && dropBusy === null;
+  const canConfirm = settled && isPreview && !!preview.planId && !preview.error && !buildModeError && phase === 'preview' && dropBusy === null && !cancelBusy;
   const selectedIndices = [...selected].sort((a, b) => a - b);
   const selectedErrors = selectedIndices.filter((index) => preview.results?.[index]?.errors?.length).length;
+  const writtenCount = phase === 'done' ? selectedIndices.filter((index) => writeRows[index]?.wrote).length : preview.wroteCount ?? 0;
+  const writeErrors = phase === 'done' ? selectedIndices.filter((index) => writeRows[index]?.errors?.length).length : selectedErrors;
+  const sourceChanges = tasks.flatMap((task, index) => {
+    const before = originalPreview.results?.[index]?.sources ?? {};
+    const after = preview.results?.[index]?.sources ?? {};
+    return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+      .filter((file) => before[file] !== after[file])
+      .map((file) => ({ dir: task.dir, file, before: before[file], after: after[file] }));
+  });
 
   const replaceSource = async (event: React.DragEvent, index: number) => {
     event.preventDefault();
@@ -552,6 +602,7 @@ function BuildInputsToolRow({ block }: { block: any }) {
       try { sessionStorage.setItem(`dsh-vaspflow:build-repreview:${preview.planId}`, JSON.stringify(next)); } catch { /* current view remains valid */ }
       const sourceName = item.kind === 'file' ? item.file : item.relPath;
       setMessage(`任务 ${tasks[index].dir} 已改用 ${sourceName}；预览已更新，尚未写入磁盘`);
+      recordAction(`${tasks[index].dir}：${item.kind === 'file' ? 'POSCAR' : 'INCAR/KPOINTS/POTCAR'} 来源改为 ${sourceName}，预览已更新`);
       if (focused === index) panelStore.setSelectedBuildTask({ task: result.tasks[index], result: result.results?.[index], projectRoot: result.projectRoot || args.projectRoot || '', linkPotcar: !!args.linkPotcar, phase: 'preview' });
     } catch (caught) {
       setRequestError(true);
@@ -591,6 +642,7 @@ function BuildInputsToolRow({ block }: { block: any }) {
       setPhase('done');
       panelStore.setBuildDryRun(result.dryRunMode !== false);
       setMessage(nextMessage);
+      recordAction(nextMessage);
       if (focused !== null) showTask(focused, rows[focused], selected.has(focused) ? 'done' : 'preview');
     } catch (error) {
       const nextMessage = error instanceof Error ? error.message : String(error);
@@ -598,6 +650,31 @@ function BuildInputsToolRow({ block }: { block: any }) {
       setPhase('unavailable');
       setRequestError(true);
       setMessage(nextMessage);
+    }
+  };
+  const cancelPreview = async () => {
+    if (!settled || !isPreview || !preview.planId || phase !== 'preview' || submitLock.current) return;
+    submitLock.current = true;
+    setCancelBusy(true);
+    setMessage('正在取消预览…');
+    setRequestError(false);
+    try {
+      const response = await fetch('/plugins/dsh-vaspflow/build-inputs/confirm', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ planId: preview.planId, cancel: true }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.cancelled) throw new Error(result.error || '取消预览失败');
+      saveBuildOutcome(preview.planId, { phase: 'cancelled', selectedIndices, writeRows: {}, message: '预览已取消，未写入文件', requestError: false });
+      setPhase('cancelled');
+      setMessage('预览已取消，未写入文件');
+      recordAction('预览已取消，未写入文件');
+    } catch (error) {
+      setRequestError(true);
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCancelBusy(false);
+      submitLock.current = false;
     }
   };
   const restorePreview = async () => {
@@ -622,7 +699,8 @@ function BuildInputsToolRow({ block }: { block: any }) {
     return <div className="vfp-tree-task" data-selected={focused === index ? '' : undefined} data-drop-active={dropActive === index ? '' : undefined} title={canConfirm ? '拖入结构文件替换 POSCAR 来源；拖入含 INCAR 的目录替换模板来源并重算预览' : tasks[index].dir}
       onDragOver={(event) => { if (canConfirm && Array.from(event.dataTransfer.types).includes(STRUCTURE_DRAG_TYPE)) { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'copy'; setDropActive(index); } }}
       onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDropActive(null); }}
-      onDrop={(event) => { void replaceSource(event, index); }}>
+      onDrop={(event) => { void replaceSource(event, index); }} draggable={!!row?.wrote}
+      onDragStart={(event) => { if (row?.wrote) startStructureDrag(event.dataTransfer, { kind: 'task', rootPath: preview.projectRoot || args.projectRoot || '', relPath: tasks[index].dir || '.' }); }}>
       {canConfirm && <input type="checkbox" aria-label={`选择 ${tasks[index].dir || `任务 ${index + 1}`}`} checked={selected.has(index)} onChange={(event) => setSelected((old) => { const next = new Set(old); if (event.target.checked) next.add(index); else next.delete(index); return next; })} />}
       <button type="button" className="vfp-tree-open" onClick={() => showTask(index)} aria-label={`在右侧查看 ${tasks[index].dir || `任务 ${index + 1}`} 详情`}><span className="vfp-tree-name">{name}</span><span className="vfp-tree-status" data-status={status}>{dropBusy === index ? '重算预览' : label}</span><span aria-hidden="true">›</span></button>
     </div>;
@@ -645,23 +723,24 @@ function BuildInputsToolRow({ block }: { block: any }) {
   };
   return (
     <div data-dsh-vaspflow-tool="vasp_build_inputs">
-      <div className="vfp-tree-head"><strong>构建任务</strong><span className="vfp-tree-muted">{!settled ? '处理中' : phase === 'done' ? '构建结果' : phase === 'cancelled' ? '已取消' : phase === 'unavailable' ? '不可确认' : isPreview ? '安全预览' : '构建结果'} · {tasks.length} 个任务</span></div>
+      <div className="vfp-tree-head"><button type="button" className="vfp-card-toggle" aria-expanded={!collapsed} onClick={() => setCardCollapsed(!collapsed)}><span aria-hidden="true">{collapsed ? '▸' : '▾'}</span><strong>构建任务</strong></button><span className="vfp-tree-muted">{!settled ? '处理中' : phase === 'done' ? `已写入 ${writtenCount}/${selectedIndices.length}` : phase === 'cancelled' ? '已取消' : phase === 'unavailable' ? '不可确认' : isPreview ? '待确认预览' : `已写入 ${writtenCount}/${tasks.length}`} · {tasks.length} 个任务{writeErrors ? ` · ${writeErrors} 错误` : ''}</span></div>
+      <div hidden={collapsed}>
       {(preview.projectRoot || args.projectRoot) && <div className="vfp-scan-path"><code>{preview.projectRoot || args.projectRoot}</code></div>}
+      {settled && tasks.length > 0 && <div className="vfp-build-steps" aria-label="构建进度">
+        {isPreview ? <>
+          <span data-stage="done">① 预览已生成</span>
+          <span data-stage={phase === 'preview' ? 'current' : phase === 'building' || phase === 'done' ? 'done' : 'stopped'}>② {phase === 'preview' ? '等待确认' : phase === 'building' || phase === 'done' ? '已确认' : phase === 'cancelled' ? '已取消' : '确认状态待核查'}</span>
+          <span data-stage={phase === 'done' ? 'done' : phase === 'building' ? 'current' : phase === 'unavailable' ? 'stopped' : 'pending'}>③ {phase === 'done' ? `已写入 ${writtenCount}/${selectedIndices.length}` : phase === 'building' ? '正在写入' : phase === 'unavailable' ? '写入状态待核查' : '尚未写入'}</span>
+        </> : <><span data-stage="done">AI 直接构建</span><span data-stage="done">已写入 {writtenCount}/{tasks.length}</span></>}
+      </div>}
+      {(sourceChanges.length > 0 || history.length > 0) && <details className="vfp-build-changes"><summary>操作记录 · {history.length} 条{sourceChanges.length ? ` · ${sourceChanges.length} 个来源变化` : ''}</summary>{sourceChanges.map((change, index) => <div key={`${change.dir}-${change.file}-${index}`}><strong>{change.dir} / {change.file}</strong><span title={change.before || ''}>{change.before || '未指定'}</span><span aria-hidden="true">→</span><span title={change.after || ''}>{change.after || '未指定'}</span></div>)}{history.map((action, index) => <p key={`${action.at}-${index}`}><time>{new Date(action.at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</time>{action.text}</p>)}</details>}
       <div className="vfp-build-tree vfp-path-tree"><details className="vfp-path-root vfp-path-folder" open={rootOpen}>
         <summary onClick={(event) => { event.preventDefault(); if (rootOpen) setOpenDirectory(''); else scrollExpandedTreeRow(event.currentTarget); setRootOpen(!rootOpen); }}><span>根目录</span><small>{tasks.length}</small></summary>
         <div className="vfp-path-children">{[...taskTree.children.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(renderNode)}</div>
       </details></div>
       {tasks.length === 0 && <div className="vfp-tree-message">没有构建任务</div>}
       {isPreview && tasks.length > 0 && <div className="vfp-tree-actions"><span>{selected.size} 个任务已选中{selectedErrors ? ` · ${selectedErrors} 个任务存在错误` : ''}</span><span>
-        {phase === 'preview' && <button type="button" onClick={() => {
-          saveBuildOutcome(preview.planId, { phase: 'cancelled', selectedIndices, writeRows: {}, message: '预览已取消，未写入文件', requestError: false });
-          setPhase('cancelled');
-          setMessage('预览已取消，未写入文件');
-          if (preview.planId) void fetch('/plugins/dsh-vaspflow/build-inputs/confirm', {
-            method: 'POST', headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ planId: preview.planId, cancel: true }),
-          }).catch(() => {});
-        }}>取消预览</button>}
+        {phase === 'preview' && <button type="button" disabled={cancelBusy} onClick={() => { void cancelPreview(); }}>{cancelBusy ? '正在取消…' : '取消预览'}</button>}
         {phase === 'preview' && <button type="button" disabled={!canConfirm || selected.size === 0 || selectedErrors > 0} title="执行本次所选任务，并让后续 AI 调用直接构建" onClick={() => { void confirm(true); }}>交给 AI 直接构建</button>}
         <button type="button" className="vfp-tree-confirm" disabled={!canConfirm || selected.size === 0 || selectedErrors > 0} onClick={() => { void confirm(); }}>{phase === 'building' ? '正在构建…' : phase === 'done' ? '已完成' : phase === 'cancelled' ? '已取消' : phase === 'unavailable' ? '不可确认' : `确认构建 ${selected.size} 个任务`}</button>
       </span></div>}
@@ -670,6 +749,7 @@ function BuildInputsToolRow({ block }: { block: any }) {
       {buildModeError && <div className="vfp-tree-message" data-error="">{buildModeError}</div>}
       {settled && isPreview && !preview.planId && !preview.error && <div className="vfp-tree-message">此预览缺少确认凭据，请在对话中重新运行预览。</div>}
       {message && <div className="vfp-tree-message" data-error={requestError ? '' : undefined}>{message}</div>}
+      </div>
     </div>
   );
 }

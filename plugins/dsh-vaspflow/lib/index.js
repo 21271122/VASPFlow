@@ -941,12 +941,12 @@ export function apply(ctx, config) {
     const outcomes = buildOutcomes.get(sessionId)?.slice(-8);
     if (!outcomes?.length) return assembly;
     const text = outcomes.map((item) => item.state === 'confirmed'
-      ? `构建计划 ${item.planId}：用户已在界面确认，写入 ${item.wroteCount}/${item.selectedCount} 个任务，失败 ${item.errorCount} 个；目录数据：${JSON.stringify(item.dirs.slice(0, 12))}。不要说仍待确认。`
+      ? `构建计划 ${item.planId}：用户已在界面确认，写入 ${item.wroteCount}/${item.selectedCount} 个任务，失败 ${item.errorCount} 个；目录数据：${JSON.stringify(item.dirs.slice(0, 12))}。${item.sourceOverrides?.length ? `用户调整的来源：${JSON.stringify(item.sourceOverrides.slice(0, 8))}。` : ''}不要说仍待确认。`
       : item.state === 'cancelled'
         ? `构建计划 ${item.planId}：用户已取消，未执行写入。`
         : item.state === 'invalidated' || Date.now() - item.updatedAt > 30 * 60 * 1000
           ? `构建计划 ${item.planId}：预览已失效，尚未写入；需要重新预览。`
-          : `构建计划 ${item.planId}：仍在预览，尚未写入；目录数据：${JSON.stringify(item.dirs.slice(0, 12))}。`).join('\n');
+          : `构建计划 ${item.planId}：仍在预览，尚未写入；目录数据：${JSON.stringify(item.dirs.slice(0, 12))}。${item.sourceOverrides?.length ? `用户调整的来源：${JSON.stringify(item.sourceOverrides.slice(0, 8))}。` : ''}`).join('\n');
     return { ...assembly, contexts: [...assembly.contexts, { name: 'vasp-build-outcomes', text }] };
   }, { global: true });
 
@@ -1062,6 +1062,8 @@ export function apply(ctx, config) {
           }
           const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar });
           plan.tasks = tasks;
+          plan.sourceOverrides = [...(plan.sourceOverrides ?? []).filter((item) => item.dir !== task.dir || item.kind !== sourceKind), { dir: task.dir, kind: sourceKind, source }];
+          updateBuildOutcome(plan.sessionId, planId, { sourceOverrides: plan.sourceOverrides });
           return json(res, 200, { ...preview, projectRoot: plan.projectRoot, planId, tasks, error: '' });
         } catch (error) {
           return json(res, 400, { error: String(error) });

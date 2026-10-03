@@ -225,6 +225,7 @@ test('a confirmed preview is visible to the next model turn and after host resta
   process.env.DSH_HOME = join(root, 'dsh-home');
   try {
     for (const name of ['POSCAR', 'INCAR', 'KPOINTS', 'POTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(root, name));
+    writeFileSync(join(root, 'ALT.vasp'), SAMPLE_POSCAR.replace('sample', 'alternate'));
     const sessionId = 'test-confirm-context';
     const { ctx, match, registered, services, hooks } = makeFakeCtx();
     apply(ctx, {});
@@ -233,9 +234,13 @@ test('a confirmed preview is visible to the next model turn and after host resta
     const preview = await builder.execute({ projectRoot: root, tasks: [{ dir: 'confirmed', poscarSrc: 'POSCAR', incarSrc: 'INCAR', kpointsSrc: 'KPOINTS', potcarSrc: 'POTCAR', sdPolicy: 'keep' }] }, { agent: { session: { header: { id: sessionId } } }, concludeTurn() {} });
     const assembled = () => hooks.get('system-prompt/assemble')({}, { agent: { session: { header: { id: sessionId } } } }, async () => ({ tools: [{ name: 'vasp_build_inputs' }], contexts: [] }));
     assert.match((await assembled()).contexts[0].text, /尚未写入/);
+    const revised = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, taskIndex: 0, sourceKind: 'structure', rootPath: root, relPath: '.', file: 'ALT.vasp' });
+    assert.equal(revised.status, 200);
+    assert.match((await assembled()).contexts[0].text, /ALT\.vasp/);
     const response = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, selectedIndices: [0] });
     assert.equal(response.status, 200);
     assert.match((await assembled()).contexts[0].text, /用户已在界面确认，写入 1\/1/);
+    assert.match((await assembled()).contexts[0].text, /ALT\.vasp/);
     const restarted = makeFakeCtx();
     apply(restarted.ctx, {});
     const context = await restarted.hooks.get('system-prompt/assemble')({}, { agent: { session: { header: { id: sessionId } } } }, async () => ({ tools: [{ name: 'vasp_build_inputs' }], contexts: [] }));

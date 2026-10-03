@@ -23,6 +23,7 @@ export interface PanelState {
   pendingDirectories: any[];
   failedDirectories: any[];
   scanProgress: { batchId: string; scannedDirectories: number; discoveredDirectories: number } | null;
+  scanError: string | null;
   loading: boolean;
   selectedTask: any | null;
   selectedBuildTask: BuildTaskDetail | null;
@@ -55,6 +56,7 @@ const initial: PanelState = {
   pendingDirectories: [],
   failedDirectories: [],
   scanProgress: null,
+  scanError: null,
   loading: false,
   selectedTask: null,
   selectedBuildTask: null,
@@ -117,7 +119,7 @@ class PanelStore {
   reset() { this.set({ ...initial }); }
 
   beginIncrementalScan(batchId: string) {
-    this.set({ projectId: null, tasks: [], directories: [], pendingDirectories: [], failedDirectories: [], selectedTask: null, scanProgress: { batchId, scannedDirectories: 0, discoveredDirectories: 0 }, loading: true });
+    this.set({ projectId: null, tasks: [], directories: [], pendingDirectories: [], failedDirectories: [], selectedTask: null, scanProgress: { batchId, scannedDirectories: 0, discoveredDirectories: 0 }, scanError: null, loading: true });
   }
 
   recordScanEvent(type: string, event: any) {
@@ -154,12 +156,16 @@ class PanelStore {
     if (type === 'scan-complete') {
       this.applyScan(event);
       this.set({ pendingDirectories: [], failedDirectories: event.failedDirectories || [], scanProgress: null, loading: false });
+      return;
+    }
+    if (type === 'scan-failed') {
+      this.failIncrementalScan(event.batchId, event.error);
     }
   }
 
-  failIncrementalScan(batchId?: string) {
+  failIncrementalScan(batchId?: string, reason?: string) {
     if (batchId && this.state.scanProgress?.batchId !== batchId) return;
-    this.set({ pendingDirectories: [], scanProgress: null, loading: false });
+    this.set({ pendingDirectories: [], scanProgress: null, scanError: reason || '扫描失败，请检查目录是否存在且可读取', loading: false });
   }
 
   /**
@@ -181,6 +187,7 @@ class PanelStore {
       pendingDirectories: [],
       failedDirectories: result.failedDirectories || [],
       scanProgress: null,
+      scanError: null,
       selectedTask: nextSelected,
     });
   }

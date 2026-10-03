@@ -5,7 +5,7 @@ import type { StructureScene } from './api';
 import { panelStore } from './store';
 import ConvergenceChart from './ConvergenceChart';
 import StructureViewer from './StructureViewer';
-import { readStructureDrag, STRUCTURE_DRAG_TYPE } from './structure-drag';
+import { readStructureDrag, startStructureDrag, STRUCTURE_DRAG_TYPE } from './structure-drag';
 import { scrollExpandedTreeRow } from './tree-scroll';
 
 const titles: Record<string, string> = {
@@ -42,8 +42,14 @@ async function openTask(rootPath: string, relPath: string, tab: 'status' | 'char
   panelStore.setOpen(true);
 }
 
-function IssueRows({ rows, rootPath, tab = 'status' }: { rows: Array<{ path: string; label: string; note?: string; status?: string }>; rootPath: string; tab?: 'status' | 'chart' | 'structure' | 'files' }) {
-  return <div className="vfp-result-rows"><PathTree items={rows} pathOf={(row) => row.path || row.label} renderLeaf={(row, name) => <button type="button" className="vfp-result-row" title={row.path} disabled={!row.path || !rootPath} onClick={() => { void openTask(rootPath, row.path, tab); }}>
+function IssueRows({ rows, rootPath, tab = 'status', revealPath }: { rows: Array<{ path: string; label: string; note?: string; status?: string }>; rootPath: string; tab?: 'status' | 'chart' | 'structure' | 'files'; revealPath?: string }) {
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!revealPath) return;
+    const frame = requestAnimationFrame(() => scrollExpandedTreeRow(listRef.current?.querySelector('.vfp-result-row') ?? null));
+    return () => cancelAnimationFrame(frame);
+  }, [revealPath]);
+  return <div ref={listRef} className="vfp-result-rows"><PathTree items={rows} pathOf={(row) => row.path || row.label} revealPath={revealPath} renderLeaf={(row, name) => <button type="button" className="vfp-result-row" title={`${row.path} · 可拖到其他工具卡片`} disabled={!row.path || !rootPath} draggable={!!row.path && !!rootPath} onDragStart={(event) => startStructureDrag(event.dataTransfer, { kind: 'task', rootPath, relPath: row.path })} onClick={() => { void openTask(rootPath, row.path, tab); }}>
     <span>{name}</span><span className="vfp-tree-muted">{row.note}</span><span className="vfp-tree-status" data-status={row.status}>{row.status === 'error' ? '错误' : row.status === 'warn' ? '注意' : row.path ? '查看' : ''}</span>
   </button>} /></div>;
 }
@@ -65,17 +71,24 @@ const scanTypes = [
   ['OTHER', '其他 / 未识别', '#8c9cae'],
 ] as const;
 
-function PieBreakdown({ title, items }: { title: string; items: Array<{ label: string; color: string; count: number }> }) {
+function PieBreakdown({ title, items, selectedCode, onSelect }: { title: string; items: Array<{ code: string; label: string; color: string; count: number }>; selectedCode?: string; onSelect: (code: string) => void }) {
   const total = items.reduce((sum, item) => sum + item.count, 0);
   let cursor = 0;
-  const slices = items.filter((item) => item.count > 0).map((item) => {
+  const visible = items.filter((item) => item.count > 0);
+  const slices = visible.map((item) => {
     const start = cursor;
     cursor += item.count / total * 100;
     return `${item.color} ${start}% ${cursor}%`;
   });
   return <section className="vfp-pie-section"><div className="vfp-pie-title">{title}</div><div className="vfp-pie-body">
-    <div className="vfp-pie" role="img" aria-label={items.map((item) => `${item.label} ${item.count}`).join('，')} style={{ background: slices.length ? `conic-gradient(${slices.join(', ')})` : 'rgba(128,128,128,.14)' }} />
-    <div className="vfp-pie-legend">{items.filter((item) => item.count > 0).map((item) => <div className="vfp-pie-legend-row" key={item.label}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count}</strong><small>{(item.count / total * 100).toFixed(1)}%</small></div>)}{total === 0 && <span>无任务</span>}</div>
+    <div className="vfp-pie" role="img" aria-label={`${items.map((item) => `${item.label} ${item.count}`).join('，')}；点击扇区筛选任务`} style={{ background: slices.length ? `conic-gradient(${slices.join(', ')})` : 'rgba(128,128,128,.14)' }} onClick={(event) => {
+      if (!total) return;
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const angle = (Math.atan2(event.clientX - bounds.left - bounds.width / 2, bounds.top + bounds.height / 2 - event.clientY) + Math.PI * 2) % (Math.PI * 2);
+      let end = 0;
+      for (const item of visible) { end += item.count / total * Math.PI * 2; if (angle < end) { onSelect(item.code); break; } }
+    }} />
+    <div className="vfp-pie-legend">{visible.map((item) => <button type="button" className="vfp-pie-legend-row" data-selected={selectedCode === item.code ? '' : undefined} aria-pressed={selectedCode === item.code} key={item.code} onClick={() => onSelect(item.code)}><i style={{ background: item.color }} /><span>{item.label}</span><strong>{item.count}</strong><small>{(item.count / total * 100).toFixed(1)}%</small></button>)}{total === 0 && <span>无任务</span>}</div>
   </div></section>;
 }
 
@@ -88,9 +101,14 @@ function relativePath(rootPath: string, filePath: string) {
 
 type PathNode<T> = { name: string; count: number; children: Map<string, PathNode<T>>; item?: T };
 
-function PathTree<T>({ items, pathOf, renderLeaf }: { items: T[]; pathOf: (item: T) => string; renderLeaf: (item: T, name: string) => React.ReactNode }) {
+function PathTree<T>({ items, pathOf, renderLeaf, revealPath }: { items: T[]; pathOf: (item: T) => string; renderLeaf: (item: T, name: string) => React.ReactNode; revealPath?: string }) {
   const [openPath, setOpenPath] = useState<string[]>([]);
   const [rootOpen, setRootOpen] = useState(true);
+  useEffect(() => {
+    if (!revealPath) return;
+    setOpenPath(revealPath.split(/[\\/]+/).filter(Boolean).slice(0, -1));
+    setRootOpen(true);
+  }, [revealPath]);
   const root: PathNode<T> = { name: '', count: 0, children: new Map() };
   for (const item of items) {
     const parts = pathOf(item).split(/[\\/]+/).filter(Boolean);
@@ -153,16 +171,22 @@ function SourcePreview({ rootPath, filePath, onClose }: { rootPath: string; file
 }
 
 function ScanOverview({ value, rootPath }: { value: any; rootPath: string }) {
+  const [filter, setFilter] = useState<{ kind: 'status' | 'type'; code: string } | null>(null);
   const tasks = Array.isArray(value.tasks) ? value.tasks : [];
   const directories = Array.isArray(value.directories) ? value.directories : [];
   const total = tasks.length;
-  const states = scanStates.map(([code, label, color]) => ({ label, color, count: tasks.filter((task: any) => code === 'UNKNOWN' ? !scanStates.some(([known]) => known !== 'UNKNOWN' && known === task.status_record?.code) : task.status_record?.code === code).length }));
-  const types = scanTypes.map(([code, label, color]) => ({ label, color, count: tasks.filter((task: any) => code === 'OTHER' ? !scanTypes.some(([known]) => known !== 'OTHER' && known === task.task_type?.code) : task.task_type?.code === code).length }));
+  const stateOf = (task: any) => scanStates.some(([code]) => code !== 'UNKNOWN' && code === task.status_record?.code) ? task.status_record.code : 'UNKNOWN';
+  const typeOf = (task: any) => scanTypes.some(([code]) => code !== 'OTHER' && code === task.task_type?.code) ? task.task_type.code : 'OTHER';
+  const states = scanStates.map(([code, label, color]) => ({ code, label, color, count: tasks.filter((task: any) => stateOf(task) === code).length }));
+  const types = scanTypes.map(([code, label, color]) => ({ code, label, color, count: tasks.filter((task: any) => typeOf(task) === code).length }));
+  const shownTasks = filter ? tasks.filter((task: any) => (filter.kind === 'status' ? stateOf(task) : typeOf(task)) === filter.code) : tasks;
+  const filterLabel = filter && (filter.kind === 'status' ? states : types).find((item) => item.code === filter.code)?.label;
+  const toggleFilter = (kind: 'status' | 'type', code: string) => setFilter((old) => old?.kind === kind && old.code === code ? null : { kind, code });
   return <div className="vfp-overview">
     <div className="vfp-scan-path">扫描目录：<code>{rootPath || '未知'}</code></div>
     <div className="vfp-scan-stats"><strong>{directories.length}</strong> 个子目录（含任务目录） · <strong>{total}</strong> 个 VASP 任务</div>
-    <div className="vfp-pie-grid"><PieBreakdown title="计算状态" items={states} /><PieBreakdown title="任务类型" items={types} /></div>
-    {tasks.length > 0 && <><div className="vfp-discovery-heading">任务目录 <span>{tasks.length} 个任务，点击查看详情</span></div><IssueRows rootPath={rootPath} rows={tasks.map((task: any) => ({ path: task.rel_path, label: task.label || task.rel_path, note: task.status_record?.label || task.task_type?.label, status: task.status_record?.code === 'ERROR_DETECTED' ? 'error' : task.status_record?.code === 'UNKNOWN' ? 'warn' : undefined }))} /></>}
+    <div className="vfp-pie-grid"><PieBreakdown title="计算状态" items={states} selectedCode={filter?.kind === 'status' ? filter.code : undefined} onSelect={(code) => toggleFilter('status', code)} /><PieBreakdown title="任务类型" items={types} selectedCode={filter?.kind === 'type' ? filter.code : undefined} onSelect={(code) => toggleFilter('type', code)} /></div>
+    {tasks.length > 0 && <><div className="vfp-discovery-heading">任务目录 <span>{filterLabel ? `${filterLabel} · ${shownTasks.length}/${tasks.length} 个任务` : `${tasks.length} 个任务，点击查看详情`}</span>{filter && <button type="button" className="vfp-clear-filter" onClick={() => setFilter(null)}>清除筛选</button>}</div><IssueRows key={filter ? `${filter.kind}:${filter.code}` : 'all'} rootPath={rootPath} revealPath={filter ? shownTasks[0]?.rel_path : undefined} rows={shownTasks.map((task: any) => ({ path: task.rel_path, label: task.label || task.rel_path, note: task.status_record?.label || task.task_type?.label, status: task.status_record?.code === 'ERROR_DETECTED' ? 'error' : task.status_record?.code === 'UNKNOWN' ? 'warn' : undefined }))} /></>}
   </div>;
 }
 
@@ -176,6 +200,21 @@ function structureKey(row: { rootPath: string; rel_path: string; file: string })
 function droppedStorageKey(block: any, kind = 'structure'): string {
   const id = block?.call?.id ?? block?.call?.toolCallId ?? block?.id ?? block?.call?.argsRaw;
   return id ? `dsh-vaspflow:${kind}-drops:${String(id)}` : '';
+}
+
+export function useToolCardCollapse(block: any, kind: string) {
+  const key = droppedStorageKey(block, `${kind}-collapsed`);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return !!key && sessionStorage.getItem(key) === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { setCollapsed(!!key && sessionStorage.getItem(key) === '1'); } catch { setCollapsed(false); }
+  }, [key]);
+  const setCardCollapsed = (next: boolean) => {
+    setCollapsed(next);
+    if (key) try { sessionStorage.setItem(key, next ? '1' : '0'); } catch { /* keep current view */ }
+  };
+  return { collapsed, setCardCollapsed };
 }
 
 function readDroppedRows(key: string): any[] {
@@ -254,7 +293,9 @@ function ResultTabs({ rows, kind, rootPath, focus, orderStorageKey }: { rows: an
   };
   return <div className="vfp-inline-visual">
     <div className="vfp-inline-tree">
-      <PathTree items={treeRows} pathOf={(item) => item.path} renderLeaf={({ row, index }, name) => <button type="button" className="vfp-visual-tree-leaf" aria-current={index === active ? 'true' : undefined} data-user-added={row.userAdded ? '' : undefined} title={treeRows[index].path} onClick={() => select(index)}>{name}</button>} />
+      <PathTree items={treeRows} pathOf={(item) => item.path} renderLeaf={({ row, index }, name) => <button type="button" className="vfp-visual-tree-leaf" aria-current={index === active ? 'true' : undefined} data-user-added={row.userAdded ? '' : undefined} title={`${treeRows[index].path} · 可拖到其他工具卡片`} draggable onDragStart={(event) => startStructureDrag(event.dataTransfer, kind === 'structure'
+        ? { kind: 'file', rootPath: row.rootPath ?? rootPath, relPath: row.rel_path ?? row.relPath, file: row.file ?? 'CONTCAR' }
+        : { kind: 'task', rootPath: row.rootPath ?? rootPath, relPath: row.rel_path ?? row.relPath })} onClick={() => select(index)}>{name}</button>} />
     </div>
     <div className="vfp-visual-tabs" role="tablist" aria-label={kind === 'structure' ? '结构文件' : '计算任务'} onKeyDown={(event) => {
       if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
@@ -317,7 +358,7 @@ function InputDiscovery({ value, rootPath, args }: { value: any; rootPath: strin
       {[...sourceGroups.values()].sort((a, b) => b.length - a.length).map((members, index) => {
         const example = members[0];
         const label = `${example.elements?.join(' · ') || '未识别物种'} · ${example.coordType || '未知坐标'} · ${example.hasSd ? `SD ${example.fFlags} 固定 / ${example.tFlags} 放开` : '无 SD'}`;
-        return <details className="vfp-distribution-row" key={index}><summary><span>{label}</span><strong>{members.length}</strong><i style={{ width: `${members.length / Math.max(sources.length, 1) * 100}%` }} /></summary><PathTree items={members} pathOf={(source: any) => relativePath(rootPath, source.path)} renderLeaf={(source: any, name) => <button type="button" className="vfp-source-file" title={source.path} onClick={() => setPreviewPath(source.path)}><span>{name}</span><small>{source.error || `${source.nAtoms ?? 0} 原子`}</small><span>预览 ›</span></button>} /></details>;
+        return <details className="vfp-distribution-row" key={index}><summary><span>{label}</span><strong>{members.length}</strong><i style={{ width: `${members.length / Math.max(sources.length, 1) * 100}%` }} /></summary><PathTree items={members} pathOf={(source: any) => relativePath(rootPath, source.path)} renderLeaf={(source: any, name) => <button type="button" className="vfp-source-file" title={`${source.path} · 可拖到结构或构建卡片`} draggable onDragStart={(event) => { const parts = relativePath(rootPath, source.path).split(/[\\/]+/).filter(Boolean); startStructureDrag(event.dataTransfer, { kind: 'file', rootPath, relPath: parts.slice(0, -1).join('/') || '.', file: parts.at(-1) || name }); }} onClick={() => setPreviewPath(source.path)}><span>{name}</span><small>{source.error || `${source.nAtoms ?? 0} 原子`}</small><span>预览 ›</span></button>} /></details>;
       })}
       {sources.length === 0 && <div className="vfp-tree-muted">没有找到结构文件</div>}
     </section>}
@@ -328,7 +369,7 @@ function InputDiscovery({ value, rootPath, args }: { value: any; rootPath: strin
         return <div key={label}><span>{label}</span><div><i style={{ width: `${count / Math.max(templates.length, 1) * 100}%` }} /></div><strong>{count}/{templates.length}</strong></div>;
       })}</div>
       <div className="vfp-discovery-heading">INCAR 参数组合 <span>{templateGroups.size} 组；目录数不等于参数方案数</span></div>
-      {[...templateGroups.entries()].map(([signature, members], index) => <details className="vfp-template-group" key={signature}><summary><strong>方案 {index + 1}</strong><span>{members.length} 个目录</span><span className="vfp-tree-muted">{Object.entries(members[0]?.params ?? {}).map(([key, val]) => `${key} ${val}`).join(' · ') || '未提取到关键参数'}</span></summary><div className="vfp-discovery-list">{members.map((template: any) => <div key={template.dir}><code title={template.dir}>{template.relPath ?? template.dir}</code><span>{template.missing?.length ? `缺 ${template.missing.join('、')}` : '所列文件齐备'}</span></div>)}</div></details>)}
+      {[...templateGroups.entries()].map(([signature, members], index) => <details className="vfp-template-group" key={signature}><summary><strong>方案 {index + 1}</strong><span>{members.length} 个目录</span><span className="vfp-tree-muted">{Object.entries(members[0]?.params ?? {}).map(([key, val]) => `${key} ${val}`).join(' · ') || '未提取到关键参数'}</span></summary><div className="vfp-discovery-list">{members.map((template: any) => <div key={template.dir} draggable title={`${template.dir} · 可拖到构建卡片替换模板`} onDragStart={(event) => startStructureDrag(event.dataTransfer, { kind: 'directory', rootPath, relPath: relativePath(rootPath, template.dir) })}><code title={template.dir}>{template.relPath ?? template.dir}</code><span>{template.missing?.length ? `缺 ${template.missing.join('、')}` : '所列文件齐备'}</span></div>)}</div></details>)}
       {templates.length === 0 && <div className="vfp-tree-muted">没有找到含 INCAR 的目录</div>}
     </section>}
     <div className="vfp-tree-muted vfp-discovery-foot">“缺项”表示该模板目录里未找到对应文件；提交脚本是可选项。两类候选尚未配对或选用，也未验证科学合理性。</div>
@@ -346,7 +387,7 @@ function StatusInspection({ value, rootPath }: { value: any; rootPath: string })
     <div className="vfp-scan-bar" role="img" aria-label={counts.map((item) => `${item.label} ${item.count}`).join('，')}>{counts.filter((item) => item.count).map((item) => <span key={item.code} style={{ width: `${item.count / Math.max(results.length, 1) * 100}%`, background: item.color }} />)}</div>
     <div className="vfp-scan-legend">{counts.filter((item) => item.count).map((item) => <span key={item.code}><i style={{ background: item.color }} />{item.label} <strong>{item.count}</strong></span>)}</div>
     <div className="vfp-inspection-list"><PathTree items={results} pathOf={(row: any) => row.rootPath && row.rootPath !== rootPath ? `${row.rootPath}/${row.relPath}` : row.relPath} renderLeaf={(row: any, name) => <details className="vfp-inspection-item">
-      <summary><strong>{name}</strong><span className="vfp-state-chip" data-status={row.error ? 'error' : row.status?.code}>{row.error ? '读取失败' : row.status?.label || '状态未知'}</span><small>{row.error || row.status?.reason || ''}</small></summary>
+      <summary draggable={!row.error} onDragStart={(event) => startStructureDrag(event.dataTransfer, { kind: 'task', rootPath: row.rootPath ?? rootPath, relPath: row.relPath })} title="可拖到收敛曲线、原子结构或计算状态卡片"><strong>{name}</strong><span className="vfp-state-chip" data-status={row.error ? 'error' : row.status?.code}>{row.error ? '读取失败' : row.status?.label || '状态未知'}</span><small>{row.error || row.status?.reason || ''}</small></summary>
       <div className="vfp-inspection-detail">
         <div><b>状态依据</b>{row.status?.evidence?.length ? row.status.evidence.map((item: any, i: number) => <span key={i}>{item.file ? `${item.file}：` : ''}{item.message ?? item.excerpt ?? '证据'}</span>) : <span>没有更多输出证据</span>}</div>
         <div><b>发现的输出文件</b><span>{row.outputFiles?.length ? row.outputFiles.map((file: any) => file.path ?? file.name).join('、') : '未发现'}</span></div>
@@ -399,7 +440,7 @@ function InputChecks({ value, args, rootPath }: { value: any; args: any; rootPat
         ['KPOINTS', row.kpoints === '-' || row.kpoints === '?' || /MISSING|UNREADABLE/.test(String(row.kpoints)) ? 'bad' : 'ok'],
         ['规则', profileId ? row.input_check?.code === 'PASS' ? 'ok' : row.input_check?.code === 'WARN' ? 'warn' : 'bad' : 'skip'],
       ];
-      return <details className="vfp-inspection-item" key={`${row.resolved}-${index}`}><summary title={row.resolved}><strong>{name}</strong><span className="vfp-state-chip" data-status={state}>{state === 'PASS' ? '通过' : state === 'WARN' ? '注意' : state === 'FAIL' ? '失败' : '已解析'}</span>{state !== 'PASS' && <small>{row.error || row.input_check?.evidence?.[0]?.message || row.warnings?.[0] || ''}</small>}<span className="vfp-check-matrix">{checks.map(([label, code]) => <span key={label} data-check={code}><i />{label}</span>)}</span></summary>
+      return <details className="vfp-inspection-item" key={`${row.resolved}-${index}`}><summary title={`${row.resolved} · 可拖到其他工具卡片`} draggable={!!row.resolved && relativePath(rootPath, row.resolved) !== row.resolved} onDragStart={(event) => startStructureDrag(event.dataTransfer, { kind: 'task', rootPath, relPath: checkedRows[index].path })}><strong>{name}</strong><span className="vfp-state-chip" data-status={state}>{state === 'PASS' ? '通过' : state === 'WARN' ? '注意' : state === 'FAIL' ? '失败' : '已解析'}</span>{state !== 'PASS' && <small>{row.error || row.input_check?.evidence?.[0]?.message || row.warnings?.[0] || ''}</small>}<span className="vfp-check-matrix">{checks.map(([label, code]) => <span key={label} data-check={code}><i />{label}</span>)}</span></summary>
         <div className="vfp-inspection-detail">
           {fields.map(([label, text]) => <div key={label}><b>{label}</b><span>{String(text ?? '未读取')}</span></div>)}
           <div><b>INCAR 参数</b><span>{typeof row.incar === 'object' && row.incar ? Object.entries(row.incar).map(([key, val]) => `${key}=${val}`).join(' · ') || '未提取到关键参数' : String(row.incar ?? '未读取')}</span></div>
@@ -412,6 +453,7 @@ function InputChecks({ value, args, rootPath }: { value: any; args: any; rootPat
 }
 
 export function VaspToolRow({ block, toolName }: { block: any; toolName: string }) {
+  const { collapsed, setCardCollapsed } = useToolCardCollapse(block, toolName);
   const args = argsOf(block);
   const settled = block?.kind === 'tool-result';
   const value = valueOf(block);
@@ -422,6 +464,7 @@ export function VaspToolRow({ block, toolName }: { block: any; toolName: string 
   const [otherDropped, setOtherDropped] = useState<any[]>(() => readDroppedRows(otherStorageKey));
   const [dropFocus, setDropFocus] = useState({ key: '', nonce: 0 });
   const [dropActive, setDropActive] = useState(false);
+  const [dropRejected, setDropRejected] = useState(false);
   const [dropBusy, setDropBusy] = useState(false);
   const [dropError, setDropError] = useState('');
   useEffect(() => { if (storageKey) setDropped(readDroppedStructures(storageKey)); }, [storageKey]);
@@ -470,6 +513,8 @@ export function VaspToolRow({ block, toolName }: { block: any; toolName: string 
     event.preventDefault();
     event.stopPropagation();
     setDropActive(false);
+    setDropRejected(false);
+    setCardCollapsed(false);
     const item = readStructureDrag(event.dataTransfer);
     if (!item) return;
     if (toolName !== 'vasp_structure_scene' && item.kind !== 'task') return;
@@ -511,15 +556,26 @@ export function VaspToolRow({ block, toolName }: { block: any; toolName: string 
       setDropBusy(false);
     }
   };
+  const exceptionalCount = toolName === 'vasp_inspect_task' ? Number(value.status?.code === 'ERROR_DETECTED' || value.inputCheck?.code === 'FAIL')
+    : (toolName === 'vasp_scan' ? value.tasks : value.results)?.filter((row: any) => row.error || row.status_record?.code === 'ERROR_DETECTED' || row.status?.code === 'ERROR_DETECTED' || row.input_check?.code === 'FAIL')?.length ?? 0;
+  const withExceptions = (label: string) => `${label}${exceptionalCount ? ` · ${exceptionalCount} 异常` : ''}`;
+  const compactSummary = toolName === 'vasp_scan' ? withExceptions(`${value.tasks?.length ?? 0} 个任务`)
+    : toolName === 'vasp_discover_inputs' ? `${value.sources?.files?.length ?? 0} 个结构源 · ${value.templates?.length ?? 0} 个模板`
+      : toolName === 'vasp_inspect_task' ? withExceptions('1 个任务')
+        : toolName === 'vasp_inspect_tasks' || toolName === 'vasp_check_inputs' ? withExceptions(`${visualRows.length || value.results?.length || 0} 个任务`)
+          : toolName === 'vasp_convergence' ? withExceptions(`${visualRows.length + otherDropped.length} 条曲线`)
+            : toolName === 'vasp_structure_scene' ? withExceptions(`${visualRows.length + dropped.length} 个结构`) : '';
   return <div data-dsh-vaspflow-tool={toolName} data-drop-active={dropActive ? '' : undefined}
-    onDragOver={(event) => { if (acceptsDrop && hasSupportedDrag(event)) { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'copy'; setDropActive(true); } }}
+    onDragOver={(event) => { if (!acceptsDrop) return; if (hasSupportedDrag(event)) { event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = 'copy'; setDropActive(true); setDropRejected(false); } else if (Array.from(event.dataTransfer.types).includes(STRUCTURE_DRAG_TYPE)) { setDropActive(false); setDropRejected(true); } }}
     onDragLeave={(event) => {
       const bounds = event.currentTarget.getBoundingClientRect();
-      if (event.clientX <= bounds.left || event.clientX >= bounds.right || event.clientY <= bounds.top || event.clientY >= bounds.bottom) setDropActive(false);
+      if (event.clientX <= bounds.left || event.clientX >= bounds.right || event.clientY <= bounds.top || event.clientY >= bounds.bottom) { setDropActive(false); setDropRejected(false); }
     }}
-    onDrop={(event) => { void handleDrop(event); }}>
-    <div className="vfp-tree-head"><strong>{titles[toolName]}</strong><span className="vfp-tree-muted">{settled ? error ? '失败' : '完成' : '处理中'}</span></div>
-    {dropActive && <div className="vfp-structure-drop-hint">松开以{toolName === 'vasp_structure_scene' ? '添加结构标签页' : toolName === 'vasp_convergence' ? '添加任务曲线标签页' : '补充任务状态记录'}</div>}
+    onDrop={(event) => { setDropRejected(false); void handleDrop(event); }}>
+    <div className="vfp-tree-head"><button type="button" className="vfp-card-toggle" aria-expanded={!collapsed} onClick={() => setCardCollapsed(!collapsed)}><span aria-hidden="true">{collapsed ? '▸' : '▾'}</span><strong>{titles[toolName]}</strong></button><span className="vfp-tree-muted">{settled ? error ? '失败' : collapsed && compactSummary ? `完成 · ${compactSummary}` : '完成' : '处理中'}</span></div>
+    {dropActive && <div className="vfp-structure-drop-hint">松开以{toolName === 'vasp_structure_scene' ? '添加结构文件标签页（任务会添加直属结构文件）' : toolName === 'vasp_convergence' ? '添加 1 个任务曲线标签页' : '补充 1 条任务状态记录'}</div>}
+    {dropRejected && <div className="vfp-structure-drop-hint" data-rejected="">此卡片{toolName === 'vasp_structure_scene' ? '只接受结构文件或任务' : '只接受任务'}</div>}
+    <div hidden={collapsed}>
     {dropBusy && <div className="vfp-tree-muted">正在读取任务…</div>}
     {dropError && <div className="vfp-result-summary" data-error="">{dropError}</div>}
     {settled && (error ? <div className="vfp-result-summary" data-error="">{error}</div> : <>
@@ -532,5 +588,6 @@ export function VaspToolRow({ block, toolName }: { block: any; toolName: string 
             : <div className="vfp-result-summary">{summary || '无结果'}</div>}
       {rows.length > 0 && <IssueRows rows={rows} rootPath={rootPath} tab={tab} />}
     </>)}
+    </div>
   </div>;
 }

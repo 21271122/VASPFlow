@@ -59214,6 +59214,7 @@ var initial = {
   pendingDirectories: [],
   failedDirectories: [],
   scanProgress: null,
+  scanError: null,
   loading: false,
   selectedTask: null,
   selectedBuildTask: null,
@@ -59303,7 +59304,7 @@ var PanelStore = class {
     this.set({ ...initial });
   }
   beginIncrementalScan(batchId) {
-    this.set({ projectId: null, tasks: [], directories: [], pendingDirectories: [], failedDirectories: [], selectedTask: null, scanProgress: { batchId, scannedDirectories: 0, discoveredDirectories: 0 }, loading: true });
+    this.set({ projectId: null, tasks: [], directories: [], pendingDirectories: [], failedDirectories: [], selectedTask: null, scanProgress: { batchId, scannedDirectories: 0, discoveredDirectories: 0 }, scanError: null, loading: true });
   }
   recordScanEvent(type5, event) {
     const progress = this.state.scanProgress;
@@ -59335,11 +59336,15 @@ var PanelStore = class {
     if (type5 === "scan-complete") {
       this.applyScan(event);
       this.set({ pendingDirectories: [], failedDirectories: event.failedDirectories || [], scanProgress: null, loading: false });
+      return;
+    }
+    if (type5 === "scan-failed") {
+      this.failIncrementalScan(event.batchId, event.error);
     }
   }
-  failIncrementalScan(batchId) {
+  failIncrementalScan(batchId, reason) {
     if (batchId && this.state.scanProgress?.batchId !== batchId) return;
-    this.set({ pendingDirectories: [], scanProgress: null, loading: false });
+    this.set({ pendingDirectories: [], scanProgress: null, scanError: reason || "\u626B\u63CF\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u76EE\u5F55\u662F\u5426\u5B58\u5728\u4E14\u53EF\u8BFB\u53D6", loading: false });
   }
   /**
    * Merge a scan result into the store.
@@ -59360,6 +59365,7 @@ var PanelStore = class {
       pendingDirectories: [],
       failedDirectories: result.failedDirectories || [],
       scanProgress: null,
+      scanError: null,
       selectedTask: nextSelected
     });
   }
@@ -100671,6 +100677,7 @@ function Panel3(props) {
     directories,
     loading,
     scanProgress,
+    scanError,
     selectedTask,
     selectedBuildTask,
     buildDryRun,
@@ -100707,8 +100714,9 @@ function Panel3(props) {
       try {
         const data = await scanProject(projectPath.trim());
         if (data && !data.error) panelStore.applyScan(data);
-      } catch {
-        panelStore.failIncrementalScan();
+        else panelStore.failIncrementalScan(void 0, data?.error);
+      } catch (error) {
+        panelStore.failIncrementalScan(void 0, error instanceof Error ? error.message : String(error));
       } finally {
         panelStore.setLoading(false);
         if (closeScanRef.current === closeStream) closeScanRef.current = null;
@@ -101125,7 +101133,11 @@ ${instructions[key]}`);
         }
       )
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { flex: 1, minHeight: 0, overflow: "auto", padding: "8px 10px" }, children: selectedBuildTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(BuildPreviewDetail, { detail: selectedBuildTask }) : !selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(empty_default2, { style: { marginTop: 30 }, description: "\u70B9\u51FB\u300C\u4EFB\u52A1\u5217\u8868\u300D\u9009\u62E9\u4EFB\u52A1" }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { flex: 1, minHeight: 0, overflow: "auto", padding: "8px 10px" }, children: selectedBuildTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(BuildPreviewDetail, { detail: selectedBuildTask }) : !selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(empty_default2, { style: { marginTop: 30 }, description: scanError ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "#ff4d4f" }, children: scanError }) : loading ? "\u6B63\u5728\u626B\u63CF\u76EE\u5F55\u2026" : projectId !== null && tasks.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+      "\u672A\u53D1\u73B0 VASP \u4EFB\u52A1",
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("br", {}),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { type: "secondary", style: { fontSize: 12 }, children: "\u5DF2\u68C0\u67E5\u5F53\u524D\u76EE\u5F55\u53CA\u5176\u5B50\u76EE\u5F55\u3002\u8BF7\u9009\u62E9\u5305\u542B POSCAR\u3001INCAR\u3001KPOINTS\u3001POTCAR \u7684\u8BA1\u7B97\u76EE\u5F55\u3002" })
+    ] }) : hasTree ? "\u70B9\u51FB\u300C\u4EFB\u52A1\u5217\u8868\u300D\u9009\u62E9\u4EFB\u52A1" : "\u8F93\u5165\u76EE\u5F55\u8DEF\u5F84\u5E76\u70B9\u51FB\u84DD\u8272\u6309\u94AE\u626B\u63CF" }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
       /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginBottom: 8 }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, minWidth: 0 }, children: [
           /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { placement: "top", title: copiedPath === selectedPath ? "\u5DF2\u590D\u5236\u7EDD\u5BF9\u8DEF\u5F84" : `${selectedPath} \xB7 \u53EF\u62D6\u81F3\u7ED3\u6784\u5361\u7247`, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
@@ -101313,7 +101325,7 @@ function TaskStatusEvidence({ task }) {
   const extraEvidence = statusEvidence.filter((item) => item !== primaryEvidence && item.message !== status?.reason);
   const statusColor = status?.code === "ERROR_DETECTED" ? "#ff4d4f" : status?.code === "TASK_COMPLETED" ? "#52c41a" : status?.code === "RUNNING" ? "#1677ff" : status?.code === "NO_OUTPUT_EVIDENCE" ? "#faad14" : "#8c8c8c";
   return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { fontSize: 15, lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 }, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { padding: "12px 14px", border: "1px solid #30384d", borderLeft: `4px solid ${statusColor}`, borderRadius: 8, background: "#171f32" }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { padding: "12px 14px", border: "1px solid var(--dsw-alias-border-l2,#e5e6eb)", borderLeft: `4px solid ${statusColor}`, borderRadius: 8, background: "var(--dsw-alias-bg-elevated,#f5f5f5)" }, children: [
       /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { strong: true, style: { fontSize: 16 }, children: status?.label ?? "\u5F85\u68C0\u67E5" }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", style: { fontSize: 13, whiteSpace: "nowrap" }, children: [
@@ -101326,8 +101338,8 @@ function TaskStatusEvidence({ task }) {
         "\u4F9D\u636E\uFF1A",
         primaryEvidence.file
       ] }) : null,
-      primaryEvidence?.excerpt ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { marginTop: 5, padding: "5px 8px", color: "#b7c1d8", background: "#101726", borderRadius: 4, fontFamily: "monospace", fontSize: 13, whiteSpace: "pre-wrap" }, children: primaryEvidence.excerpt }) : null,
-      extraEvidence.length ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginTop: 7, color: "#b7c1d8", fontSize: 13 }, children: [
+      primaryEvidence?.excerpt ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { marginTop: 5, padding: "5px 8px", color: "var(--dsw-alias-label-primary,#1f2329)", background: "var(--dsw-alias-bg-base,#fff)", borderRadius: 4, fontFamily: "monospace", fontSize: 13, whiteSpace: "pre-wrap" }, children: primaryEvidence.excerpt }) : null,
+      extraEvidence.length ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginTop: 7, color: "var(--dsw-alias-label-secondary,#65746b)", fontSize: 13 }, children: [
         "\u5176\u4ED6\u53D1\u73B0\uFF1A",
         extraEvidence.map((item) => item.message).join("\uFF1B")
       ] }) : null
@@ -101434,10 +101446,10 @@ function mountPanelLayout(opts) {
     syncOnce();
   };
   const getWidth2 = () => width;
-  const insertionIndex = (tracks) => {
+  const insertionIndex = (tracks, includesOurTrack = false) => {
     const hasAionui = frame !== null && (frame.querySelector("[data-aionui-preview-col]") !== null || frame.querySelector("[data-aionui-explorer-col]") !== null);
     if (hasAionui && tracks.length >= 3) return Math.min(3, tracks.length);
-    return tracks.length;
+    return includesOurTrack ? tracks.length - 1 : tracks.length;
   };
   const syncOnce = () => {
     if (frame === null) return false;
@@ -101450,7 +101462,7 @@ function mountPanelLayout(opts) {
     const w = `${Math.round(width)}px`;
     const hasOurs = tracks.length === baseTracks.length + 1 && baseTracks.length > 0;
     if (hasOurs) {
-      const at2 = insertionIndex(tracks);
+      const at2 = insertionIndex(tracks, true);
       if (tracks[at2] === w) return false;
       const next3 = [...tracks];
       next3[at2] = w;
@@ -101489,7 +101501,7 @@ function mountPanelLayout(opts) {
         if (inline2 !== "") {
           const tracks = parseGridTracks(inline2);
           if (tracks.length === baseTracks.length + 1 && baseTracks.length > 0) {
-            const at = insertionIndex(tracks);
+            const at = insertionIndex(tracks, true);
             const next2 = [...tracks];
             next2.splice(at, 1);
             frame.style.gridTemplateColumns = next2.join(" ");
@@ -101531,7 +101543,7 @@ function mountPanelLayout(opts) {
         if (inline2 !== "") {
           const tracks = parseGridTracks(inline2);
           if (tracks.length === baseTracks.length + 1 && baseTracks.length > 0) {
-            const at = insertionIndex(tracks);
+            const at = insertionIndex(tracks, true);
             tracks.splice(at, 1);
             frame.style.gridTemplateColumns = tracks.join(" ");
           }
@@ -101587,8 +101599,14 @@ async function openTask(rootPath, relPath, tab) {
   panelStore.setViewTab(tab);
   panelStore.setOpen(true);
 }
-function IssueRows({ rows, rootPath, tab = "status" }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-rows", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PathTree, { items: rows, pathOf: (row) => row.path || row.label, renderLeaf: (row, name) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "vfp-result-row", title: row.path, disabled: !row.path || !rootPath, onClick: () => {
+function IssueRows({ rows, rootPath, tab = "status", revealPath }) {
+  const listRef = (0, import_react168.useRef)(null);
+  (0, import_react168.useEffect)(() => {
+    if (!revealPath) return;
+    const frame = requestAnimationFrame(() => scrollExpandedTreeRow(listRef.current?.querySelector(".vfp-result-row") ?? null));
+    return () => cancelAnimationFrame(frame);
+  }, [revealPath]);
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { ref: listRef, className: "vfp-result-rows", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PathTree, { items: rows, pathOf: (row) => row.path || row.label, revealPath, renderLeaf: (row, name) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "vfp-result-row", title: `${row.path} \xB7 \u53EF\u62D6\u5230\u5176\u4ED6\u5DE5\u5177\u5361\u7247`, disabled: !row.path || !rootPath, draggable: !!row.path && !!rootPath, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "task", rootPath, relPath: row.path }), onClick: () => {
     void openTask(rootPath, row.path, tab);
   }, children: [
     /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: name }),
@@ -101611,10 +101629,11 @@ var scanTypes = [
   ["AIMD", "AIMD", "#6eafd1"],
   ["OTHER", "\u5176\u4ED6 / \u672A\u8BC6\u522B", "#8c9cae"]
 ];
-function PieBreakdown({ title, items }) {
+function PieBreakdown({ title, items, selectedCode, onSelect }) {
   const total = items.reduce((sum, item) => sum + item.count, 0);
   let cursor = 0;
-  const slices = items.filter((item) => item.count > 0).map((item) => {
+  const visible = items.filter((item) => item.count > 0);
+  const slices = visible.map((item) => {
     const start = cursor;
     cursor += item.count / total * 100;
     return `${item.color} ${start}% ${cursor}%`;
@@ -101622,9 +101641,21 @@ function PieBreakdown({ title, items }) {
   return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("section", { className: "vfp-pie-section", children: [
     /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-pie-title", children: title }),
     /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-pie-body", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-pie", role: "img", "aria-label": items.map((item) => `${item.label} ${item.count}`).join("\uFF0C"), style: { background: slices.length ? `conic-gradient(${slices.join(", ")})` : "rgba(128,128,128,.14)" } }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-pie", role: "img", "aria-label": `${items.map((item) => `${item.label} ${item.count}`).join("\uFF0C")}\uFF1B\u70B9\u51FB\u6247\u533A\u7B5B\u9009\u4EFB\u52A1`, style: { background: slices.length ? `conic-gradient(${slices.join(", ")})` : "rgba(128,128,128,.14)" }, onClick: (event) => {
+        if (!total) return;
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const angle = (Math.atan2(event.clientX - bounds.left - bounds.width / 2, bounds.top + bounds.height / 2 - event.clientY) + Math.PI * 2) % (Math.PI * 2);
+        let end = 0;
+        for (const item of visible) {
+          end += item.count / total * Math.PI * 2;
+          if (angle < end) {
+            onSelect(item.code);
+            break;
+          }
+        }
+      } }),
       /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-pie-legend", children: [
-        items.filter((item) => item.count > 0).map((item) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-pie-legend-row", children: [
+        visible.map((item) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "vfp-pie-legend-row", "data-selected": selectedCode === item.code ? "" : void 0, "aria-pressed": selectedCode === item.code, onClick: () => onSelect(item.code), children: [
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("i", { style: { background: item.color } }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: item.label }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: item.count }),
@@ -101632,7 +101663,7 @@ function PieBreakdown({ title, items }) {
             (item.count / total * 100).toFixed(1),
             "%"
           ] })
-        ] }, item.label)),
+        ] }, item.code)),
         total === 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u65E0\u4EFB\u52A1" })
       ] })
     ] })
@@ -101643,9 +101674,14 @@ function relativePath(rootPath, filePath) {
   const tail = filePath.slice(root.length);
   return filePath.slice(0, root.length).toLowerCase() === root.toLowerCase() && (tail === "" || /^[\\/]/.test(tail)) ? tail.replace(/^[\\/]/, "") || "." : filePath;
 }
-function PathTree({ items, pathOf, renderLeaf }) {
+function PathTree({ items, pathOf, renderLeaf, revealPath }) {
   const [openPath, setOpenPath] = (0, import_react168.useState)([]);
   const [rootOpen, setRootOpen] = (0, import_react168.useState)(true);
+  (0, import_react168.useEffect)(() => {
+    if (!revealPath) return;
+    setOpenPath(revealPath.split(/[\\/]+/).filter(Boolean).slice(0, -1));
+    setRootOpen(true);
+  }, [revealPath]);
   const root = { name: "", count: 0, children: /* @__PURE__ */ new Map() };
   for (const item of items) {
     const parts = pathOf(item).split(/[\\/]+/).filter(Boolean);
@@ -101750,11 +101786,17 @@ function SourcePreview({ rootPath, filePath, onClose }) {
   ] });
 }
 function ScanOverview({ value, rootPath }) {
+  const [filter2, setFilter] = (0, import_react168.useState)(null);
   const tasks = Array.isArray(value.tasks) ? value.tasks : [];
   const directories = Array.isArray(value.directories) ? value.directories : [];
   const total = tasks.length;
-  const states = scanStates.map(([code, label, color2]) => ({ label, color: color2, count: tasks.filter((task) => code === "UNKNOWN" ? !scanStates.some(([known]) => known !== "UNKNOWN" && known === task.status_record?.code) : task.status_record?.code === code).length }));
-  const types2 = scanTypes.map(([code, label, color2]) => ({ label, color: color2, count: tasks.filter((task) => code === "OTHER" ? !scanTypes.some(([known]) => known !== "OTHER" && known === task.task_type?.code) : task.task_type?.code === code).length }));
+  const stateOf = (task) => scanStates.some(([code]) => code !== "UNKNOWN" && code === task.status_record?.code) ? task.status_record.code : "UNKNOWN";
+  const typeOf = (task) => scanTypes.some(([code]) => code !== "OTHER" && code === task.task_type?.code) ? task.task_type.code : "OTHER";
+  const states = scanStates.map(([code, label, color2]) => ({ code, label, color: color2, count: tasks.filter((task) => stateOf(task) === code).length }));
+  const types2 = scanTypes.map(([code, label, color2]) => ({ code, label, color: color2, count: tasks.filter((task) => typeOf(task) === code).length }));
+  const shownTasks = filter2 ? tasks.filter((task) => (filter2.kind === "status" ? stateOf(task) : typeOf(task)) === filter2.code) : tasks;
+  const filterLabel = filter2 && (filter2.kind === "status" ? states : types2).find((item) => item.code === filter2.code)?.label;
+  const toggleFilter = (kind, code) => setFilter((old) => old?.kind === kind && old.code === code ? null : { kind, code });
   return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-overview", children: [
     /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-scan-path", children: [
       "\u626B\u63CF\u76EE\u5F55\uFF1A",
@@ -101767,18 +101809,16 @@ function ScanOverview({ value, rootPath }) {
       " \u4E2A VASP \u4EFB\u52A1"
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-pie-grid", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PieBreakdown, { title: "\u8BA1\u7B97\u72B6\u6001", items: states }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PieBreakdown, { title: "\u4EFB\u52A1\u7C7B\u578B", items: types2 })
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PieBreakdown, { title: "\u8BA1\u7B97\u72B6\u6001", items: states, selectedCode: filter2?.kind === "status" ? filter2.code : void 0, onSelect: (code) => toggleFilter("status", code) }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PieBreakdown, { title: "\u4EFB\u52A1\u7C7B\u578B", items: types2, selectedCode: filter2?.kind === "type" ? filter2.code : void 0, onSelect: (code) => toggleFilter("type", code) })
     ] }),
     tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
       /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-discovery-heading", children: [
         "\u4EFB\u52A1\u76EE\u5F55 ",
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { children: [
-          tasks.length,
-          " \u4E2A\u4EFB\u52A1\uFF0C\u70B9\u51FB\u67E5\u770B\u8BE6\u60C5"
-        ] })
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: filterLabel ? `${filterLabel} \xB7 ${shownTasks.length}/${tasks.length} \u4E2A\u4EFB\u52A1` : `${tasks.length} \u4E2A\u4EFB\u52A1\uFF0C\u70B9\u51FB\u67E5\u770B\u8BE6\u60C5` }),
+        filter2 && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", className: "vfp-clear-filter", onClick: () => setFilter(null), children: "\u6E05\u9664\u7B5B\u9009" })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(IssueRows, { rootPath, rows: tasks.map((task) => ({ path: task.rel_path, label: task.label || task.rel_path, note: task.status_record?.label || task.task_type?.label, status: task.status_record?.code === "ERROR_DETECTED" ? "error" : task.status_record?.code === "UNKNOWN" ? "warn" : void 0 })) })
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(IssueRows, { rootPath, revealPath: filter2 ? shownTasks[0]?.rel_path : void 0, rows: shownTasks.map((task) => ({ path: task.rel_path, label: task.label || task.rel_path, note: task.status_record?.label || task.task_type?.label, status: task.status_record?.code === "ERROR_DETECTED" ? "error" : task.status_record?.code === "UNKNOWN" ? "warn" : void 0 })) }, filter2 ? `${filter2.kind}:${filter2.code}` : "all")
     ] })
   ] });
 }
@@ -101789,6 +101829,31 @@ function structureKey(row) {
 function droppedStorageKey(block, kind = "structure") {
   const id = block?.call?.id ?? block?.call?.toolCallId ?? block?.id ?? block?.call?.argsRaw;
   return id ? `dsh-vaspflow:${kind}-drops:${String(id)}` : "";
+}
+function useToolCardCollapse(block, kind) {
+  const key = droppedStorageKey(block, `${kind}-collapsed`);
+  const [collapsed, setCollapsed] = (0, import_react168.useState)(() => {
+    try {
+      return !!key && sessionStorage.getItem(key) === "1";
+    } catch {
+      return false;
+    }
+  });
+  (0, import_react168.useEffect)(() => {
+    try {
+      setCollapsed(!!key && sessionStorage.getItem(key) === "1");
+    } catch {
+      setCollapsed(false);
+    }
+  }, [key]);
+  const setCardCollapsed = (next2) => {
+    setCollapsed(next2);
+    if (key) try {
+      sessionStorage.setItem(key, next2 ? "1" : "0");
+    } catch {
+    }
+  };
+  return { collapsed, setCardCollapsed };
 }
 function readDroppedRows(key) {
   if (!key) return [];
@@ -101886,7 +101951,7 @@ function ResultTabs({ rows, kind, rootPath, focus, orderStorageKey }) {
     }
   };
   return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-inline-visual", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-inline-tree", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PathTree, { items: treeRows, pathOf: (item) => item.path, renderLeaf: ({ row, index: index2 }, name) => /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", className: "vfp-visual-tree-leaf", "aria-current": index2 === active ? "true" : void 0, "data-user-added": row.userAdded ? "" : void 0, title: treeRows[index2].path, onClick: () => select(index2), children: name }) }) }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-inline-tree", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PathTree, { items: treeRows, pathOf: (item) => item.path, renderLeaf: ({ row, index: index2 }, name) => /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", className: "vfp-visual-tree-leaf", "aria-current": index2 === active ? "true" : void 0, "data-user-added": row.userAdded ? "" : void 0, title: `${treeRows[index2].path} \xB7 \u53EF\u62D6\u5230\u5176\u4ED6\u5DE5\u5177\u5361\u7247`, draggable: true, onDragStart: (event) => startStructureDrag(event.dataTransfer, kind === "structure" ? { kind: "file", rootPath: row.rootPath ?? rootPath, relPath: row.rel_path ?? row.relPath, file: row.file ?? "CONTCAR" } : { kind: "task", rootPath: row.rootPath ?? rootPath, relPath: row.rel_path ?? row.relPath }), onClick: () => select(index2), children: name }) }) }),
     /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-visual-tabs", role: "tablist", "aria-label": kind === "structure" ? "\u7ED3\u6784\u6587\u4EF6" : "\u8BA1\u7B97\u4EFB\u52A1", onKeyDown: (event) => {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       event.preventDefault();
@@ -101997,7 +102062,10 @@ function InputDiscovery({ value, rootPath, args }) {
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: members.length }),
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("i", { style: { width: `${members.length / Math.max(sources.length, 1) * 100}%` } })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PathTree, { items: members, pathOf: (source) => relativePath(rootPath, source.path), renderLeaf: (source, name) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "vfp-source-file", title: source.path, onClick: () => setPreviewPath(source.path), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PathTree, { items: members, pathOf: (source) => relativePath(rootPath, source.path), renderLeaf: (source, name) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "vfp-source-file", title: `${source.path} \xB7 \u53EF\u62D6\u5230\u7ED3\u6784\u6216\u6784\u5EFA\u5361\u7247`, draggable: true, onDragStart: (event) => {
+            const parts = relativePath(rootPath, source.path).split(/[\\/]+/).filter(Boolean);
+            startStructureDrag(event.dataTransfer, { kind: "file", rootPath, relPath: parts.slice(0, -1).join("/") || ".", file: parts.at(-1) || name });
+          }, onClick: () => setPreviewPath(source.path), children: [
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: name }),
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("small", { children: source.error || `${source.nAtoms ?? 0} \u539F\u5B50` }),
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u9884\u89C8 \u203A" })
@@ -102046,7 +102114,7 @@ function InputDiscovery({ value, rootPath, args }) {
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-muted", children: Object.entries(members[0]?.params ?? {}).map(([key, val]) => `${key} ${val}`).join(" \xB7 ") || "\u672A\u63D0\u53D6\u5230\u5173\u952E\u53C2\u6570" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-discovery-list", children: members.map((template) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-discovery-list", children: members.map((template) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { draggable: true, title: `${template.dir} \xB7 \u53EF\u62D6\u5230\u6784\u5EFA\u5361\u7247\u66FF\u6362\u6A21\u677F`, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "directory", rootPath, relPath: relativePath(rootPath, template.dir) }), children: [
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("code", { title: template.dir, children: template.relPath ?? template.dir }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: template.missing?.length ? `\u7F3A ${template.missing.join("\u3001")}` : "\u6240\u5217\u6587\u4EF6\u9F50\u5907" })
         ] }, template.dir)) })
@@ -102079,7 +102147,7 @@ function StatusInspection({ value, rootPath }) {
       /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: item.count })
     ] }, item.code)) }),
     /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-inspection-list", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PathTree, { items: results, pathOf: (row) => row.rootPath && row.rootPath !== rootPath ? `${row.rootPath}/${row.relPath}` : row.relPath, renderLeaf: (row, name) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("details", { className: "vfp-inspection-item", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { draggable: !row.error, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "task", rootPath: row.rootPath ?? rootPath, relPath: row.relPath }), title: "\u53EF\u62D6\u5230\u6536\u655B\u66F2\u7EBF\u3001\u539F\u5B50\u7ED3\u6784\u6216\u8BA1\u7B97\u72B6\u6001\u5361\u7247", children: [
         /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: name }),
         /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-state-chip", "data-status": row.error ? "error" : row.status?.code, children: row.error ? "\u8BFB\u53D6\u5931\u8D25" : row.status?.label || "\u72B6\u6001\u672A\u77E5" }),
         /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("small", { children: row.error || row.status?.reason || "" })
@@ -102176,7 +102244,7 @@ function InputChecks({ value, args, rootPath }) {
         ["\u89C4\u5219", profileId ? row.input_check?.code === "PASS" ? "ok" : row.input_check?.code === "WARN" ? "warn" : "bad" : "skip"]
       ];
       return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("details", { className: "vfp-inspection-item", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { title: row.resolved, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { title: `${row.resolved} \xB7 \u53EF\u62D6\u5230\u5176\u4ED6\u5DE5\u5177\u5361\u7247`, draggable: !!row.resolved && relativePath(rootPath, row.resolved) !== row.resolved, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "task", rootPath, relPath: checkedRows[index2].path }), children: [
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: name }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-state-chip", "data-status": state, children: state === "PASS" ? "\u901A\u8FC7" : state === "WARN" ? "\u6CE8\u610F" : state === "FAIL" ? "\u5931\u8D25" : "\u5DF2\u89E3\u6790" }),
           state !== "PASS" && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("small", { children: row.error || row.input_check?.evidence?.[0]?.message || row.warnings?.[0] || "" }),
@@ -102213,6 +102281,7 @@ function InputChecks({ value, args, rootPath }) {
   ] });
 }
 function VaspToolRow({ block, toolName }) {
+  const { collapsed, setCardCollapsed } = useToolCardCollapse(block, toolName);
   const args = argsOf(block);
   const settled = block?.kind === "tool-result";
   const value = valueOf(block);
@@ -102223,6 +102292,7 @@ function VaspToolRow({ block, toolName }) {
   const [otherDropped, setOtherDropped] = (0, import_react168.useState)(() => readDroppedRows(otherStorageKey));
   const [dropFocus, setDropFocus] = (0, import_react168.useState)({ key: "", nonce: 0 });
   const [dropActive, setDropActive] = (0, import_react168.useState)(false);
+  const [dropRejected, setDropRejected] = (0, import_react168.useState)(false);
   const [dropBusy, setDropBusy] = (0, import_react168.useState)(false);
   const [dropError, setDropError] = (0, import_react168.useState)("");
   (0, import_react168.useEffect)(() => {
@@ -102278,6 +102348,8 @@ function VaspToolRow({ block, toolName }) {
     event.preventDefault();
     event.stopPropagation();
     setDropActive(false);
+    setDropRejected(false);
+    setCardCollapsed(false);
     const item = readStructureDrag(event.dataTransfer);
     if (!item) return;
     if (toolName !== "vasp_structure_scene" && item.kind !== "task") return;
@@ -102322,44 +102394,65 @@ function VaspToolRow({ block, toolName }) {
       setDropBusy(false);
     }
   };
+  const exceptionalCount = toolName === "vasp_inspect_task" ? Number(value.status?.code === "ERROR_DETECTED" || value.inputCheck?.code === "FAIL") : (toolName === "vasp_scan" ? value.tasks : value.results)?.filter((row) => row.error || row.status_record?.code === "ERROR_DETECTED" || row.status?.code === "ERROR_DETECTED" || row.input_check?.code === "FAIL")?.length ?? 0;
+  const withExceptions = (label) => `${label}${exceptionalCount ? ` \xB7 ${exceptionalCount} \u5F02\u5E38` : ""}`;
+  const compactSummary = toolName === "vasp_scan" ? withExceptions(`${value.tasks?.length ?? 0} \u4E2A\u4EFB\u52A1`) : toolName === "vasp_discover_inputs" ? `${value.sources?.files?.length ?? 0} \u4E2A\u7ED3\u6784\u6E90 \xB7 ${value.templates?.length ?? 0} \u4E2A\u6A21\u677F` : toolName === "vasp_inspect_task" ? withExceptions("1 \u4E2A\u4EFB\u52A1") : toolName === "vasp_inspect_tasks" || toolName === "vasp_check_inputs" ? withExceptions(`${visualRows.length || value.results?.length || 0} \u4E2A\u4EFB\u52A1`) : toolName === "vasp_convergence" ? withExceptions(`${visualRows.length + otherDropped.length} \u6761\u66F2\u7EBF`) : toolName === "vasp_structure_scene" ? withExceptions(`${visualRows.length + dropped.length} \u4E2A\u7ED3\u6784`) : "";
   return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
     "div",
     {
       "data-dsh-vaspflow-tool": toolName,
       "data-drop-active": dropActive ? "" : void 0,
       onDragOver: (event) => {
-        if (acceptsDrop && hasSupportedDrag(event)) {
+        if (!acceptsDrop) return;
+        if (hasSupportedDrag(event)) {
           event.preventDefault();
           event.stopPropagation();
           event.dataTransfer.dropEffect = "copy";
           setDropActive(true);
+          setDropRejected(false);
+        } else if (Array.from(event.dataTransfer.types).includes(STRUCTURE_DRAG_TYPE)) {
+          setDropActive(false);
+          setDropRejected(true);
         }
       },
       onDragLeave: (event) => {
         const bounds = event.currentTarget.getBoundingClientRect();
-        if (event.clientX <= bounds.left || event.clientX >= bounds.right || event.clientY <= bounds.top || event.clientY >= bounds.bottom) setDropActive(false);
+        if (event.clientX <= bounds.left || event.clientX >= bounds.right || event.clientY <= bounds.top || event.clientY >= bounds.bottom) {
+          setDropActive(false);
+          setDropRejected(false);
+        }
       },
       onDrop: (event) => {
+        setDropRejected(false);
         void handleDrop(event);
       },
       children: [
         /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-tree-head", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: titles[toolName] }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-muted", children: settled ? error ? "\u5931\u8D25" : "\u5B8C\u6210" : "\u5904\u7406\u4E2D" })
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "vfp-card-toggle", "aria-expanded": !collapsed, onClick: () => setCardCollapsed(!collapsed), children: [
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { "aria-hidden": "true", children: collapsed ? "\u25B8" : "\u25BE" }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: titles[toolName] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-muted", children: settled ? error ? "\u5931\u8D25" : collapsed && compactSummary ? `\u5B8C\u6210 \xB7 ${compactSummary}` : "\u5B8C\u6210" : "\u5904\u7406\u4E2D" })
         ] }),
         dropActive && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-structure-drop-hint", children: [
           "\u677E\u5F00\u4EE5",
-          toolName === "vasp_structure_scene" ? "\u6DFB\u52A0\u7ED3\u6784\u6807\u7B7E\u9875" : toolName === "vasp_convergence" ? "\u6DFB\u52A0\u4EFB\u52A1\u66F2\u7EBF\u6807\u7B7E\u9875" : "\u8865\u5145\u4EFB\u52A1\u72B6\u6001\u8BB0\u5F55"
+          toolName === "vasp_structure_scene" ? "\u6DFB\u52A0\u7ED3\u6784\u6587\u4EF6\u6807\u7B7E\u9875\uFF08\u4EFB\u52A1\u4F1A\u6DFB\u52A0\u76F4\u5C5E\u7ED3\u6784\u6587\u4EF6\uFF09" : toolName === "vasp_convergence" ? "\u6DFB\u52A0 1 \u4E2A\u4EFB\u52A1\u66F2\u7EBF\u6807\u7B7E\u9875" : "\u8865\u5145 1 \u6761\u4EFB\u52A1\u72B6\u6001\u8BB0\u5F55"
         ] }),
-        dropBusy && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-tree-muted", children: "\u6B63\u5728\u8BFB\u53D6\u4EFB\u52A1\u2026" }),
-        dropError && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: dropError }),
-        settled && (error ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: error }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
-          toolName === "vasp_scan" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(ScanOverview, { value, rootPath }) : toolName === "vasp_discover_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(InputDiscovery, { value, rootPath, args }) : toolName === "vasp_inspect_tasks" || toolName === "vasp_inspect_task" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(StatusInspection, { value: { ...value, results: [...toolName === "vasp_inspect_task" ? [{ relPath, status: value.status, inputCheck: value.inputCheck, outputFiles: value.outputFiles }] : visualRows, ...otherDropped] }, rootPath }) : toolName === "vasp_check_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(InputChecks, { value, rootPath, args }) : toolName === "vasp_convergence" || toolName === "vasp_structure_scene" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", children: toolName === "vasp_convergence" && otherDropped.length ? `${visualRows.length} \u4E2A\u539F\u59CB\u4EFB\u52A1 \xB7 ${otherDropped.length} \u4E2A\u62D6\u5165\u4EFB\u52A1` : summary }),
-            (visualRows.length > 0 || dropped.length > 0 || otherDropped.length > 0) && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(ResultTabs, { rows: toolName === "vasp_structure_scene" ? [...visualRows, ...dropped] : [...visualRows, ...otherDropped], kind: toolName === "vasp_convergence" ? "convergence" : "structure", rootPath, focus: dropFocus, orderStorageKey: droppedStorageKey(block, `${toolName}-tab-order`) })
-          ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", children: summary || "\u65E0\u7ED3\u679C" }),
-          rows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(IssueRows, { rows, rootPath, tab })
-        ] }))
+        dropRejected && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-structure-drop-hint", "data-rejected": "", children: [
+          "\u6B64\u5361\u7247",
+          toolName === "vasp_structure_scene" ? "\u53EA\u63A5\u53D7\u7ED3\u6784\u6587\u4EF6\u6216\u4EFB\u52A1" : "\u53EA\u63A5\u53D7\u4EFB\u52A1"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { hidden: collapsed, children: [
+          dropBusy && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-tree-muted", children: "\u6B63\u5728\u8BFB\u53D6\u4EFB\u52A1\u2026" }),
+          dropError && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: dropError }),
+          settled && (error ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: error }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+            toolName === "vasp_scan" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(ScanOverview, { value, rootPath }) : toolName === "vasp_discover_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(InputDiscovery, { value, rootPath, args }) : toolName === "vasp_inspect_tasks" || toolName === "vasp_inspect_task" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(StatusInspection, { value: { ...value, results: [...toolName === "vasp_inspect_task" ? [{ relPath, status: value.status, inputCheck: value.inputCheck, outputFiles: value.outputFiles }] : visualRows, ...otherDropped] }, rootPath }) : toolName === "vasp_check_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(InputChecks, { value, rootPath, args }) : toolName === "vasp_convergence" || toolName === "vasp_structure_scene" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", children: toolName === "vasp_convergence" && otherDropped.length ? `${visualRows.length} \u4E2A\u539F\u59CB\u4EFB\u52A1 \xB7 ${otherDropped.length} \u4E2A\u62D6\u5165\u4EFB\u52A1` : summary }),
+              (visualRows.length > 0 || dropped.length > 0 || otherDropped.length > 0) && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(ResultTabs, { rows: toolName === "vasp_structure_scene" ? [...visualRows, ...dropped] : [...visualRows, ...otherDropped], kind: toolName === "vasp_convergence" ? "convergence" : "structure", rootPath, focus: dropFocus, orderStorageKey: droppedStorageKey(block, `${toolName}-tab-order`) })
+            ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", children: summary || "\u65E0\u7ED3\u679C" }),
+            rows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(IssueRows, { rows, rootPath, tab })
+          ] }))
+        ] })
       ]
     }
   );
@@ -102516,6 +102609,10 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-tree-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 0 4px;margin-bottom:4px}",
   "[data-dsh-vaspflow-tool] .vfp-tree-head strong{font-size:15px;color:#3279bf}",
   "body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong{color:#78b9f1}",
+  "[data-dsh-vaspflow-tool] .vfp-card-toggle{display:inline-flex;align-items:center;gap:7px;min-width:0;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit;text-align:left}",
+  "[data-dsh-vaspflow-tool] .vfp-card-toggle>span{width:12px;color:var(--dsw-alias-label-secondary,#65746b)}",
+  "[data-dsh-vaspflow-tool] .vfp-card-toggle:focus-visible{outline:2px solid #4f8fd2;outline-offset:3px}",
+  "[data-dsh-vaspflow-tool] [hidden]{display:none!important}",
   "[data-dsh-vaspflow-tool] .vfp-tree-muted{color:var(--dsw-alias-label-secondary,#65746b)}",
   "[data-dsh-vaspflow-tool] .vfp-tree-group{display:flex;align-items:center;gap:7px;padding:7px 0 3px;font-weight:600}",
   "[data-dsh-vaspflow-tool] .vfp-tree-toggle{border:0;background:none;color:inherit;cursor:pointer;font:inherit;padding:0 3px;width:18px}",
@@ -102535,6 +102632,18 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-tree-actions button:disabled{opacity:.5;cursor:default}",
   "[data-dsh-vaspflow-tool] .vfp-tree-message{margin-top:8px;white-space:pre-wrap;color:var(--dsw-alias-label-secondary,#65746b)}",
   "[data-dsh-vaspflow-tool] .vfp-tree-message[data-error]{color:#c44136}",
+  "[data-dsh-vaspflow-tool] .vfp-build-steps{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 0;font-size:12px;border-bottom:1px solid var(--dsw-alias-border-l2,#e5e6eb)}",
+  "[data-dsh-vaspflow-tool] .vfp-build-steps span{color:var(--dsw-alias-label-secondary,#65746b)}",
+  '[data-dsh-vaspflow-tool] .vfp-build-steps [data-stage="done"]{color:#248452}',
+  '[data-dsh-vaspflow-tool] .vfp-build-steps [data-stage="current"]{color:#3279bf;font-weight:600}',
+  '[data-dsh-vaspflow-tool] .vfp-build-steps [data-stage="stopped"]{color:#c44136}',
+  "[data-dsh-vaspflow-tool] .vfp-build-changes{padding:8px 0;border-bottom:1px solid var(--dsw-alias-border-l2,#e5e6eb);font-size:12px}",
+  "[data-dsh-vaspflow-tool] .vfp-build-changes summary{cursor:pointer;color:#ae7412}",
+  "[data-dsh-vaspflow-tool] .vfp-build-changes>div{display:flex;flex-wrap:wrap;gap:4px 8px;padding:5px 0;overflow-wrap:anywhere}",
+  "[data-dsh-vaspflow-tool] .vfp-build-changes>div strong{width:100%;font-weight:600}",
+  "[data-dsh-vaspflow-tool] .vfp-build-changes>div span{max-width:45%;color:var(--dsw-alias-label-secondary,#65746b)}",
+  "[data-dsh-vaspflow-tool] .vfp-build-changes p{display:flex;gap:8px;margin:5px 0;color:var(--dsw-alias-label-secondary,#65746b)}",
+  "[data-dsh-vaspflow-tool] .vfp-build-changes time{flex:none;font-variant-numeric:tabular-nums}",
   "[data-vasp-structure-mount]:focus-visible{outline:2px solid #4f8fd2;outline-offset:2px}",
   ".vfp-structure-toolbar{min-height:30px}",
   ".vfp-structure-toolbar .vfp-source-location{flex:1;min-width:0}",
@@ -102549,6 +102658,7 @@ var CSS = [
   '[data-dsh-vaspflow-tool="vasp_inspect_tasks"] .vfp-result-rows{max-height:320px;overflow:auto}',
   "[data-dsh-vaspflow-tool] .vfp-result-row{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;min-width:0;min-height:30px;padding:4px 8px;border:0;border-radius:4px;background:var(--vfp-tree-leaf-bg);color:inherit;text-align:left;font:inherit;cursor:pointer}",
   "[data-dsh-vaspflow-tool] .vfp-result-row:disabled{cursor:default}",
+  '[data-dsh-vaspflow-tool] .vfp-result-row[draggable="true"], [data-dsh-vaspflow-tool] .vfp-inspection-item>summary[draggable="true"], [data-dsh-vaspflow-tool] .vfp-visual-tree-leaf[draggable="true"], [data-dsh-vaspflow-tool] .vfp-tree-task[draggable="true"]{cursor:grab}',
   "[data-dsh-vaspflow-tool] .vfp-result-row>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
   "[data-dsh-vaspflow-tool] .vfp-result-row .vfp-tree-muted{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
   "[data-dsh-vaspflow-tool] .vfp-scan-path{font-size:12px;color:var(--dsw-alias-label-secondary,#65746b);overflow-wrap:anywhere;padding-top:9px}",
@@ -102563,8 +102673,13 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-pie-title{font-weight:600;padding-bottom:9px}",
   "[data-dsh-vaspflow-tool] .vfp-pie-body{display:flex;align-items:center;gap:11px}",
   "[data-dsh-vaspflow-tool] .vfp-pie{width:130px;height:130px;flex:none;border-radius:50%}",
+  '[data-dsh-vaspflow-tool] .vfp-pie[role="img"]{cursor:pointer}',
   "[data-dsh-vaspflow-tool] .vfp-pie-legend{display:grid;gap:5px;min-width:0;flex:1;font-size:12px}",
   "[data-dsh-vaspflow-tool] .vfp-pie-legend-row{display:grid;grid-template-columns:8px minmax(0,1fr) auto 39px;align-items:center;gap:5px}",
+  "[data-dsh-vaspflow-tool] button.vfp-pie-legend-row{width:100%;padding:2px 4px;border:0;border-radius:3px;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer}",
+  "[data-dsh-vaspflow-tool] button.vfp-pie-legend-row:hover,[data-dsh-vaspflow-tool] button.vfp-pie-legend-row[data-selected]{background:var(--vfp-tree-folder-bg)}",
+  "[data-dsh-vaspflow-tool] button.vfp-pie-legend-row[data-selected]{font-weight:600}",
+  "[data-dsh-vaspflow-tool] .vfp-clear-filter{border:0;background:none;color:#3279bf;cursor:pointer;font:inherit;font-size:12px}",
   "[data-dsh-vaspflow-tool] .vfp-pie-legend-row>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
   "[data-dsh-vaspflow-tool] .vfp-pie-legend i{width:8px;height:8px;border-radius:1px}",
   "[data-dsh-vaspflow-tool] .vfp-pie-legend-row strong{text-align:right}",
@@ -102588,6 +102703,7 @@ var CSS = [
   '[data-dsh-vaspflow-tool] .vfp-path-children>.vfp-path-folder::before{content:"";position:absolute;left:-12px;top:15px;width:8px;border-top:1px solid rgba(112,146,173,.28)}',
   "[data-dsh-vaspflow-tool] .vfp-source-file{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;min-height:30px;margin:3px 0;padding:4px 8px;border:0;border-radius:4px;background:var(--vfp-tree-leaf-bg);color:inherit;text-align:left;font:inherit;cursor:pointer;transition:background .12s ease}",
   "[data-dsh-vaspflow-tool] .vfp-source-file:hover{background:rgba(38,151,102,.17)}",
+  '[data-dsh-vaspflow-tool] .vfp-source-file[draggable="true"]{cursor:grab}',
   "[data-dsh-vaspflow-tool] .vfp-source-file small{margin-left:auto;color:var(--dsw-alias-label-secondary,#65746b)}",
   "[data-dsh-vaspflow-tool] .vfp-source-file>span:last-child{color:var(--dsw-alias-label-secondary,#65746b);white-space:nowrap}",
   "[data-dsh-vaspflow-tool] .vfp-source-file:hover>span:last-child{color:#3279bf}",
@@ -102601,6 +102717,8 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-discovery-heading{font-weight:600;padding:10px 0 6px}",
   "[data-dsh-vaspflow-tool] .vfp-discovery-list{max-height:260px;overflow:auto;padding:6px 0 6px 14px}",
   "[data-dsh-vaspflow-tool] .vfp-discovery-list>div{display:flex;gap:10px;justify-content:space-between;padding:4px 0;font-size:12px}",
+  '[data-dsh-vaspflow-tool] .vfp-discovery-list>div[draggable="true"]{cursor:grab}',
+  '[data-dsh-vaspflow-tool] .vfp-discovery-list>div[draggable="true"]:hover{background:var(--vfp-tree-folder-bg)}',
   "[data-dsh-vaspflow-tool] .vfp-discovery-list code{font:inherit;overflow-wrap:anywhere}",
   "[data-dsh-vaspflow-tool] .vfp-discovery-list span{color:var(--dsw-alias-label-secondary,#65746b);text-align:right}",
   "[data-dsh-vaspflow-tool] .vfp-inline-tree{margin:4px 0 8px}",
@@ -102621,7 +102739,9 @@ var CSS = [
   'body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-visual-tabs button[data-user-added][aria-selected="true"]{color:#f4c65d;border-color:#f4c65d}',
   "[data-dsh-vaspflow-tool][data-drop-active]{outline:2px dashed #d7a62d;outline-offset:2px;background:rgba(215,166,45,.1)}",
   "[data-dsh-vaspflow-tool] .vfp-structure-drop-hint{padding:6px 0;color:#bc870e}",
+  "[data-dsh-vaspflow-tool] .vfp-structure-drop-hint[data-rejected]{color:#c44136}",
   "body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-structure-drop-hint{color:#f4c65d}",
+  "body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-structure-drop-hint[data-rejected]{color:#ff7875}",
   "[data-dsh-vaspflow-tool] .vfp-file-preview{max-height:240px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}",
   "[data-dsh-vaspflow-tool] .vfp-tool-intent{font-size:13px;line-height:1.55;padding:10px 0 1px;color:inherit}",
   "[data-dsh-vaspflow-tool] .vfp-source-flow{display:grid;grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr);gap:10px;align-items:center;margin:16px 0 12px}",
@@ -102884,6 +103004,7 @@ function buildTaskTree(tasks) {
   return root;
 }
 function BuildInputsToolRow({ block }) {
+  const { collapsed, setCardCollapsed } = useToolCardCollapse(block, "vasp_build_inputs");
   const { buildDryRun, buildModeError } = usePanelStore();
   const args = import_react169.default.useMemo(() => parseToolArgs(block), [block]);
   const settled = block?.kind === "tool-result";
@@ -102897,6 +103018,25 @@ function BuildInputsToolRow({ block }) {
       return null;
     }
   });
+  const historyKey = originalPreview.planId ? `dsh-vaspflow:build-history:${originalPreview.planId}` : "";
+  const [history, setHistory] = import_react169.default.useState(() => {
+    try {
+      const saved2 = JSON.parse(sessionStorage.getItem(historyKey) || "[]");
+      return Array.isArray(saved2) ? saved2 : [];
+    } catch {
+      return [];
+    }
+  });
+  const historyRef = import_react169.default.useRef(history);
+  const recordAction = (text) => {
+    const next2 = [...historyRef.current, { at: Date.now(), text }].slice(-20);
+    historyRef.current = next2;
+    setHistory(next2);
+    if (historyKey) try {
+      sessionStorage.setItem(historyKey, JSON.stringify(next2));
+    } catch {
+    }
+  };
   const tasks = revision?.tasks ?? (Array.isArray(args.tasks) ? args.tasks : []);
   const preview = revision?.preview ?? originalPreview;
   const [selectedState, setSelected] = import_react169.default.useState(() => new Set(tasks.map((_, index2) => index2)));
@@ -102909,6 +103049,7 @@ function BuildInputsToolRow({ block }) {
   const [requestErrorState, setRequestError] = import_react169.default.useState(false);
   const [dropBusy, setDropBusy] = import_react169.default.useState(null);
   const [dropActive, setDropActive] = import_react169.default.useState(null);
+  const [cancelBusy, setCancelBusy] = import_react169.default.useState(false);
   const saved = import_react169.default.useSyncExternalStore(subscribeBuildOutcomes, () => readBuildOutcome(preview.planId), () => null);
   const selected = saved ? new Set(saved.selectedIndices) : selectedState;
   const phase = saved?.phase ?? phaseState;
@@ -102919,9 +103060,16 @@ function BuildInputsToolRow({ block }) {
   const submitLock = import_react169.default.useRef(false);
   const isPreview = preview.dryRun !== false;
   const taskTree = buildTaskTree(tasks);
-  const canConfirm = settled && isPreview && !!preview.planId && !preview.error && !buildModeError && phase === "preview" && dropBusy === null;
+  const canConfirm = settled && isPreview && !!preview.planId && !preview.error && !buildModeError && phase === "preview" && dropBusy === null && !cancelBusy;
   const selectedIndices = [...selected].sort((a2, b) => a2 - b);
   const selectedErrors = selectedIndices.filter((index2) => preview.results?.[index2]?.errors?.length).length;
+  const writtenCount = phase === "done" ? selectedIndices.filter((index2) => writeRows[index2]?.wrote).length : preview.wroteCount ?? 0;
+  const writeErrors = phase === "done" ? selectedIndices.filter((index2) => writeRows[index2]?.errors?.length).length : selectedErrors;
+  const sourceChanges = tasks.flatMap((task, index2) => {
+    const before = originalPreview.results?.[index2]?.sources ?? {};
+    const after = preview.results?.[index2]?.sources ?? {};
+    return [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].filter((file) => before[file] !== after[file]).map((file) => ({ dir: task.dir, file, before: before[file], after: after[file] }));
+  });
   const replaceSource = async (event, index2) => {
     event.preventDefault();
     event.stopPropagation();
@@ -102948,6 +103096,7 @@ function BuildInputsToolRow({ block }) {
       }
       const sourceName = item.kind === "file" ? item.file : item.relPath;
       setMessage(`\u4EFB\u52A1 ${tasks[index2].dir} \u5DF2\u6539\u7528 ${sourceName}\uFF1B\u9884\u89C8\u5DF2\u66F4\u65B0\uFF0C\u5C1A\u672A\u5199\u5165\u78C1\u76D8`);
+      recordAction(`${tasks[index2].dir}\uFF1A${item.kind === "file" ? "POSCAR" : "INCAR/KPOINTS/POTCAR"} \u6765\u6E90\u6539\u4E3A ${sourceName}\uFF0C\u9884\u89C8\u5DF2\u66F4\u65B0`);
       if (focused === index2) panelStore.setSelectedBuildTask({ task: result.tasks[index2], result: result.results?.[index2], projectRoot: result.projectRoot || args.projectRoot || "", linkPotcar: !!args.linkPotcar, phase: "preview" });
     } catch (caught) {
       setRequestError(true);
@@ -102989,6 +103138,7 @@ function BuildInputsToolRow({ block }) {
       setPhase("done");
       panelStore.setBuildDryRun(result.dryRunMode !== false);
       setMessage(nextMessage);
+      recordAction(nextMessage);
       if (focused !== null) showTask(focused, rows[focused], selected.has(focused) ? "done" : "preview");
     } catch (error) {
       const nextMessage = error instanceof Error ? error.message : String(error);
@@ -102996,6 +103146,32 @@ function BuildInputsToolRow({ block }) {
       setPhase("unavailable");
       setRequestError(true);
       setMessage(nextMessage);
+    }
+  };
+  const cancelPreview = async () => {
+    if (!settled || !isPreview || !preview.planId || phase !== "preview" || submitLock.current) return;
+    submitLock.current = true;
+    setCancelBusy(true);
+    setMessage("\u6B63\u5728\u53D6\u6D88\u9884\u89C8\u2026");
+    setRequestError(false);
+    try {
+      const response = await fetch("/plugins/dsh-vaspflow/build-inputs/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ planId: preview.planId, cancel: true })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.cancelled) throw new Error(result.error || "\u53D6\u6D88\u9884\u89C8\u5931\u8D25");
+      saveBuildOutcome(preview.planId, { phase: "cancelled", selectedIndices, writeRows: {}, message: "\u9884\u89C8\u5DF2\u53D6\u6D88\uFF0C\u672A\u5199\u5165\u6587\u4EF6", requestError: false });
+      setPhase("cancelled");
+      setMessage("\u9884\u89C8\u5DF2\u53D6\u6D88\uFF0C\u672A\u5199\u5165\u6587\u4EF6");
+      recordAction("\u9884\u89C8\u5DF2\u53D6\u6D88\uFF0C\u672A\u5199\u5165\u6587\u4EF6");
+    } catch (error) {
+      setRequestError(true);
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCancelBusy(false);
+      submitLock.current = false;
     }
   };
   const restorePreview = async () => {
@@ -103039,6 +103215,10 @@ function BuildInputsToolRow({ block }) {
         },
         onDrop: (event) => {
           void replaceSource(event, index2);
+        },
+        draggable: !!row?.wrote,
+        onDragStart: (event) => {
+          if (row?.wrote) startStructureDrag(event.dataTransfer, { kind: "task", rootPath: preview.projectRoot || args.projectRoot || "", relPath: tasks[index2].dir || "." });
         },
         children: [
           canConfirm && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("input", { type: "checkbox", "aria-label": `\u9009\u62E9 ${tasks[index2].dir || `\u4EFB\u52A1 ${index2 + 1}`}`, checked: selected.has(index2), onChange: (event) => setSelected((old) => {
@@ -103084,64 +103264,103 @@ function BuildInputsToolRow({ block }) {
   };
   return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { "data-dsh-vaspflow-tool": "vasp_build_inputs", children: [
     /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("strong", { children: "\u6784\u5EFA\u4EFB\u52A1" }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("button", { type: "button", className: "vfp-card-toggle", "aria-expanded": !collapsed, onClick: () => setCardCollapsed(!collapsed), children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { "aria-hidden": "true", children: collapsed ? "\u25B8" : "\u25BE" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("strong", { children: "\u6784\u5EFA\u4EFB\u52A1" })
+      ] }),
       /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-tree-muted", children: [
-        !settled ? "\u5904\u7406\u4E2D" : phase === "done" ? "\u6784\u5EFA\u7ED3\u679C" : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : phase === "unavailable" ? "\u4E0D\u53EF\u786E\u8BA4" : isPreview ? "\u5B89\u5168\u9884\u89C8" : "\u6784\u5EFA\u7ED3\u679C",
+        !settled ? "\u5904\u7406\u4E2D" : phase === "done" ? `\u5DF2\u5199\u5165 ${writtenCount}/${selectedIndices.length}` : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : phase === "unavailable" ? "\u4E0D\u53EF\u786E\u8BA4" : isPreview ? "\u5F85\u786E\u8BA4\u9884\u89C8" : `\u5DF2\u5199\u5165 ${writtenCount}/${tasks.length}`,
         " \xB7 ",
         tasks.length,
-        " \u4E2A\u4EFB\u52A1"
+        " \u4E2A\u4EFB\u52A1",
+        writeErrors ? ` \xB7 ${writeErrors} \u9519\u8BEF` : ""
       ] })
     ] }),
-    (preview.projectRoot || args.projectRoot) && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-scan-path", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("code", { children: preview.projectRoot || args.projectRoot }) }),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-build-tree vfp-path-tree", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("details", { className: "vfp-path-root vfp-path-folder", open: rootOpen, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("summary", { onClick: (event) => {
-        event.preventDefault();
-        if (rootOpen) setOpenDirectory("");
-        else scrollExpandedTreeRow(event.currentTarget);
-        setRootOpen(!rootOpen);
-      }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "\u6839\u76EE\u5F55" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("small", { children: tasks.length })
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { hidden: collapsed, children: [
+      (preview.projectRoot || args.projectRoot) && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-scan-path", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("code", { children: preview.projectRoot || args.projectRoot }) }),
+      settled && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-build-steps", "aria-label": "\u6784\u5EFA\u8FDB\u5EA6", children: isPreview ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { "data-stage": "done", children: "\u2460 \u9884\u89C8\u5DF2\u751F\u6210" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { "data-stage": phase === "preview" ? "current" : phase === "building" || phase === "done" ? "done" : "stopped", children: [
+          "\u2461 ",
+          phase === "preview" ? "\u7B49\u5F85\u786E\u8BA4" : phase === "building" || phase === "done" ? "\u5DF2\u786E\u8BA4" : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : "\u786E\u8BA4\u72B6\u6001\u5F85\u6838\u67E5"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { "data-stage": phase === "done" ? "done" : phase === "building" ? "current" : phase === "unavailable" ? "stopped" : "pending", children: [
+          "\u2462 ",
+          phase === "done" ? `\u5DF2\u5199\u5165 ${writtenCount}/${selectedIndices.length}` : phase === "building" ? "\u6B63\u5728\u5199\u5165" : phase === "unavailable" ? "\u5199\u5165\u72B6\u6001\u5F85\u6838\u67E5" : "\u5C1A\u672A\u5199\u5165"
+        ] })
+      ] }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { "data-stage": "done", children: "AI \u76F4\u63A5\u6784\u5EFA" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { "data-stage": "done", children: [
+          "\u5DF2\u5199\u5165 ",
+          writtenCount,
+          "/",
+          tasks.length
+        ] })
+      ] }) }),
+      (sourceChanges.length > 0 || history.length > 0) && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("details", { className: "vfp-build-changes", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("summary", { children: [
+          "\u64CD\u4F5C\u8BB0\u5F55 \xB7 ",
+          history.length,
+          " \u6761",
+          sourceChanges.length ? ` \xB7 ${sourceChanges.length} \u4E2A\u6765\u6E90\u53D8\u5316` : ""
+        ] }),
+        sourceChanges.map((change, index2) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("strong", { children: [
+            change.dir,
+            " / ",
+            change.file
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { title: change.before || "", children: change.before || "\u672A\u6307\u5B9A" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { "aria-hidden": "true", children: "\u2192" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { title: change.after || "", children: change.after || "\u672A\u6307\u5B9A" })
+        ] }, `${change.dir}-${change.file}-${index2}`)),
+        history.map((action, index2) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("p", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("time", { children: new Date(action.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }),
+          action.text
+        ] }, `${action.at}-${index2}`))
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-path-children", children: [...taskTree.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true })).map(renderNode) })
-    ] }) }),
-    tasks.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", children: "\u6CA1\u6709\u6784\u5EFA\u4EFB\u52A1" }),
-    isPreview && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-actions", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { children: [
-        selected.size,
-        " \u4E2A\u4EFB\u52A1\u5DF2\u9009\u4E2D",
-        selectedErrors ? ` \xB7 ${selectedErrors} \u4E2A\u4EFB\u52A1\u5B58\u5728\u9519\u8BEF` : ""
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-build-tree vfp-path-tree", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("details", { className: "vfp-path-root vfp-path-folder", open: rootOpen, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("summary", { onClick: (event) => {
+          event.preventDefault();
+          if (rootOpen) setOpenDirectory("");
+          else scrollExpandedTreeRow(event.currentTarget);
+          setRootOpen(!rootOpen);
+        }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "\u6839\u76EE\u5F55" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("small", { children: tasks.length })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-path-children", children: [...taskTree.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true })).map(renderNode) })
+      ] }) }),
+      tasks.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", children: "\u6CA1\u6709\u6784\u5EFA\u4EFB\u52A1" }),
+      isPreview && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-actions", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { children: [
+          selected.size,
+          " \u4E2A\u4EFB\u52A1\u5DF2\u9009\u4E2D",
+          selectedErrors ? ` \xB7 ${selectedErrors} \u4E2A\u4EFB\u52A1\u5B58\u5728\u9519\u8BEF` : ""
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { children: [
+          phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", disabled: cancelBusy, onClick: () => {
+            void cancelPreview();
+          }, children: cancelBusy ? "\u6B63\u5728\u53D6\u6D88\u2026" : "\u53D6\u6D88\u9884\u89C8" }),
+          phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, title: "\u6267\u884C\u672C\u6B21\u6240\u9009\u4EFB\u52A1\uFF0C\u5E76\u8BA9\u540E\u7EED AI \u8C03\u7528\u76F4\u63A5\u6784\u5EFA", onClick: () => {
+            void confirm2(true);
+          }, children: "\u4EA4\u7ED9 AI \u76F4\u63A5\u6784\u5EFA" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "vfp-tree-confirm", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, onClick: () => {
+            void confirm2();
+          }, children: phase === "building" ? "\u6B63\u5728\u6784\u5EFA\u2026" : phase === "done" ? "\u5DF2\u5B8C\u6210" : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : phase === "unavailable" ? "\u4E0D\u53EF\u786E\u8BA4" : `\u786E\u8BA4\u6784\u5EFA ${selected.size} \u4E2A\u4EFB\u52A1` })
+        ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { children: [
-        phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", onClick: () => {
-          saveBuildOutcome(preview.planId, { phase: "cancelled", selectedIndices, writeRows: {}, message: "\u9884\u89C8\u5DF2\u53D6\u6D88\uFF0C\u672A\u5199\u5165\u6587\u4EF6", requestError: false });
-          setPhase("cancelled");
-          setMessage("\u9884\u89C8\u5DF2\u53D6\u6D88\uFF0C\u672A\u5199\u5165\u6587\u4EF6");
-          if (preview.planId) void fetch("/plugins/dsh-vaspflow/build-inputs/confirm", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ planId: preview.planId, cancel: true })
-          }).catch(() => {
-          });
-        }, children: "\u53D6\u6D88\u9884\u89C8" }),
-        phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, title: "\u6267\u884C\u672C\u6B21\u6240\u9009\u4EFB\u52A1\uFF0C\u5E76\u8BA9\u540E\u7EED AI \u8C03\u7528\u76F4\u63A5\u6784\u5EFA", onClick: () => {
-          void confirm2(true);
-        }, children: "\u4EA4\u7ED9 AI \u76F4\u63A5\u6784\u5EFA" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "vfp-tree-confirm", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, onClick: () => {
-          void confirm2();
-        }, children: phase === "building" ? "\u6B63\u5728\u6784\u5EFA\u2026" : phase === "done" ? "\u5DF2\u5B8C\u6210" : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : phase === "unavailable" ? "\u4E0D\u53EF\u786E\u8BA4" : `\u786E\u8BA4\u6784\u5EFA ${selected.size} \u4E2A\u4EFB\u52A1` })
-      ] })
-    ] }),
-    directMode && settled && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-actions", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-tree-muted", children: "\u540E\u7EED AI \u8C03\u7528\u5C06\u76F4\u63A5\u6784\u5EFA" }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", onClick: () => {
-        void restorePreview();
-      }, children: "\u6062\u590D\u9884\u89C8\u786E\u8BA4" })
-    ] }),
-    preview.error && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: preview.error }),
-    buildModeError && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: buildModeError }),
-    settled && isPreview && !preview.planId && !preview.error && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", children: "\u6B64\u9884\u89C8\u7F3A\u5C11\u786E\u8BA4\u51ED\u636E\uFF0C\u8BF7\u5728\u5BF9\u8BDD\u4E2D\u91CD\u65B0\u8FD0\u884C\u9884\u89C8\u3002" }),
-    message && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": requestError ? "" : void 0, children: message })
+      directMode && settled && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-actions", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-tree-muted", children: "\u540E\u7EED AI \u8C03\u7528\u5C06\u76F4\u63A5\u6784\u5EFA" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", onClick: () => {
+          void restorePreview();
+        }, children: "\u6062\u590D\u9884\u89C8\u786E\u8BA4" })
+      ] }),
+      preview.error && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: preview.error }),
+      buildModeError && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: buildModeError }),
+      settled && isPreview && !preview.planId && !preview.error && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", children: "\u6B64\u9884\u89C8\u7F3A\u5C11\u786E\u8BA4\u51ED\u636E\uFF0C\u8BF7\u5728\u5BF9\u8BDD\u4E2D\u91CD\u65B0\u8FD0\u884C\u9884\u89C8\u3002" }),
+      message && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": requestError ? "" : void 0, children: message })
+    ] })
   ] });
 }
 function PanelRoot(props) {

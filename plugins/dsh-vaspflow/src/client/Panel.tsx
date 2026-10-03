@@ -168,7 +168,7 @@ export interface PanelProps {
 
 export function Panel(props: PanelProps) {
   const {
-    projectPath, projectId, tasks, directories, loading, scanProgress,
+    projectPath, projectId, tasks, directories, loading, scanProgress, scanError,
     selectedTask, selectedBuildTask, buildDryRun, buildModeError, viewTab, filterStatus, filterConverged, searchText, open,
     workspaceItems,
   } = usePanelStore();
@@ -198,8 +198,9 @@ export function Panel(props: PanelProps) {
       try {
         const data = await scanProject(projectPath.trim());
         if (data && !data.error) panelStore.applyScan(data);
-      } catch {
-        panelStore.failIncrementalScan();
+        else panelStore.failIncrementalScan(undefined, data?.error);
+      } catch (error) {
+        panelStore.failIncrementalScan(undefined, error instanceof Error ? error.message : String(error));
       } finally {
         panelStore.setLoading(false);
         if (closeScanRef.current === closeStream) closeScanRef.current = null;
@@ -612,7 +613,16 @@ export function Panel(props: PanelProps) {
         {selectedBuildTask ? (
           <BuildPreviewDetail detail={selectedBuildTask} />
         ) : !selectedTask ? (
-          <Empty style={{ marginTop: 30 }} description="点击「任务列表」选择任务" />
+          <Empty style={{ marginTop: 30 }} description={
+            scanError ? <span style={{ color: '#ff4d4f' }}>{scanError}</span>
+              : loading ? '正在扫描目录…'
+                : projectId !== null && tasks.length === 0 ? (
+                  <span>
+                    未发现 VASP 任务<br />
+                    <Text type="secondary" style={{ fontSize: 12 }}>已检查当前目录及其子目录。请选择包含 POSCAR、INCAR、KPOINTS、POTCAR 的计算目录。</Text>
+                  </span>
+                ) : hasTree ? '点击「任务列表」选择任务' : '输入目录路径并点击蓝色按钮扫描'
+          } />
         ) : (
           <>
             <div style={{ marginBottom: 8 }}>
@@ -796,15 +806,15 @@ function TaskStatusEvidence({ task }: { task: Task }) {
           : '#8c8c8c';
   return (
     <div style={{ fontSize: 15, lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
-      <div style={{ padding: '12px 14px', border: '1px solid #30384d', borderLeft: `4px solid ${statusColor}`, borderRadius: 8, background: '#171f32' }}>
+      <div style={{ padding: '12px 14px', border: '1px solid var(--dsw-alias-border-l2,#e5e6eb)', borderLeft: `4px solid ${statusColor}`, borderRadius: 8, background: 'var(--dsw-alias-bg-elevated,#f5f5f5)' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
           <Text strong style={{ fontSize: 16 }}>{status?.label ?? '待检查'}</Text>
           <Text type="secondary" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>扫描于 {formatDateTime(status?.observedAt)}</Text>
         </div>
         <div style={{ marginTop: 5, fontSize: 16 }}>{status?.reason ?? '旧版任务记录尚无状态理由；请刷新项目。'}</div>
         {primaryEvidence?.file ? <Text type="secondary" style={{ display: 'block', marginTop: 5, fontSize: 13 }}>依据：{primaryEvidence.file}</Text> : null}
-        {primaryEvidence?.excerpt ? <div style={{ marginTop: 5, padding: '5px 8px', color: '#b7c1d8', background: '#101726', borderRadius: 4, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap' }}>{primaryEvidence.excerpt}</div> : null}
-        {extraEvidence.length ? <div style={{ marginTop: 7, color: '#b7c1d8', fontSize: 13 }}>其他发现：{extraEvidence.map((item) => item.message).join('；')}</div> : null}
+        {primaryEvidence?.excerpt ? <div style={{ marginTop: 5, padding: '5px 8px', color: 'var(--dsw-alias-label-primary,#1f2329)', background: 'var(--dsw-alias-bg-base,#fff)', borderRadius: 4, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap' }}>{primaryEvidence.excerpt}</div> : null}
+        {extraEvidence.length ? <div style={{ marginTop: 7, color: 'var(--dsw-alias-label-secondary,#65746b)', fontSize: 13 }}>其他发现：{extraEvidence.map((item) => item.message).join('；')}</div> : null}
       </div>
       {input?.profileId ? (
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 8px', padding: '2px 2px 0' }}>

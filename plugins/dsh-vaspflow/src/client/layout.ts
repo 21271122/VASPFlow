@@ -120,12 +120,12 @@ export function mountPanelLayout(opts: PanelLayoutOptions): PanelLayoutApi {
    * Where our track is inserted: before aionui's columns when they exist, so
    * aionui's "explorer is rightmost" assumption holds.
    */
-  const insertionIndex = (tracks: string[]): number => {
+  const insertionIndex = (tracks: string[], includesOurTrack = false): number => {
     const hasAionui = frame !== null
       && (frame.querySelector('[data-aionui-preview-col]') !== null
         || frame.querySelector('[data-aionui-explorer-col]') !== null);
     if (hasAionui && tracks.length >= 3) return Math.min(3, tracks.length);
-    return tracks.length;
+    return includesOurTrack ? tracks.length - 1 : tracks.length;
   };
 
   /**
@@ -148,7 +148,7 @@ export function mountPanelLayout(opts: PanelLayoutOptions): PanelLayoutApi {
     const hasOurs = tracks.length === baseTracks.length + 1 && baseTracks.length > 0;
     if (hasOurs) {
       // Our track exists; refresh its width if it changed (drag).
-      const at = insertionIndex(tracks);
+      const at = insertionIndex(tracks, true);
       if (tracks[at] === w) return false;
       const next = [...tracks];
       next[at] = w;
@@ -203,7 +203,7 @@ export function mountPanelLayout(opts: PanelLayoutOptions): PanelLayoutApi {
         if (inline !== '') {
           const tracks = parseGridTracks(inline);
           if (tracks.length === baseTracks.length + 1 && baseTracks.length > 0) {
-            const at = insertionIndex(tracks);
+            const at = insertionIndex(tracks, true);
             const next = [...tracks];
             next.splice(at, 1);
             frame.style.gridTemplateColumns = next.join(' ');
@@ -251,7 +251,7 @@ export function mountPanelLayout(opts: PanelLayoutOptions): PanelLayoutApi {
         if (inline !== '') {
           const tracks = parseGridTracks(inline);
           if (tracks.length === baseTracks.length + 1 && baseTracks.length > 0) {
-            const at = insertionIndex(tracks);
+            const at = insertionIndex(tracks, true);
             tracks.splice(at, 1);
             frame.style.gridTemplateColumns = tracks.join(' ');
           }
