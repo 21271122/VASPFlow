@@ -5,7 +5,7 @@
  */
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, existsSync, copyFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { apply } from '../index.js';
@@ -18,6 +18,7 @@ function makeFakeCtx() {
   const prefixes = new Map();
   const registered = [];
   const services = new Map();
+  const hooks = new Map();
   const tools = {
     register(def) {
       registered.push(def);
@@ -40,7 +41,7 @@ function makeFakeCtx() {
       if (key === 'webServer' || key === 'httpServer') return webServer;
       return undefined;
     },
-    on() {},
+    on(name, handler) { hooks.set(name, handler); },
     effect(fn) {
       fn();
       return () => {};
@@ -60,7 +61,7 @@ function makeFakeCtx() {
     },
     match,
   };
-  return { ctx, routes, match, registered, services };
+  return { ctx, routes, match, registered, services, hooks };
 }
 
 /** Drive a route handler with a request and return the parsed JSON body. */
@@ -127,7 +128,7 @@ test('apply registers routes globally and VASP tools only through the preset ser
   const toolNames = registered.map((t) => t.name);
   assert.deepEqual(toolNames.sort(), [
     'vasp_build_inputs', 'vasp_check_inputs',
-    'vasp_convergence', 'vasp_discover_inputs', 'vasp_done', 'vasp_inspect_task', 'vasp_inspect_tasks',
+    'vasp_convergence', 'vasp_discover_inputs', 'vasp_done', 'vasp_inspect_tasks',
     'vasp_say', 'vasp_scan', 'vasp_structure_scene',
   ].sort());
 });
@@ -181,6 +182,67 @@ test('build preview confirmation writes selected tasks and user can switch direc
     assert.equal(againPreview.dryRun, true);
     assert.equal(existsSync(join(root, 'after-restore')), false);
   } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('dragged sources re-preview one build task and confirmation writes the revised plan', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-repreview-'));
+  try {
+    for (const name of ['POSCAR', 'INCAR', 'KPOINTS', 'POTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(root, name));
+    writeFileSync(join(root, 'ALT.vasp'), SAMPLE_POSCAR.replace('sample', 'alternate'));
+    mkdirSync(join(root, 'template-b'));
+    writeFileSync(join(root, 'template-b', 'INCAR'), 'SYSTEM = new-template\nNSW = 80\n');
+    for (const name of ['KPOINTS', 'POTCAR']) copyFileSync(join(root, name), join(root, 'template-b', name));
+    const { ctx, match, registered, services } = makeFakeCtx();
+    apply(ctx, {});
+    services.get('vaspflowTools').register(ctx);
+    const builder = registered.find((tool) => tool.name === 'vasp_build_inputs');
+    const preview = await builder.execute({ projectRoot: root, tasks: [{ dir: 'revised', poscarSrc: 'POSCAR', incarSrc: 'INCAR', sources: { incar: 'INCAR', kpoints: 'KPOINTS', potcar: 'POTCAR' }, sdPolicy: 'keep' }] }, {});
+    const source = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, taskIndex: 0, sourceKind: 'structure', rootPath: root, relPath: '.', file: 'ALT.vasp' });
+    assert.equal(source.status, 200, JSON.stringify(source.body));
+    assert.equal(source.body.tasks[0].poscarSrc, join(root, 'ALT.vasp'));
+    const template = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, taskIndex: 0, sourceKind: 'template', rootPath: root, relPath: 'template-b' });
+    assert.equal(template.status, 200, JSON.stringify(template.body));
+    assert.equal(template.body.tasks[0].incarSrc, undefined);
+    assert.equal(template.body.tasks[0].sources.incar, undefined);
+    assert.equal(template.body.wroteCount, 0);
+    assert.equal(existsSync(join(root, 'revised')), false);
+    const result = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, selectedIndices: [0] });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.match(readFileSync(join(root, 'revised', 'POSCAR'), 'utf8'), /alternate/);
+    assert.match(readFileSync(join(root, 'revised', 'INCAR'), 'utf8'), /new-template/);
+    const stale = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, taskIndex: 0, sourceKind: 'template', rootPath: root, relPath: 'template-b' });
+    assert.equal(stale.status, 404);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a confirmed preview is visible to the next model turn and after host restart', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-confirm-context-'));
+  const oldHome = process.env.DSH_HOME;
+  process.env.DSH_HOME = join(root, 'dsh-home');
+  try {
+    for (const name of ['POSCAR', 'INCAR', 'KPOINTS', 'POTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(root, name));
+    const sessionId = 'test-confirm-context';
+    const { ctx, match, registered, services, hooks } = makeFakeCtx();
+    apply(ctx, {});
+    services.get('vaspflowTools').register(ctx);
+    const builder = registered.find((item) => item.name === 'vasp_build_inputs');
+    const preview = await builder.execute({ projectRoot: root, tasks: [{ dir: 'confirmed', poscarSrc: 'POSCAR', incarSrc: 'INCAR', kpointsSrc: 'KPOINTS', potcarSrc: 'POTCAR', sdPolicy: 'keep' }] }, { agent: { session: { header: { id: sessionId } } }, concludeTurn() {} });
+    const assembled = () => hooks.get('system-prompt/assemble')({}, { agent: { session: { header: { id: sessionId } } } }, async () => ({ tools: [{ name: 'vasp_build_inputs' }], contexts: [] }));
+    assert.match((await assembled()).contexts[0].text, /尚未写入/);
+    const response = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, selectedIndices: [0] });
+    assert.equal(response.status, 200);
+    assert.match((await assembled()).contexts[0].text, /用户已在界面确认，写入 1\/1/);
+    const restarted = makeFakeCtx();
+    apply(restarted.ctx, {});
+    const context = await restarted.hooks.get('system-prompt/assemble')({}, { agent: { session: { header: { id: sessionId } } } }, async () => ({ tools: [{ name: 'vasp_build_inputs' }], contexts: [] }));
+    assert.match(context.contexts[0].text, /用户已在界面确认，写入 1\/1/);
+  } finally {
+    if (oldHome === undefined) delete process.env.DSH_HOME;
+    else process.env.DSH_HOME = oldHome;
     rmSync(root, { recursive: true, force: true });
   }
 });
@@ -313,6 +375,27 @@ test('files and file-content routes', async () => {
   assert.equal(content.body.totalSize, content.body.size);
 });
 
+test('discovered structure files preview through VASPFlow even outside a complete task', async () => {
+  const sourceDir = join(SAMPLE_ROOT, 'structure-only');
+  mkdirSync(sourceDir, { recursive: true });
+  writeFileSync(join(sourceDir, 'candidate.vasp'), SAMPLE_POSCAR);
+  mkdirSync(join(sourceDir, 'nested'), { recursive: true });
+  writeFileSync(join(sourceDir, 'nested', 'nested.vasp'), SAMPLE_POSCAR);
+  const { ctx, match } = makeFakeCtx();
+  apply(ctx, { defaultScanRoot: '' });
+  const opened = await callRoute(match, `/plugins/dsh-vaspflow/task/open-by-path?root_path=${encodeURIComponent(SAMPLE_ROOT)}&rel_path=structure-only`, 'POST');
+  assert.equal(opened.status, 200);
+  const structures = await callRoute(match, `/plugins/dsh-vaspflow/task/${opened.body.id}/structure-files`);
+  assert.ok(structures.body.files.includes('candidate.vasp'));
+  assert.ok(!structures.body.files.includes('nested.vasp'));
+  const scene = await callRoute(match, `/plugins/dsh-vaspflow/task/${opened.body.id}/structure-scene?file=candidate.vasp`);
+  assert.equal(scene.status, 200);
+  assert.ok(scene.body.atoms.length > 0);
+  const preview = await callRoute(match, `/plugins/dsh-vaspflow/task/${opened.body.id}/file-content?name=candidate.vasp&offset=0`);
+  assert.equal(preview.status, 200);
+  assert.equal(preview.body.content, SAMPLE_POSCAR);
+});
+
 test('file-content route reads a large file in bounded chunks', async () => {
   const { ctx, match } = makeFakeCtx();
   apply(ctx, { defaultScanRoot: '' });
@@ -351,7 +434,7 @@ test('VASP preset bridge registers the host service only in its own scope', () =
   };
   vaspPresetTools.apply(presetCtx);
 
-  assert.equal(registered.length, 10);
+  assert.equal(registered.length, 9);
   for (const tool of registered) {
     assert.equal(Object.hasOwn(tool.parameters ?? {}, 'taskId'), false, `${tool.name} must not expose taskId`);
   }
@@ -363,13 +446,38 @@ test('path-based convergence and structure tools work without a task id or prior
   services.get('vaspflowTools').register(ctx);
   const convergence = registered.find((tool) => tool.name === 'vasp_convergence');
   const structure = registered.find((tool) => tool.name === 'vasp_structure_scene');
-  const args = { rootPath: SAMPLE_ROOT, relPath: '1-NO3-Cu111' };
-  const convergenceResult = await convergence.execute(args, {});
-  const structureResult = await structure.execute(args, {});
+  const convergenceResult = await convergence.execute({ rootPath: SAMPLE_ROOT, relPaths: ['1-NO3-Cu111'] }, {});
+  const structureResult = await structure.execute({ rootPath: SAMPLE_ROOT, structures: [{ relPath: '1-NO3-Cu111' }] }, {});
   assert.equal(convergenceResult.error, '');
-  assert.equal(convergenceResult.rel_path, args.relPath);
-  assert.ok(convergenceResult.ion_steps.length > 0);
+  assert.equal(convergenceResult.results[0].rel_path, '1-NO3-Cu111');
+  assert.ok(convergenceResult.results[0].ion_steps.length > 0);
   assert.equal(structureResult.error, '');
-  assert.equal(structureResult.rel_path, args.relPath);
-  assert.ok(structureResult.atoms.length > 0);
+  assert.equal(structureResult.results[0].rel_path, '1-NO3-Cu111');
+  assert.ok(structureResult.results[0].atoms.length > 0);
+});
+
+test('convergence and structure tools return separate cross-task result panes', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-multi-scene-'));
+  try {
+    for (const rel of ['A', 'B']) {
+      const dir = join(root, rel);
+      mkdirSync(dir);
+      for (const name of ['POSCAR', 'CONTCAR', 'INCAR', 'KPOINTS', 'POTCAR', 'OSZICAR', 'OUTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(dir, name));
+    }
+    const { ctx, services, registered } = makeFakeCtx();
+    apply(ctx, {});
+    services.get('vaspflowTools').register(ctx);
+    const convergence = registered.find((tool) => tool.name === 'vasp_convergence');
+    const structure = registered.find((tool) => tool.name === 'vasp_structure_scene');
+    const curves = await convergence.execute({ rootPath: root, relPaths: ['A', 'B'] }, {});
+    const scenes = await structure.execute({ rootPath: root, structures: [{ relPath: 'A', file: 'CONTCAR' }, { relPath: 'B', file: 'POSCAR' }] }, {});
+    assert.deepEqual(curves.results.map((row) => row.rel_path), ['A', 'B']);
+    assert.ok(curves.results.every((row) => row.ion_steps.length === 3));
+    assert.ok(curves.results.every((row) => row.source_path?.startsWith(root)));
+    assert.deepEqual(scenes.results.map((row) => `${row.rel_path}/${row.file}`), ['A/CONTCAR', 'B/POSCAR']);
+    assert.ok(scenes.results.every((row) => row.atoms.length > 0));
+    assert.equal(structure.output.presentationMeta({}, scenes).results.length, 2);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

@@ -6,6 +6,7 @@ import { List, Spin, Empty, Typography, Tooltip, Modal, Button, Space } from 'an
 import { FileTextOutlined, FolderOutlined, FileOutlined, EyeOutlined } from '@ant-design/icons';
 import { fetchFileContent, fetchTaskFiles } from './api';
 import type { TaskDirEntry, TaskFileEntry } from './api';
+import { isStructureFile, startStructureDrag } from './structure-drag';
 
 const { Text } = Typography;
 
@@ -33,7 +34,7 @@ function isTextFile(ext: string, name: string): boolean {
   return textExts.includes(ext.toUpperCase()) || standardTextNames.has(upperName) || Boolean(ext && ext.length <= 5);
 }
 
-const FileList: React.FC<{ taskId: number }> = ({ taskId }) => {
+const FileList: React.FC<{ taskId: number; rootPath: string; relPath: string }> = ({ taskId, rootPath, relPath }) => {
   const [files, setFiles] = useState<TaskFileEntry[]>([]);
   const [dirs, setDirs] = useState<TaskDirEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,7 +104,7 @@ const FileList: React.FC<{ taskId: number }> = ({ taskId }) => {
             size="small"
             dataSource={dirs}
             renderItem={(d) => (
-              <List.Item style={{ padding: '2px 8px' }}>
+              <List.Item draggable onDragStart={(event) => startStructureDrag(event.dataTransfer, { kind: 'directory', rootPath, relPath: `${relPath === '.' ? '' : `${relPath}/`}${d.name}` })} style={{ padding: '2px 8px', cursor: 'grab' }}>
                 <FolderOutlined style={{ color: '#faad14', marginRight: 6 }} />
                 <Text style={{ fontSize: 12 }}>{d.name}</Text>
               </List.Item>
@@ -118,7 +119,9 @@ const FileList: React.FC<{ taskId: number }> = ({ taskId }) => {
         dataSource={files}
         renderItem={(f) => (
           <List.Item
-            style={{ padding: '2px 8px', cursor: isTextFile(f.ext, f.name) ? 'pointer' : 'default' }}
+            draggable={isStructureFile(f.name)}
+            onDragStart={(event) => { if (isStructureFile(f.name)) startStructureDrag(event.dataTransfer, { kind: 'file', rootPath, relPath, file: f.name }); }}
+            style={{ padding: '2px 8px', cursor: isStructureFile(f.name) ? 'grab' : isTextFile(f.ext, f.name) ? 'pointer' : 'default' }}
             onClick={() => handleFileClick(f)}
           >
             <Tooltip title={f.name}>

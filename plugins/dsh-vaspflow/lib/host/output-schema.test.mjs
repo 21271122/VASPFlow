@@ -101,8 +101,8 @@ function renderedText(toolDefinition, args, value) {
 }
 
 test('model-visible tool renders keep the requested result details', () => {
-  const inspect = tool('vasp_inspect_task');
-  const inspectText = renderedText(inspect, { include: ['status', 'files', 'preview'] }, {
+  const inspect = tool('vasp_inspect_tasks');
+  const inspectRow = {
     rel_path: 'calc',
     status: { code: 'ERROR_DETECTED', label: '检测到错误', reason: 'slurm.out 匹配 ZBRENT_FATAL', evidence: [{ file: 'slurm.out', message: '匹配错误签名 ZBRENT_FATAL' }] },
     task_type: { code: 'RELAXATION', label: '结构优化 / 晶胞优化' },
@@ -110,12 +110,12 @@ test('model-visible tool renders keep the requested result details', () => {
     output_files: [{ path: 'OUTCAR', size: 1200 }],
     files: [{ name: 'INCAR', size: 80 }, { name: 'POSCAR', size: 400 }],
     dirs: [{ name: 'restart' }],
-    preview: { name: 'INCAR', size: 80, truncated: false, content: 'IBRION = 2' },
     recommended_actions: [],
     error: '',
-  });
-  assert.match(inspectText, /目录文件.*INCAR/);
-  assert.match(inspectText, /文件预览：INCAR/);
+  };
+  const inspectText = renderedText(inspect, {}, { results: [inspectRow], error: '' });
+  assert.match(inspectText, /文件.*INCAR/);
+  assert.match(inspectText, /先前输入规则检查记录/);
   assert.match(inspectText, /ZBRENT_FATAL/);
 
   const scanText = renderedText(tool('vasp_scan'), {}, {
@@ -127,15 +127,15 @@ test('model-visible tool renders keep the requested result details', () => {
   assert.match(scanText, /calc \| 检测到错误 \| 结构优化/);
 
   const convergenceText = renderedText(tool('vasp_convergence'), {}, {
-    rel_path: 'calc', ion_steps: [1, 2], energies: [-1, -2], max_forces: [0.4, 0.1], error: '',
+    results: [{ rel_path: 'calc', ion_steps: [1, 2], energies: [-1, -2], max_forces: [0.4, 0.1], error: '' }], error: '',
   });
   assert.match(convergenceText, /能量/);
   assert.match(convergenceText, /-2/);
 
   const structureText = renderedText(tool('vasp_structure_scene'), {}, {
-    summary: { formula: 'CuN', atom_count: 2 }, atoms: [{ element: 'Cu' }], bonds: [], bond_families: [], cell: {}, version: 1, warnings: [], error: '',
+    results: [{ rel_path: 'calc', file: 'CONTCAR', summary: { formula: 'CuN', atom_count: 2 }, atoms: [{ element: 'Cu' }], bonds: [], bond_families: [], cell: {}, version: 1, warnings: [], error: '' }], error: '',
   });
-  assert.match(structureText, /结构摘要/);
+  assert.match(structureText, /CONTCAR/);
   assert.match(structureText, /CuN/);
 
   const buildText = renderedText(tool('vasp_build_inputs'), {}, {
@@ -227,10 +227,10 @@ test('all vasp_* tools honor the shared top-level error contract', async () => {
     assertValidOutputs(scan, scanResult);
     assert.equal(scanResult.error, '');
     const successCases = [
-      ['vasp_convergence', { rootPath: dir, relPath: 'calc' }],
-      ['vasp_structure_scene', { rootPath: dir, relPath: 'calc' }],
-      ['vasp_inspect_task', { rootPath: dir, relPath: 'calc', include: ['status', 'files', 'preview'], file: { name: 'INCAR', part: 'head' } }],
-      ['vasp_inspect_tasks', { rootPath: dir, relPaths: ['calc', 'good'], include: ['status', 'files'] }],
+      ['vasp_convergence', { rootPath: dir, relPaths: ['calc'] }],
+      ['vasp_structure_scene', { rootPath: dir, structures: [{ relPath: 'calc' }] }],
+      ['vasp_inspect_tasks', { rootPath: dir, relPaths: ['calc'] }],
+      ['vasp_inspect_tasks', { rootPath: dir, relPaths: ['calc', 'good'] }],
       ['vasp_build_inputs', { projectRoot: dir, tasks: [{ dir: 'built', poscarSrc: 'struc/surface.vasp', template: 'tpl', submitSrc: 'tpl/submit.slurm' }], dryRun: true }],
       ['vasp_check_inputs', { projectRoot: dir, dirs: ['good'] }],
       ['vasp_discover_inputs', { rootPath: dir }],
@@ -244,10 +244,9 @@ test('all vasp_* tools honor the shared top-level error contract', async () => {
 
     const failureCases = [
       ['vasp_scan', { rootPath: join(dir, 'missing') }],
-      ['vasp_inspect_task', { rootPath: join(dir, 'missing'), relPath: 'calc' }],
       ['vasp_inspect_tasks', { rootPath: join(dir, 'missing'), relPaths: ['calc'] }],
-      ['vasp_convergence', { rootPath: join(dir, 'missing'), relPath: 'calc' }],
-      ['vasp_structure_scene', { rootPath: join(dir, 'missing'), relPath: 'calc' }],
+      ['vasp_convergence', { rootPath: join(dir, 'missing'), relPaths: ['calc'] }],
+      ['vasp_structure_scene', { rootPath: join(dir, 'missing'), structures: [{ relPath: 'calc' }] }],
       ['vasp_discover_inputs', { rootPath: join(dir, 'missing') }],
     ];
     for (const [name, args] of failureCases) {
@@ -262,7 +261,7 @@ test('all vasp_* tools honor the shared top-level error contract', async () => {
   }
 });
 
-test('vasp_inspect_tasks checks several tasks in one call and keeps per-task failures', async () => {
+test('vasp_inspect_tasks reads status and file lists for several tasks without preview options', async () => {
   const dir = makeFixture();
   try {
     mkdirSync(join(dir, 'good2'));
@@ -270,11 +269,13 @@ test('vasp_inspect_tasks checks several tasks in one call and keeps per-task fai
       writeFileSync(join(dir, 'good2', name), content);
     }
     const batch = tool('vasp_inspect_tasks');
-    const result = await batch.execute({ rootPath: dir, relPaths: ['good', 'good2', 'missing'], include: ['status', 'files'] }, {});
+    assert.deepEqual(Object.keys(batch.parameters.properties).sort(), ['relPaths', 'rootPath']);
+    const result = await batch.execute({ rootPath: dir, relPaths: ['good', 'good2', 'missing'] }, {});
     assertValidOutputs(batch, result);
     assert.equal(result.error, '');
     assert.deepEqual(result.results.map((row) => row.rel_path), ['good', 'good2', 'missing']);
     assert.ok(result.results[0].files.some((file) => file.name === 'INCAR'));
+    assert.equal(result.results[0].preview, undefined);
     assert.ok(result.results[1].status?.code);
     assert.match(result.results[2].error, /不是已识别的 VASP 任务/);
     assert.match(renderedText(batch, {}, result), /good2/);
@@ -289,6 +290,8 @@ test('vasp_check_inputs output passes the host validator (good/bad/not-found)', 
   try {
     const result = await checker.execute({ dirs: ['good', 'bad', 'missing'].map((d) => join(dir, d)) }, {});
     assertValidOutputs(checker, result);
+    assert.equal(result.project_root, process.cwd());
+    assert.equal(checker.output.presentationMeta({}, result).projectRoot, process.cwd());
     assert.equal(result.results.length, 3);
     assert.equal(result.results[0].poscarPotcar, 'OK');
     assert.equal(result.results[0].error, '');            // error is always a string
@@ -525,6 +528,7 @@ test('vasp_discover_inputs lists candidate templates with files and parameters',
     assert.equal(t1.files.length, 4);
     const t2 = result.templates.find((t) => t.relPath === 't2');
     assert.equal(t2.complete, false);
+    assert.deepEqual(t2.missing, ['KPOINTS', 'POTCAR', '提交脚本（可选）']);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

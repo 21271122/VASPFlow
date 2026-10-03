@@ -12,6 +12,7 @@ import {
   AppstoreOutlined, UnorderedListOutlined, MessageOutlined, MenuOutlined, DownOutlined,
 } from '@ant-design/icons';
 import { panelStore, usePanelStore } from './store';
+import { startStructureDrag } from './structure-drag';
 import type { BuildTaskDetail } from './store';
 import { scanProject, scanProjectEvents, openTaskByPath, checkTaskInputs } from './api';
 import { StatusBadge, TaskTable, TreeView, taskStatusCode } from './components';
@@ -377,13 +378,13 @@ export function Panel(props: PanelProps) {
       // vasprun.xml — not "VASP tasks") still hold structure files that the
       // viewer can render. Only the convergence chart needs a real task.
       disabled: !selectedTask,
-      children: selectedTask ? <StructureViewer taskId={selectedTask.id} /> : null,
+      children: selectedTask ? <StructureViewer taskId={selectedTask.id} rootPath={projectPath} relPath={selectedTask.rel_path} /> : null,
     },
     {
       key: 'files',
       label: '文件',
       disabled: !selectedTask,
-      children: selectedTask ? <FileList taskId={selectedTask.id} /> : null,
+      children: selectedTask ? <FileList taskId={selectedTask.id} rootPath={projectPath} relPath={selectedTask.rel_path} /> : null,
     },
   ];
 
@@ -616,11 +617,13 @@ export function Panel(props: PanelProps) {
           <>
             <div style={{ marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <Tooltip placement="top" title={copiedPath === selectedPath ? '已复制绝对路径' : selectedPath}>
+                <Tooltip placement="top" title={copiedPath === selectedPath ? '已复制绝对路径' : `${selectedPath} · 可拖至结构卡片`}>
                   <span
                     role="button"
                     tabIndex={0}
+                    draggable
                     aria-label="复制任务绝对路径"
+                    onDragStart={(event) => { startStructureDrag(event.dataTransfer, { kind: 'task', rootPath: projectPath, relPath: selectedTask.rel_path }); }}
                     onClick={() => { void copySelectedPath(); }}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
@@ -628,7 +631,7 @@ export function Panel(props: PanelProps) {
                         void copySelectedPath();
                       }
                     }}
-                    style={{ fontSize: 16, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 160px', cursor: 'pointer' }}
+                    style={{ fontSize: 16, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 160px', cursor: 'grab' }}
                   >
                     {selectedParent && <Text type="secondary">{selectedParent} / </Text>}
                     <Text strong>{selectedTask.label}</Text>

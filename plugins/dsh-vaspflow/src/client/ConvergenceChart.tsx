@@ -8,8 +8,21 @@ import {
 } from 'recharts';
 import { Spin, Empty, Switch } from 'antd';
 import { fetchConvergence } from './api';
+import type { ConvergenceResponse } from './api';
 
-const ConvergenceChart: React.FC<{ taskId: number }> = ({ taskId }) => {
+function chartRows(response: ConvergenceResponse): any[] {
+  const { ion_steps, energies, max_forces } = response;
+  return ion_steps.flatMap((step, i) => {
+    const previous = ion_steps[i - 1];
+    const gap = i > 0 && step > previous + 1;
+    return [
+      ...(gap ? [{ step: previous + 1, energy: null, force: null }] : []),
+      { step, energy: energies[i] ?? null, force: max_forces[i] ?? null },
+    ];
+  });
+}
+
+const ConvergenceChart: React.FC<{ taskId?: number; series?: ConvergenceResponse }> = ({ taskId, series }) => {
   const [data, setData] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -17,6 +30,14 @@ const ConvergenceChart: React.FC<{ taskId: number }> = ({ taskId }) => {
   const [logEnergy, setLogEnergy] = useState(false);
 
   useEffect(() => {
+    if (series) {
+      setData(series.ion_steps?.length ? chartRows(series) : []);
+      setErrorMsg(series.error || null);
+      setSource(series.source_path ? `${series.source_path}${series._source ? ` · ${series._source}` : ''}` : series._source || 'OSZICAR / OUTCAR');
+      setLoading(false);
+      return;
+    }
+    if (taskId === undefined) return;
     setLoading(true);
     setData(null);
     setErrorMsg(null);
@@ -26,21 +47,12 @@ const ConvergenceChart: React.FC<{ taskId: number }> = ({ taskId }) => {
           setErrorMsg(response.error || '数据为空');
           return;
         }
-        const { ion_steps, energies, max_forces, _source } = response;
-        setSource(_source || `${ion_steps.length} 条离子步记录`);
-        const chartData = ion_steps.flatMap((step: number, i: number) => {
-          const previous = ion_steps[i - 1];
-          const gap = i > 0 && step > previous + 1;
-          return [
-            ...(gap ? [{ step: previous + 1, energy: null, force: null }] : []),
-            { step, energy: energies[i] ?? null, force: max_forces[i] ?? null },
-          ];
-        });
-        setData(chartData);
+        setSource(response.source_path ? `${response.source_path}${response._source ? ` · ${response._source}` : ''}` : response._source || 'OSZICAR / OUTCAR');
+        setData(chartRows(response));
       })
       .catch(() => setData([]))
       .finally(() => setLoading(false));
-  }, [taskId]);
+  }, [taskId, series]);
 
   const relData = useMemo(() => {
     if (!data || data.length === 0) return data;
@@ -60,7 +72,7 @@ const ConvergenceChart: React.FC<{ taskId: number }> = ({ taskId }) => {
 
   return (
     <div>
-      <div style={{ marginBottom: 2, fontSize: 11, color: 'var(--dsw-alias-label-tertiary, #999)' }}>
+      <div title={`数据来源: ${source}`} style={{ marginBottom: 2, fontSize: 11, color: 'var(--dsw-alias-label-tertiary, #999)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
         数据来源: {source}
       </div>
       <div style={{ marginBottom: 4 }}>

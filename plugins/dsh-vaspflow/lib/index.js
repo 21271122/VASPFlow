@@ -43,6 +43,8 @@ import { scanTemplates } from './host/scan-templates.js';
 import { fileURLToPath } from 'node:url';
 import { join as joinPath, basename, dirname, resolve as resolvePath, relative as relativePath, isAbsolute, sep } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 
 export const name = 'dsh-vaspflow';
@@ -90,41 +92,6 @@ function taskAtPath(rootPath, relPath) {
   return task ? { ...task, root_path: rootPath } : null;
 }
 
-function previewCursor(offset, length) {
-  return Buffer.from(JSON.stringify({ offset, length })).toString('base64url');
-}
-
-function parsePreviewCursor(cursor) {
-  try {
-    const value = JSON.parse(Buffer.from(String(cursor), 'base64url').toString('utf8'));
-    return Number.isSafeInteger(value?.offset) && Number.isSafeInteger(value?.length) ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-function taskPreview(info, file) {
-  if (!file?.name) return null;
-  const bytes = Math.min(512 * 1024, Math.max(1, Number(file.bytes) || 256 * 1024));
-  const part = file.part ?? 'tail';
-  const cursor = part === 'previous' ? parsePreviewCursor(file.cursor) : null;
-  if (part === 'previous' && !cursor) throw new Error('读取上一段需要使用上次返回的 cursor');
-  const options = { length: bytes };
-  if (part === 'head') options.offset = 0;
-  if (cursor) options.offset = Math.max(0, cursor.offset - bytes);
-  const preview = readTextPreview(info, file.name, options);
-  return {
-    name: preview.name,
-    size: preview.totalSize,
-    content: preview.content,
-    truncated: preview.truncated,
-    hasBefore: preview.hasBefore,
-    hasAfter: preview.hasAfter,
-    cursor: previewCursor(preview.offset, preview.length),
-    previousCursor: preview.hasBefore ? previewCursor(preview.offset, preview.length) : '',
-  };
-}
-
 const RENDER_TEXT_LIMIT = 30_000;
 
 function clipRenderText(value, limit = RENDER_TEXT_LIMIT) {
@@ -159,48 +126,19 @@ function renderFileList(files, limit = 120) {
   return lines.join(', ');
 }
 
-function renderTaskInspection(args, value) {
-  if (value.error) return [{ type: 'text', text: `任务核查失败：${value.error}` }];
-  const includes = new Set(args?.include?.length ? args.include : ['status', 'files']);
-  const status = value.status ?? {};
-  const taskType = value.task_type ?? {};
-  const inputCheck = value.input_check ?? {};
-  const lines = [
-    `任务：${value.rel_path}`,
-    `状态：${status.label ?? status.code ?? '未知'}${status.reason ? `（${status.reason}）` : ''}`,
-    `任务类型：${taskType.label ?? taskType.code ?? '未知'}`,
-    `输入检查：${inputCheck.label ?? inputCheck.code ?? '未检查'}`,
-    `状态证据：\n${renderEvidence(status.evidence)}`,
-    `输出文件：${renderFileList(value.output_files)}`,
-  ];
-  if (inputCheck.evidence?.length) lines.push(`输入检查证据：\n${renderEvidence(inputCheck.evidence)}`);
-  if (includes.has('files')) {
-    lines.push(`目录文件（${value.files?.length ?? 0}）：${renderFileList(value.files)}`);
-    lines.push(`子目录（${value.dirs?.length ?? 0}）：${Array.isArray(value.dirs) && value.dirs.length > 0 ? value.dirs.map((dir) => dir.name).join(', ') : '无'}`);
-  }
-  if (includes.has('preview')) {
-    const preview = value.preview;
-    lines.push(preview
-      ? `文件预览：${preview.name}（${preview.size} B${preview.truncated ? '，片段' : ''}）\n${clipRenderText(preview.content, 12_000)}${preview.truncated ? `\n续读 cursor：${preview.cursor}；前段可用：${preview.hasBefore ? '是' : '否'}；后段可用：${preview.hasAfter ? '是' : '否'}` : ''}`
-      : '文件预览：未返回（请提供 file.name）');
-  }
-  if (value.recommended_actions?.length) lines.push(`建议：${value.recommended_actions.join('；')}`);
-  return [{ type: 'text', text: clipRenderText(lines.join('\n\n')) }];
-}
-
 function renderBatchInspection(value) {
-  if (value.error) return [{ type: 'text', text: `批量核查失败：${value.error}` }];
+  if (value.error) return [{ type: 'text', text: `读取计算状态失败：${value.error}` }];
   const rows = value.results.map((row) => row.error
-    ? `${row.rel_path} | 核查失败：${row.error}`
-    : `${row.rel_path} | ${row.status?.label ?? row.status?.code ?? '未知'} | 输入检查：${row.input_check?.label ?? '未检查'} | 文件：${renderFileList(row.files, 16)}`);
-  return [{ type: 'text', text: clipRenderText(`批量核查 ${value.results.length} 个任务：\n${rows.join('\n')}`) }];
+    ? `${row.rel_path} | 读取失败：${row.error}`
+    : `${row.rel_path} | 计算状态：${row.status?.label ?? row.status?.code ?? '未知'}${row.status?.reason ? `（${row.status.reason}）` : ''} | 先前输入规则检查记录：${row.input_check?.profileId ? `${row.input_check.profileId} / ${row.input_check.label}` : '无'} | 状态证据：${renderEvidence(row.status?.evidence, 4)} | 文件：${renderFileList(row.files, 16)}`);
+  return [{ type: 'text', text: clipRenderText(`查看 ${value.results.length} 个任务的计算状态（输入正确性须调用 vasp_check_inputs；先前记录不代表本次复查）：\n${rows.join('\n')}`) }];
 }
 
-function inspectScannedTask(rootPath, relPath, scanResult, store, includes, file) {
+function inspectScannedTask(rootPath, relPath, scanResult, store) {
   const task = scanResult.tasks.find((candidate) => normalizeRelPath(candidate.rel_path) === normalizeRelPath(relPath));
-  if (!task) return { root_path: rootPath, rel_path: relPath, files: [], dirs: [], preview: null, error: '目录不是已识别的 VASP 任务：需要四个标准输入文件，或符合 NEB 父目录结构' };
+  if (!task) return { root_path: rootPath, rel_path: relPath, files: [], dirs: [], error: '目录不是已识别的 VASP 任务：需要四个标准输入文件，或符合 NEB 父目录结构' };
   const info = store.getTask(task.id) ?? { ...task, root_path: rootPath };
-  const entries = includes.has('files') ? listFilesAndDirs(taskDir(info)) : { files: [], dirs: [] };
+  const entries = listFilesAndDirs(taskDir(info));
   return {
     root_path: rootPath,
     rel_path: task.rel_path,
@@ -211,7 +149,6 @@ function inspectScannedTask(rootPath, relPath, scanResult, store, includes, file
     recommended_actions: statusActions(task.status_record.code),
     files: entries.files,
     dirs: entries.dirs,
-    preview: includes.has('preview') ? taskPreview(info, file) : null,
     error: '',
   };
 }
@@ -231,7 +168,7 @@ function renderScanResult(value) {
   const directories = (value.directories ?? []).slice(0, 120).map((directory) => `${directory.rel_path} | ${directory.label}`);
   if ((value.directories ?? []).length > 120) directories.push(`…另有 ${(value.directories ?? []).length - 120} 个目录`);
   return [{ type: 'text', text: clipRenderText([
-    `扫描完成：${value.tasks?.length ?? 0} 个 VASP 任务，${value.directories?.length ?? 0} 个目录（project_id=${value.project_id}）`,
+    `扫描目录：${value.root_path}；扫描完成：${value.tasks?.length ?? 0} 个 VASP 任务，${value.directories?.length ?? 0} 个子目录（含任务目录；project_id=${value.project_id}）`,
     `状态统计：${Object.entries(counts).map(([label, count]) => `${label} ${count}`).join('；') || '无'}`,
     `任务清单：\n${rows.length > 0 ? rows.join('\n') : '无'}`,
     `普通目录：\n${directories.length > 0 ? directories.join('\n') : '无'}`,
@@ -345,7 +282,7 @@ function parseQuery(url) {
  * that preset. `store` remains host-owned so agent scans and the dock panel
  * still observe the same task ids and task data.
  */
-export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode = { dryRun: true }) {
+export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode = { dryRun: true }, buildOutcomes = new Map(), saveBuildOutcomes = () => {}) {
 
   ctx.tools.register(defineTool({
     name: 'vasp_scan',
@@ -359,6 +296,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
         additionalProperties: false,
         properties: {
           project_id: { type: 'number' },
+          root_path: { type: 'string' },
           tasks: {
             type: 'array',
             items: {
@@ -395,76 +333,28 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
         },
       },
       render: (_args, value) => renderScanResult(value),
-      presentationMeta: (args, value) => ({ rootPath: args.rootPath, error: value.error, tasks: value.tasks, directories: value.directories }),
+      presentationMeta: (_args, value) => ({ rootPath: value.root_path, error: value.error, tasks: value.tasks, directories: value.directories }),
     },
     async execute(args) {
       const error = directoryError(args.rootPath);
-      if (error) return { project_id: 0, tasks: [], directories: [], error };
+      if (error) return { project_id: 0, root_path: args.rootPath, tasks: [], directories: [], error };
       try {
         const scanResult = await scanProject(args.rootPath);
         const projectId = store.addProject(args.rootPath, scanResult.tasks, scanResult.directories);
-        return { project_id: projectId, tasks: scanResult.tasks, directories: scanResult.directories, error: '' };
+        return { project_id: projectId, root_path: args.rootPath, tasks: scanResult.tasks, directories: scanResult.directories, error: '' };
       } catch (caught) {
-        return { project_id: 0, tasks: [], directories: [], error: `Scan failed: ${String(caught)}` };
+        return { project_id: 0, root_path: args.rootPath, tasks: [], directories: [], error: `Scan failed: ${String(caught)}` };
       }
     },
-    presentCall: (args) => ({ card: 'generic', title: 'Scan VASP project', kind: 'other', rawInput: args }),
-  }));
-
-  ctx.tools.register(defineTool({
-    name: 'vasp_inspect_task',
-    description: '按稳定的 rootPath + relPath 核查单个 VASP 任务。多个任务需要相同核查时使用 vasp_inspect_tasks。此工具返回状态、输入检查、输出证据和目录文件清单，并可预览一个文件；预览 cursor 是不透明续读标记。',
-    parameters: {
-      rootPath: { type: 'string', required: true, description: '项目根目录绝对路径。' },
-      relPath: { type: 'string', required: true, description: '任务相对项目根目录的路径。' },
-      include: { type: 'array', items: { type: 'string', enum: ['status', 'files', 'preview'] }, description: '需要的部分；默认返回状态和文件清单。' },
-      file: { type: 'object', additionalProperties: false, description: '仅 include 包含 preview 时使用。', properties: {
-        name: { type: 'string' },
-        part: { type: 'string', enum: ['head', 'tail', 'previous'] },
-        bytes: { type: 'number' },
-        cursor: { type: 'string' },
-      } },
-    },
-    output: {
-      schema: {
-        type: 'object', additionalProperties: false, properties: {
-          root_path: { type: 'string' }, rel_path: { type: 'string' },
-          task_type: { type: 'object', additionalProperties: true },
-          status: { type: 'object', additionalProperties: true },
-          input_check: { type: 'object', additionalProperties: true },
-          output_files: { type: 'array', items: { type: 'object', additionalProperties: true } },
-          recommended_actions: { type: 'array', items: { type: 'string' } },
-          files: { type: 'array', items: { type: 'object', additionalProperties: true } },
-          dirs: { type: 'array', items: { type: 'object', additionalProperties: true } },
-          preview: { type: 'json' },
-          error: { type: 'string', required: true },
-        },
-      },
-      render: (args, value) => renderTaskInspection(args, value),
-      presentationMeta: (_args, value) => ({ rootPath: value.root_path, relPath: value.rel_path, status: value.status, inputCheck: value.input_check, preview: value.preview, error: value.error }),
-    },
-    async execute(args) {
-      const error = directoryError(args.rootPath);
-      if (error) return { root_path: args.rootPath, rel_path: args.relPath, files: [], dirs: [], preview: null, error };
-      try {
-        const scanResult = await scanProject(args.rootPath);
-        store.addProject(args.rootPath, scanResult.tasks, scanResult.directories);
-        const includes = new Set(args.include?.length ? args.include : ['status', 'files']);
-        return inspectScannedTask(args.rootPath, args.relPath, scanResult, store, includes, args.file);
-      } catch (caught) {
-        return { root_path: args.rootPath, rel_path: args.relPath, files: [], dirs: [], preview: null, error: `Task inspection failed: ${String(caught)}` };
-      }
-    },
-    presentCall: (args) => ({ card: 'generic', title: 'Inspect VASP task', kind: 'other', rawInput: args }),
+    presentCall: (args) => ({ card: 'generic', title: '扫描计算目录', kind: 'other', rawInput: args }),
   }));
 
   ctx.tools.register(defineTool({
     name: 'vasp_inspect_tasks',
-    description: '一次核查多个已识别的 VASP 任务，只扫描项目一次。返回每个任务的状态、输入检查、输出证据和可选文件清单；单文件内容预览仍使用 vasp_inspect_task。多个任务需要同类核查时优先使用此工具，不要逐个调用单任务工具。',
+    description: '一次查看 1–200 个 VASP 任务的计算运行状态：读取输出证据和目录文件清单；只展示此前输入规则检查记录，不重新校验输入文件。需要检查输入正确性时使用 vasp_check_inputs；要读文件内容时使用文件读取工具。',
     parameters: {
       rootPath: { type: 'string', required: true, description: '项目根目录绝对路径。' },
       relPaths: { type: 'array', required: true, items: { type: 'string' }, description: '相对于项目根目录的任务路径列表。' },
-      include: { type: 'array', items: { type: 'string', enum: ['status', 'files'] }, description: '需要的部分；默认返回状态和文件清单。' },
     },
     output: {
       schema: { type: 'object', additionalProperties: false, properties: {
@@ -473,7 +363,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
         error: { type: 'string', required: true },
       } },
       render: (_args, value) => renderBatchInspection(value),
-      presentationMeta: (_args, value) => ({ rootPath: value.root_path, error: value.error, results: value.results.map((row) => ({ relPath: row.rel_path, status: row.status, inputCheck: row.input_check, fileCount: row.files?.length ?? 0, error: row.error })) }),
+      presentationMeta: (_args, value) => ({ rootPath: value.root_path, error: value.error, results: value.results.map((row) => ({ relPath: row.rel_path, status: row.status, inputCheck: row.input_check, fileCount: row.files?.length ?? 0, filesListed: true, outputFiles: row.output_files, error: row.error })) }),
     },
     async execute(args) {
       const error = directoryError(args.rootPath);
@@ -483,157 +373,114 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
       try {
         const scanResult = await scanProject(args.rootPath);
         store.addProject(args.rootPath, scanResult.tasks, scanResult.directories);
-        const includes = new Set(args.include?.length ? args.include : ['status', 'files']);
         const results = relPaths.map((relPath) => {
-          try { return inspectScannedTask(args.rootPath, relPath, scanResult, store, includes); }
-          catch (caught) { return { root_path: args.rootPath, rel_path: relPath, files: [], dirs: [], preview: null, error: `Task inspection failed: ${String(caught)}` }; }
+          try { return inspectScannedTask(args.rootPath, relPath, scanResult, store); }
+          catch (caught) { return { root_path: args.rootPath, rel_path: relPath, files: [], dirs: [], error: `Task inspection failed: ${String(caught)}` }; }
         });
         return { root_path: args.rootPath, results, error: '' };
       } catch (caught) {
         return { root_path: args.rootPath, results: [], error: `Batch inspection failed: ${String(caught)}` };
       }
     },
-    presentCall: (args) => ({ card: 'generic', title: `核查 ${args.relPaths?.length ?? 0} 个 VASP 任务`, kind: 'other', rawInput: args }),
+    presentCall: (args) => ({ card: 'generic', title: `查看 ${args.relPaths?.length ?? 0} 个 VASP 任务的计算状态`, kind: 'other', rawInput: args }),
   }));
 
   ctx.tools.register(defineTool({
     name: 'vasp_convergence',
-    description: '按 rootPath + relPath 读取一个 VASP 任务的收敛数据（每个离子步的能量与最大力）。不依赖临时 taskId。返回 {ion_steps, energies, max_forces}。',
+    description: '读取 1–12 个 VASP 任务的收敛数据；每个任务独立给出离子步、能量和最大力，可在对话中切换比较。',
     parameters: {
       rootPath: { type: 'string', required: true, description: '项目根目录绝对路径。' },
-      relPath: { type: 'string', required: true, description: '任务相对项目根目录的路径。' },
+      relPaths: { type: 'array', required: true, items: { type: 'string' }, description: '1–12 个相对项目根目录的任务路径。' },
     },
     output: {
       schema: {
         type: 'object',
         additionalProperties: false,
         properties: {
-          ion_steps: { type: 'array', items: { type: 'number' } },
-          energies: { type: 'array', items: { type: 'number' } },
-          max_forces: { type: 'array', items: { type: 'number' } },
           root_path: { type: 'string' },
-          rel_path: { type: 'string' },
+          results: { type: 'array', items: { type: 'object', additionalProperties: true } },
           error: { type: 'string', required: true },
         },
       },
       render: (_args, value) => [{
         type: 'text',
-        text: value.error
-          ? `收敛数据不可用：${value.error}`
-          : clipRenderText([
-            `任务：${value.rel_path}`,
-            `收敛数据：${value.ion_steps.length} 个离子步，最终能量 ${value.energies.at(-1)?.toFixed(6) ?? '未知'} eV`,
-            `离子步：${renderJson(renderSeries(value.ion_steps))}`,
-            `能量：${renderJson(renderSeries(value.energies))}`,
-            `最大力：${renderJson(renderSeries(value.max_forces))}`,
-          ].join('\n')),
+        text: value.error ? `收敛数据不可用：${value.error}` : clipRenderText(value.results.map((row) => row.error
+          ? `${row.rel_path}：${row.error}`
+          : `${row.rel_path}：${row.ion_steps.length} 个离子步，末步能量 ${row.energies.at(-1)?.toFixed(6) ?? '未知'} eV；离子步 ${renderJson(renderSeries(row.ion_steps))}；能量 ${renderJson(renderSeries(row.energies))}；最大力 ${renderJson(renderSeries(row.max_forces))}`).join('\n')),
       }],
-      presentationMeta: (_args, value) => ({ rootPath: value.root_path, relPath: value.rel_path, ionSteps: value.ion_steps?.length ?? 0, finalEnergy: value.energies?.at(-1), error: value.error }),
+      presentationMeta: (_args, value) => ({ rootPath: value.root_path, results: value.results, error: value.error }),
     },
     async execute(args) {
-      const info = taskAtPath(args.rootPath, args.relPath);
-      if (!info) {
-        return { ion_steps: [], energies: [], max_forces: [], root_path: args.rootPath, rel_path: args.relPath, error: `VASP task not found at ${args.rootPath}\\${args.relPath}` };
-      }
-      try {
-        const { _source, ...result } = await parseConvergence(taskDir(info));
-        return { ...result, root_path: args.rootPath, rel_path: info.rel_path, error: result.error ?? '' };
-      } catch (caught) {
-        return { ion_steps: [], energies: [], max_forces: [], root_path: args.rootPath, rel_path: args.relPath, error: `Convergence parse failed: ${String(caught)}` };
-      }
+      const rootError = directoryError(args.rootPath);
+      if (rootError) return { root_path: args.rootPath, results: [], error: rootError };
+      const relPaths = [...new Set(args.relPaths ?? [])];
+      if (relPaths.length < 1 || relPaths.length > 12) return { root_path: args.rootPath, results: [], error: '请提供 1–12 个任务路径' };
+      const results = await Promise.all(relPaths.map(async (relPath) => {
+        const info = taskAtPath(args.rootPath, relPath);
+        if (!info) return { rel_path: relPath, ion_steps: [], energies: [], max_forces: [], error: '未找到 VASP 任务' };
+        try {
+          const result = await parseConvergence(taskDir(info));
+          const sourceFile = result._source?.startsWith('OUTCAR') ? 'OUTCAR' : result._source?.startsWith('OSZICAR') ? 'OSZICAR' : '';
+          return { ...result, source_path: sourceFile ? joinPath(taskDir(info), sourceFile) : taskDir(info), rel_path: info.rel_path, error: result.error ?? '' };
+        } catch (caught) {
+          return { rel_path: relPath, ion_steps: [], energies: [], max_forces: [], error: `收敛数据解析失败：${String(caught)}` };
+        }
+      }));
+      return { root_path: args.rootPath, results, error: '' };
     },
-    presentCall: (args) => ({ card: 'generic', title: 'VASP convergence', kind: 'other', rawInput: args }),
+    presentCall: (args) => ({ card: 'generic', title: '查看收敛曲线', kind: 'other', rawInput: args }),
   }));
 
   ctx.tools.register(defineTool({
     name: 'vasp_structure_scene',
-    description: '按 rootPath + relPath 读取一个 VASP 任务的 3D 结构场景 JSON（晶胞、原子、键、键族、摘要）。不依赖临时 taskId；file 可选（默认 CONTCAR）。',
+    description: '读取 1–12 个结构文件并直接在对话中显示 3D 场景；可跨任务比较，每个结构独立标签页。',
     parameters: {
       rootPath: { type: 'string', required: true, description: '项目根目录绝对路径。' },
-      relPath: { type: 'string', required: true, description: '任务相对项目根目录的路径。' },
-      file: { type: 'string', description: '结构文件名，默认 CONTCAR。' },
+      structures: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+        relPath: { type: 'string', required: true }, file: { type: 'string', description: '结构文件名，默认 CONTCAR。' },
+      } }, description: '1–12 个结构引用，可来自不同任务，也可比较同一任务不同文件。' },
     },
     output: {
       schema: {
         type: 'object',
         additionalProperties: false,
         properties: {
-          version: { type: 'number' },
-          cell: { type: 'object', additionalProperties: true },
-          atoms: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: true,
-              properties: {
-                id: { type: 'string' },
-                site_index: { type: 'number' },
-                element: { type: 'string' },
-                position: { type: 'array', items: { type: 'number' } },
-                is_periodic_image: { type: 'boolean' },
-              },
-            },
-          },
-          bonds: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: true,
-              properties: {
-                id: { type: 'string' },
-                family_key: { type: 'string' },
-                start_atom_index: { type: 'number' },
-                end_atom_index: { type: 'number' },
-                length: { type: 'number' },
-              },
-            },
-          },
-          bond_families: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: true,
-              properties: {
-                key: { type: 'string' },
-                elements: { type: 'array', items: { type: 'string' } },
-              },
-            },
-          },
-          summary: { type: 'object', additionalProperties: true },
-          warnings: { type: 'array', items: { type: 'string' } },
           root_path: { type: 'string' },
-          rel_path: { type: 'string' },
+          results: { type: 'array', items: { type: 'object', additionalProperties: true } },
           error: { type: 'string', required: true },
         },
       },
       render: (_args, value) => [{
         type: 'text',
-        text: value.error
-          ? `结构读取失败：${value.error}`
-          : clipRenderText([
-            `结构：${value.summary?.formula ?? '未知'}，${value.summary?.atom_count ?? value.atoms?.length ?? 0} 原子，${value.atoms?.length ?? 0} 个原子位点，${value.bonds?.length ?? 0} 条键`,
-            `结构摘要：${renderJson(value.summary ?? {})}`,
-            `晶胞与原子场景：${renderJson({ version: value.version, cell: value.cell, atoms: value.atoms, bonds: value.bonds, bond_families: value.bond_families, warnings: value.warnings })}`,
-          ].join('\n')),
+        text: value.error ? `结构读取失败：${value.error}` : clipRenderText(value.results.map((row) => row.error
+          ? `${row.rel_path}/${row.file}：${row.error}`
+          : `${row.rel_path}/${row.file}：${row.summary?.formula ?? '未知'}，${row.summary?.atom_count ?? row.atoms?.length ?? 0} 原子，${row.bonds?.length ?? 0} 条键；摘要 ${renderJson(row.summary ?? {})}；场景 ${renderJson({ cell: row.cell, atoms: row.atoms, bonds: row.bonds, bond_families: row.bond_families, warnings: row.warnings })}`).join('\n')),
       }],
-      presentationMeta: (_args, value) => ({ rootPath: value.root_path, relPath: value.rel_path, summary: value.summary, warnings: value.warnings, error: value.error }),
+      presentationMeta: (_args, value) => ({ rootPath: value.root_path, results: value.results, error: value.error }),
     },
     async execute(args) {
-      const info = taskAtPath(args.rootPath, args.relPath);
-      if (!info) return { root_path: args.rootPath, rel_path: args.relPath, error: `VASP task not found at ${args.rootPath}\\${args.relPath}` };
-      const filePath = resolveTaskFile(info, args.file ?? 'CONTCAR');
-      if (!filePath) return { root_path: args.rootPath, rel_path: info.rel_path, error: `File ${args.file ?? 'CONTCAR'} not found at ${taskDir(info)}` };
-      try {
-        return { ...getStructureScene(filePath, { includeConnectivity: true, bondAlgorithm: 'minimum-distance' }), root_path: args.rootPath, rel_path: info.rel_path, error: '' };
-      } catch (caught) {
-        return { root_path: args.rootPath, rel_path: info.rel_path, error: `Structure parse failed: ${String(caught)}` };
-      }
+      const rootError = directoryError(args.rootPath);
+      if (rootError) return { root_path: args.rootPath, results: [], error: rootError };
+      const structures = args.structures ?? [];
+      if (structures.length < 1 || structures.length > 12) return { root_path: args.rootPath, results: [], error: '请提供 1–12 个结构' };
+      const results = structures.map(({ relPath, file = 'CONTCAR' }) => {
+        const info = taskAtPath(args.rootPath, relPath);
+        if (!info) return { rel_path: relPath, file, error: '未找到 VASP 任务' };
+        const filePath = resolveTaskFile(info, file);
+        if (!filePath) return { rel_path: info.rel_path, file, error: '未找到结构文件' };
+        try {
+          return { ...getStructureScene(filePath, { includeConnectivity: true, bondAlgorithm: 'minimum-distance' }), rel_path: info.rel_path, file, error: '' };
+        } catch (caught) {
+          return { rel_path: info.rel_path, file, error: `结构解析失败：${String(caught)}` };
+        }
+      });
+      return { root_path: args.rootPath, results, error: '' };
     },
-    presentCall: (args) => ({ card: 'generic', title: 'VASP structure scene', kind: 'other', rawInput: args }),
+    presentCall: (args) => ({ card: 'generic', title: '查看原子结构', kind: 'other', rawInput: args }),
   }));
 
   // The two legacy taskId file tools remain here only as a short-lived source
-  // compatibility adapter. New VASP Agent sessions use vasp_inspect_task.
+  // compatibility adapter. New VASP Agent sessions use vasp_inspect_tasks.
   if (false) {
   ctx.tools.register(defineTool({
     name: 'vasp_task_files',
@@ -825,7 +672,13 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
             if (Date.now() - plan.createdAt > 30 * 60 * 1000) buildPlans.delete(id);
           }
           const planId = randomUUID();
-          buildPlans.set(planId, { projectRoot, tasks: structuredClone(args.tasks), linkPotcar: !!args.linkPotcar, createdAt: Date.now() });
+          const sessionId = exec?.agent?.session?.header?.id;
+          buildPlans.set(planId, { projectRoot, tasks: structuredClone(args.tasks), linkPotcar: !!args.linkPotcar, sessionId, createdAt: Date.now() });
+          if (sessionId) {
+            const rows = buildOutcomes.get(sessionId) ?? [];
+            buildOutcomes.set(sessionId, [...rows.slice(-19), { planId, state: 'pending', projectRoot, dirs: args.tasks.map((task) => task.dir), updatedAt: Date.now() }]);
+            saveBuildOutcomes();
+          }
           exec?.concludeTurn?.();
           return { ...result, projectRoot, planId, error: '' };
         }
@@ -862,6 +715,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
     output: {
       schema: {
         type: 'object', additionalProperties: false, properties: {
+          project_root: { type: 'string' },
           results: {
             type: 'array', items: {
               type: 'object', additionalProperties: true, properties: {
@@ -903,11 +757,11 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
           return (r.error ? '[CRASH] ' : '[ok] ') + r.dir + ' -> ' + r.resolved + ' | POTCAR-POSCAR: ' + r.poscarPotcar + ' | SD: ' + r.sd + ' | ' + inc + ' | ' + r.kpoints + check + evidence + (r.error ? ' | ' + r.error : '') + warn;
         }).join('\n') + `\n目录一致性：${value.consistency?.note ?? '未提供'}\n[面板同步] 已关联 ${value.linked_count ?? 0} 个任务${value.unlinked_dirs?.length ? `；未关联：${value.unlinked_dirs.join(', ')}` : ''}`),
       }],
-      presentationMeta: (args, value) => ({ projectRoot: args.projectRoot, profileId: args.profileId, results: value.results, consistency: value.consistency, error: value.error }),
+      presentationMeta: (args, value) => ({ projectRoot: value.project_root ?? args.projectRoot, profileId: args.profileId, results: value.results, consistency: value.consistency, error: value.error }),
     },
     execute(args, exec) {
+      const projectRoot = args.projectRoot ?? workspaceOf(exec);
       try {
-        const projectRoot = args.projectRoot ?? workspaceOf(exec);
         const result = checkInputs(args.dirs ?? [], { projectRoot });
         const rows = result.results.map((row) => ({ ...row, input_check: buildInputCheck(row, args.profileId) }));
         let linkedCount = 0;
@@ -918,12 +772,12 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
           if (linked) linkedCount += 1;
           else unlinkedDirs.push(row.resolved);
         }
-        return { ...result, results: rows, linked_count: linkedCount, unlinked_dirs: unlinkedDirs, error: '' };
+        return { ...result, project_root: projectRoot, results: rows, linked_count: linkedCount, unlinked_dirs: unlinkedDirs, error: '' };
       } catch (caught) {
-        return { results: [], consistency: { uniform: true, groups: [], note: '' }, linked_count: 0, unlinked_dirs: [], error: `Check inputs failed: ${String(caught)}` };
+        return { project_root: projectRoot, results: [], consistency: { uniform: true, groups: [], note: '' }, linked_count: 0, unlinked_dirs: [], error: `Check inputs failed: ${String(caught)}` };
       }
     },
-    presentCall: (args) => ({ card: 'generic', title: 'Check VASP inputs', kind: 'other', rawInput: args }),
+    presentCall: (args) => ({ card: 'generic', title: '校验 VASP 输入', kind: 'other', rawInput: args }),
   }));
 
   ctx.tools.register(defineTool({
@@ -937,6 +791,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
     output: {
       schema: {
         type: 'object', additionalProperties: false, properties: {
+          root_path: { type: 'string' },
           sources: { type: 'object', additionalProperties: true },
           templates: { type: 'array', items: { type: 'object', additionalProperties: true } },
           error: { type: 'string', required: true },
@@ -947,30 +802,30 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
         text: value.error
           ? `输入发现失败：${value.error}`
           : clipRenderText([
-            `结构源：${value.sources.count} 个；一致性：${value.sources.consistency.note}`,
+            `扫描目录：${value.root_path}；结构源文件：${value.sources.count} 个；一致性：${value.sources.consistency.note}`,
             `结构源明细：${renderJson(value.sources.files ?? [])}`,
-            `候选模板：${value.templates.length} 个`,
+            `含 INCAR 的候选模板目录：${value.templates.length} 个；这些不是参数组合数，也未自动选择`,
             `模板明细：${renderJson(value.templates)}`,
           ].join('\n')),
       }],
-      presentationMeta: (args, value) => ({ rootPath: args.rootPath, sources: value.sources, templates: value.templates, error: value.error }),
+      presentationMeta: (_args, value) => ({ rootPath: value.root_path, sources: value.sources, templates: value.templates, error: value.error }),
     },
     execute(args, exec) {
-      const rootPath = args.rootPath ?? workspaceOf(exec);
+      const rootPath = resolvePath(args.rootPath ?? workspaceOf(exec));
       const error = directoryError(rootPath);
-      if (error) return { sources: { files: [], count: 0, consistency: { uniform: true, groups: [], note: '' } }, templates: [], error };
+      if (error) return { root_path: rootPath, sources: { files: [], count: 0, consistency: { uniform: true, groups: [], note: '' } }, templates: [], error };
       try {
         const include = new Set(args.include?.length ? args.include : ['sources', 'templates']);
         const sources = include.has('sources')
           ? srcInspect(rootPath, args.maxDepth ?? 10)
           : { files: [], count: 0, consistency: { uniform: true, groups: [], note: '未请求结构源盘点' } };
         const templates = include.has('templates') ? scanTemplates(rootPath, args.maxDepth ?? 10).templates : [];
-        return { sources, templates, error: '' };
+        return { root_path: rootPath, sources, templates, error: '' };
       } catch (caught) {
-        return { sources: { files: [], count: 0, consistency: { uniform: true, groups: [], note: '' } }, templates: [], error: `Input discovery failed: ${String(caught)}` };
+        return { root_path: rootPath, sources: { files: [], count: 0, consistency: { uniform: true, groups: [], note: '' } }, templates: [], error: `Input discovery failed: ${String(caught)}` };
       }
     },
-    presentCall: (args) => ({ card: 'generic', title: 'Discover VASP inputs', kind: 'other', rawInput: args }),
+    presentCall: (args) => ({ card: 'generic', title: '寻找构建材料', kind: 'other', rawInput: args }),
   }));
   ctx.tools.register(defineTool({
     name: 'vasp_say',
@@ -1062,12 +917,44 @@ export function apply(ctx, config) {
   const store = new TaskStore();
   const buildPlans = new Map();
   const buildMode = { dryRun: config?.dryRun !== false };
+  const outcomeFile = joinPath(process.env.DSH_HOME || joinPath(homedir(), '.dsh'), 'vaspflow', 'build-outcomes.json');
+  let savedOutcomes = {};
+  try { savedOutcomes = JSON.parse(readFileSync(outcomeFile, 'utf8')); } catch { /* no prior outcomes */ }
+  const buildOutcomes = new Map(Object.entries(savedOutcomes).filter(([, rows]) => Array.isArray(rows)));
+  const saveBuildOutcomes = () => {
+    try {
+      mkdirSync(dirname(outcomeFile), { recursive: true });
+      writeFileSync(outcomeFile, JSON.stringify(Object.fromEntries([...buildOutcomes].slice(-40))), 'utf8');
+    } catch { /* live session still retains the result */ }
+  };
+  const updateBuildOutcome = (sessionId, planId, patch) => {
+    if (!sessionId) return;
+    const rows = buildOutcomes.get(sessionId) ?? [];
+    buildOutcomes.set(sessionId, rows.map((row) => row.planId === planId ? { ...row, ...patch, updatedAt: Date.now() } : row));
+    saveBuildOutcomes();
+  };
+
+  ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+    const assembly = await next();
+    if (!assembly.tools?.some((tool) => tool.name === 'vasp_build_inputs')) return assembly;
+    const sessionId = context.agent?.session?.header?.id;
+    const outcomes = buildOutcomes.get(sessionId)?.slice(-8);
+    if (!outcomes?.length) return assembly;
+    const text = outcomes.map((item) => item.state === 'confirmed'
+      ? `构建计划 ${item.planId}：用户已在界面确认，写入 ${item.wroteCount}/${item.selectedCount} 个任务，失败 ${item.errorCount} 个；目录数据：${JSON.stringify(item.dirs.slice(0, 12))}。不要说仍待确认。`
+      : item.state === 'cancelled'
+        ? `构建计划 ${item.planId}：用户已取消，未执行写入。`
+        : item.state === 'invalidated' || Date.now() - item.updatedAt > 30 * 60 * 1000
+          ? `构建计划 ${item.planId}：预览已失效，尚未写入；需要重新预览。`
+          : `构建计划 ${item.planId}：仍在预览，尚未写入；目录数据：${JSON.stringify(item.dirs.slice(0, 12))}。`).join('\n');
+    return { ...assembly, contexts: [...assembly.contexts, { name: 'vasp-build-outcomes', text }] };
+  }, { global: true });
 
   // This service is consumed only by preset/vasp/tools/vaspflow-tools.mjs.
   // Its tool definitions close over this store, preserving panel/Agent state.
   ctx.provide('vaspflowTools', {
     register(toolCtx) {
-      registerVaspTools(toolCtx, store, buildPlans, buildMode);
+      registerVaspTools(toolCtx, store, buildPlans, buildMode, buildOutcomes, saveBuildOutcomes);
     },
   });
 
@@ -1125,6 +1012,63 @@ export function apply(ctx, config) {
       },
     }), 'dsh-vaspflow: input build mode');
 
+    // Replace one source in an existing preview plan. The edited plan is used
+    // by confirmation, so the visible re-preview and eventual write agree.
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: '/plugins/dsh-vaspflow/build-inputs/repreview',
+      handler: async (req, res) => {
+        if (req.method !== 'POST') return json(res, 405, { error: 'POST required' });
+        try {
+          let raw = '';
+          for await (const chunk of req) {
+            raw += chunk.toString();
+            if (raw.length > 4096) return json(res, 413, { error: 'Request too large' });
+          }
+          const { planId, taskIndex, sourceKind, rootPath, relPath, file } = JSON.parse(raw);
+          const plan = typeof planId === 'string' ? buildPlans.get(planId) : null;
+          if (!plan || Date.now() - plan.createdAt > 30 * 60 * 1000) {
+            buildPlans.delete(planId);
+            return json(res, 404, { error: '预览已使用或过期，请重新预览' });
+          }
+          if (!Number.isInteger(taskIndex) || taskIndex < 0 || taskIndex >= plan.tasks.length
+            || !['structure', 'template'].includes(sourceKind)
+            || typeof rootPath !== 'string' || !isAbsolute(rootPath) || !isDirectory(rootPath)
+            || typeof relPath !== 'string') return json(res, 400, { error: '无效的构建来源' });
+          const root = resolvePath(rootPath);
+          const sourceDir = resolvePath(root, relPath);
+          const inside = relativePath(root, sourceDir);
+          if (isAbsolute(inside) || inside === '..' || inside.startsWith(`..${sep}`) || !isDirectory(sourceDir)) {
+            return json(res, 400, { error: '来源目录不在拖入的项目内' });
+          }
+          let source;
+          if (sourceKind === 'structure') {
+            if (typeof file !== 'string' || !/^(POSCAR|CONTCAR|[^\\/]+\.vasp)$/i.test(file)) return json(res, 400, { error: '请拖入结构文件' });
+            source = resolvePath(sourceDir, file);
+            if (!existsSync(source) || !statSync(source).isFile()) return json(res, 400, { error: '结构源文件不存在' });
+          } else {
+            source = sourceDir;
+            if (!existsSync(joinPath(source, 'INCAR'))) return json(res, 400, { error: '模板目录需要包含 INCAR' });
+          }
+          const tasks = structuredClone(plan.tasks);
+          const task = tasks[taskIndex];
+          if (sourceKind === 'structure') {
+            task.poscarSrc = source;
+            if (task.sources) delete task.sources.poscar;
+          } else {
+            task.template = source;
+            for (const key of ['incarSrc', 'kpointsSrc', 'potcarSrc']) delete task[key];
+            if (task.sources) for (const key of ['incar', 'kpoints', 'potcar']) delete task.sources[key];
+          }
+          const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar });
+          plan.tasks = tasks;
+          return json(res, 200, { ...preview, projectRoot: plan.projectRoot, planId, tasks, error: '' });
+        } catch (error) {
+          return json(res, 400, { error: String(error) });
+        }
+      },
+    }), 'dsh-vaspflow: replace preview source');
+
     // A preview creates an opaque server-side plan. Only its selected task
     // indices may be confirmed; the browser cannot submit arbitrary paths.
     ctx.effect(() => webServer.register({
@@ -1146,6 +1090,7 @@ export function apply(ctx, config) {
           }
           if (cancel === true) {
             buildPlans.delete(planId);
+            updateBuildOutcome(plan.sessionId, planId, { state: 'cancelled' });
             return json(res, 200, { cancelled: true });
           }
           if (!Array.isArray(selectedIndices) || selectedIndices.length === 0
@@ -1156,8 +1101,12 @@ export function apply(ctx, config) {
           buildPlans.delete(planId);
           const tasks = selectedIndices.map((index) => plan.tasks[index]);
           const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar });
-          if (preview.errorCount > 0) return json(res, 409, { error: '任务预览已出现错误，请重新检查', ...preview });
+          if (preview.errorCount > 0) {
+            updateBuildOutcome(plan.sessionId, planId, { state: 'invalidated' });
+            return json(res, 409, { error: '任务预览已出现错误，请重新检查', ...preview });
+          }
           const result = await buildInputs(plan.projectRoot, tasks, { dryRun: false, linkPotcar: plan.linkPotcar });
+          updateBuildOutcome(plan.sessionId, planId, { state: 'confirmed', selectedCount: tasks.length, wroteCount: result.wroteCount, errorCount: result.errorCount, dirs: tasks.map((task) => task.dir) });
           if (enableDirect === true && result.errorCount === 0 && result.wroteCount === tasks.length) buildMode.dryRun = false;
           store.version += 1;
           return json(res, 200, { ...result, projectRoot: plan.projectRoot, dryRunMode: buildMode.dryRun, error: '' });

@@ -43,22 +43,21 @@
       - 构建工具只表达构建意图，不传 dryRun。以本次结果的 dryRun、planId、wroteCount、count 为准，不根据上轮模式猜测。
       - dryRun=true 且有 planId 时，界面会展示“计划构建、尚未写入”与确认按钮，本轮自动结束。不要再次调用构建工具确认，不检查尚不存在的目标目录。
       - dryRun=false 时，界面展示实际写入数及失败项；若用户要求构建后检查，再调用 `vasp_check_inputs`，然后调用 `vasp_done`。
-      - 用户点击界面的「确认构建」不会自动开启新模型轮次；不要声称已经看见确认后的检查结果。
+      - 用户点击界面的「确认构建」不会自动开启新模型轮次；下一轮先读取系统上下文 `vasp-build-outcomes`。其中的已确认/已取消/过期状态优先于旧预览工具结果；已确认时可说明实际写入数，但未经检查不能声称输入正确。
 
       工具边界：
-      - 路径参数使用绝对项目根目录 `rootPath`，以及相对于项目根目录的任务路径 `relPath`。Agent 工具使用这两个路径定位任务，不使用会话内临时任务编号。
-      - `vasp_scan(rootPath)`：扫描项目树，识别严格具备 POSCAR、INCAR、KPOINTS、POTCAR 的任务，并返回任务状态、证据和普通目录。
-      - `vasp_inspect_task(rootPath, relPath, include, file)`：核查一个任务；返回状态、输入检查、输出证据、目录清单，并按需预览一个文件。用户询问某个任务或文件时使用它。
-      - `vasp_inspect_tasks(rootPath, relPaths, include)`：一次核查多个已识别任务，返回逐任务状态、输入检查和文件清单；需要多个任务的同类详情时优先使用它。文件内容预览仍使用单任务工具。
-      - `vasp_convergence(rootPath, relPath)`：返回该任务的离子步、能量和最大力序列，用于收敛曲线与趋势说明。
-      - `vasp_structure_scene(rootPath, relPath, file)`：把 POSCAR 或 CONTCAR 转为晶胞、原子、键和摘要，供原位结构视图使用。
-      - `vasp_discover_inputs(rootPath, maxDepth, include)`：构建前盘点结构源和模板候选，只报告发现结果；模板、提交脚本和原子约束仍由用户确认。
+      - 路径参数使用绝对项目根目录 `rootPath`，以及相对于该目录的任务路径列表；不使用会话内临时任务编号。
+      - `vasp_scan(rootPath)`：扫描项目树，识别严格具备 POSCAR、INCAR、KPOINTS、POTCAR 的任务，并显示扫描目录、子目录数与五种计算状态。它已经返回逐任务状态；仅需概览时不再逐个核查。
+      - `vasp_inspect_tasks(rootPath, relPaths)`：一次查看 1–200 个任务的计算运行状态、输出证据和目录文件清单，只扫描一次。它只显示已有的输入检查记录，不会重新校验输入文件；要按规则检查输入，调用 `vasp_check_inputs`。如需读取某个文件的正文，另用文件读取工具，不把文件预览混进状态查询。
+      - `vasp_convergence(rootPath, relPaths)`：一次读取 1–12 个任务的离子步、能量和最大力序列；聊天内按任务独立标签页展示曲线。
+      - `vasp_structure_scene(rootPath, structures)`：一次读取 1–12 个结构引用，每项含 relPath、可选 file（默认 CONTCAR）；聊天内按结构独立标签页展示 3D 场景，可跨任务比较。
+      - `vasp_discover_inputs(rootPath, maxDepth, include)`：构建前在指定目录和深度内寻找两类候选：可作为 POSCAR 的结构文件，以及含 INCAR 的模板目录。返回结构源文件、结构类型分组、模板目录的文件覆盖和关键 INCAR 参数；目录数不等于参数方案数。“缺项”指模板目录未提供的文件；这一步不配对、不选择、不写入。
       - `vasp_build_inputs(projectRoot, tasks)`：按明确来源批量构建输入。只提交构建意图；插件默认在当前对话的工具结果下显示「构建任务」树，用户可勾选并点击「确认构建」直接写入，或点击「交给 AI 直接构建」写入本次并开启后续直接构建。用户开启直接构建后，同样的工具调用会直接写入。
       - `vasp_check_inputs(projectRoot, dirs, profileId)`：按选定输入规则批量检查并同步已识别任务的面板结果；`profileId` 不明确时先根据用户意图确认任务类型。
 
       工作流程：
-      - 项目概览或批量状态：`vasp_scan` 已返回每个任务的状态；只需状态时到此为止，不逐个核查。多个任务确需补充文件清单或证据时，用一次 `vasp_inspect_tasks`；不要并列调用多个 `vasp_inspect_task`。
-      - 单任务状态：直接巡检该任务；需要曲线时追加收敛工具，需要结构视图时追加结构场景工具。
+      - 项目概览或批量状态：`vasp_scan` 已返回每个任务的状态；只需状态时到此为止。确需补充文件清单或证据时，用一次 `vasp_inspect_tasks`，无论一个还是多个任务。
+      - 单任务状态：用 `vasp_inspect_tasks` 传单元素列表；需要曲线时追加收敛工具，需要结构视图时追加结构场景工具。多个任务的曲线或结构尽量一次调用相应工具。
       - 输入检查：针对用户指定的目录选择规则并调用 `vasp_check_inputs`，再调用 `vasp_done`。
       - 输入构建：先发现结构源和模板 → 明确模板、提交脚本及 freeAtoms/fixedAtoms → 调用构建工具。预览会自动结束本轮；直接构建按用户要求决定是否追加输入检查，随后调用 `vasp_done`。不要自行传递或切换预览模式。
       - 任务状态解释以工具证据为准。正在运行、未发现输出、已完成、错误和未知分别说明判据；遇到错误或证据不足时保留不确定性。

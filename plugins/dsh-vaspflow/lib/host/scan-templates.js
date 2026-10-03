@@ -63,13 +63,16 @@ export function scanTemplates(rootPath, maxDepth = 3) {
       const files = ['INCAR', 'KPOINTS', 'POTCAR'].filter((f) => fs.existsSync(resolve(dir, f)));
       const sub = findSubmitName(dir);
       if (sub) files.push(sub);
+      const missing = ['INCAR', 'KPOINTS', 'POTCAR'].filter((name) => !files.includes(name));
+      if (!sub) missing.push('提交脚本（可选）');
       templates.push({
         relPath: relative(rootAbs, dir) === '' ? '.' : relative(rootAbs, dir),
         dir,
         files,
+        missing,
         submit: sub ?? '',
         params: incarParams(resolve(dir, 'INCAR')),
-        complete: files.includes('INCAR') && files.includes('KPOINTS') && files.includes('POTCAR') && sub !== null,
+        complete: missing.length === 0,
       });
     }
     for (const en of entries) {

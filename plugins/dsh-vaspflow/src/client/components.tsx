@@ -20,6 +20,8 @@ import type { ColumnsType } from 'antd/es/table';
 import type { TreeDataNode } from 'antd';
 import { panelStore, usePanelStore } from './store';
 import type { Task } from './api';
+import { startStructureDrag } from './structure-drag';
+import { scrollExpandedTreeRow } from './tree-scroll';
 
 const STATUS_META = {
   NO_OUTPUT_EVIDENCE: { label: '未发现计算输出', color: '#faad14', tag: 'gold', icon: FileOutlined },
@@ -210,7 +212,7 @@ export function TaskTable({ onTaskSelected }: {
   /** Called when a task row is selected (used to auto-close the popup). */
   onTaskSelected?: (task: Task) => void;
 }) {
-  const { tasks, loading, filterStatus, filterConverged, searchText, selectedTask } = usePanelStore();
+  const { projectPath, tasks, loading, filterStatus, filterConverged, searchText, selectedTask } = usePanelStore();
 
   const filteredTasks = React.useMemo(() => {
     let result = tasks;
@@ -341,10 +343,12 @@ export function TaskTable({ onTaskSelected }: {
       size="small"
       loading={loading}
       onRow={(record) => ({
+        draggable: true,
+        onDragStart: (event) => { startStructureDrag(event.dataTransfer, { kind: 'task', rootPath: projectPath, relPath: record.rel_path }); },
         onClick: () => { panelStore.setSelectedTask(record); panelStore.setViewTab('status'); },
         style: {
           background: selectedTask?.id === record.id ? 'var(--dsw-specific-sidebar-nav-item-active, #e6f4ff)' : undefined,
-          cursor: 'pointer',
+          cursor: 'grab',
         },
       })}
       pagination={{
@@ -374,13 +378,10 @@ export function TreeView({ onTaskSelected }: {
     [fullTree, filterStatus, filterConverged, searchText],
   );
 
+  React.useEffect(() => setExpandedKeys([]), [projectPath]);
   React.useEffect(() => {
     const visibleKeys = new Set(collectKeys(visibleTree));
-    const rootKeys = visibleTree.map((n) => n.key as string);
-    setExpandedKeys((prev) => {
-      const kept = prev.filter((key) => visibleKeys.has(String(key)));
-      return kept.length > 0 ? kept : rootKeys;
-    });
+    setExpandedKeys((prev) => prev.filter((key) => visibleKeys.has(String(key))));
   }, [visibleTree]);
 
   const selectedKeys = selectedTask ? [`dir:${normalizePath(selectedTask.rel_path)}`] : [];
@@ -447,7 +448,9 @@ export function TreeView({ onTaskSelected }: {
     );
     return (
       <span
-        style={{ userSelect: 'none' }}
+        style={{ userSelect: 'none', cursor: task || treeNode.__rel_path ? 'grab' : undefined }}
+        draggable={Boolean(task || treeNode.__rel_path)}
+        onDragStart={(event) => { if (task || treeNode.__rel_path) startStructureDrag(event.dataTransfer, { kind: task ? 'task' : 'directory', rootPath: projectPath, relPath: task?.rel_path ?? treeNode.__rel_path! }); }}
         onDoubleClick={(e) => { e.stopPropagation(); handleDoubleClick(treeNode); }}
       >
         {content}
@@ -470,7 +473,13 @@ export function TreeView({ onTaskSelected }: {
             treeData={visibleTree}
             selectedKeys={selectedKeys}
             expandedKeys={expandedKeys}
-            onExpand={(keys) => setExpandedKeys(keys)}
+            autoExpandParent={false}
+            onExpand={(_, info) => {
+              const parts = pathParts(String(info.node.key).replace(/^dir:/, ''));
+              const lineage = parts.map((_, index) => `dir:${parts.slice(0, index + 1).join('/')}`);
+              setExpandedKeys(info.expanded ? lineage : lineage.slice(0, -1));
+              if (info.expanded) scrollExpandedTreeRow((info.nativeEvent.target as Element).closest('.ant-tree-treenode') as HTMLElement | null);
+            }}
             onSelect={handleSelect}
             titleRender={titleRender}
             showIcon

@@ -89,6 +89,7 @@ export interface ConvergenceResponse {
   max_forces: number[];
   error?: string;
   _source?: string;
+  source_path?: string;
 }
 
 export interface TaskFileEntry {
