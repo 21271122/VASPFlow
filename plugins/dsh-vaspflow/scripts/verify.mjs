@@ -3,7 +3,7 @@
  *
  * - package.json exports "." and "./client" point at real files;
  * - the client bundle starts with the __ModuleLoader__.load header;
- * - cordis.patch.yml exists;
+ * - every declared bundle patch exists and the VASP preset is registered;
  * - the host half imports cleanly (deps resolvable from the package dir).
  *
  * Exit non-zero on any failure.
@@ -49,9 +49,18 @@ if (!existsSync(clientPath)) {
   }
 }
 
-// 3) cordis.patch.yml exists
-if (!existsSync(resolve(root, '../cordis.patch.yml'))) {
-  fail('cordis.patch.yml missing');
+// 3) DSH 0.2 reads the preset from a bundle patch, not .agent-presets.
+for (const patch of pkg.dsh?.bundle?.patch ?? []) {
+  if (!existsSync(resolve(root, '..', patch))) fail(`bundle patch missing: ${patch}`);
+}
+const presetPath = resolve(root, '../preset/vasp/agent.patch.yml');
+if (!existsSync(presetPath)) {
+  fail('VASP Agent preset patch missing');
+} else {
+  const preset = readFileSync(presetPath, 'utf8');
+  if (!preset.includes('id: vasp') || !preset.includes('name: dsh-vaspflow/vasp-tools')) {
+    fail('VASP Agent preset declaration or tool bridge missing');
+  }
 }
 
 // 4) host half imports

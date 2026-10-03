@@ -33,7 +33,7 @@ function setAttr(node: HTMLElement, name: string, value: string | null) {
   }
 }
 
-export function mountWorkCollapse(sessions: any): () => void {
+export function mountWorkCollapse(): () => void {
   const expanded = new Set<string>();
   let scheduled = false;
   let disposed = false;
@@ -41,14 +41,12 @@ export function mountWorkCollapse(sessions: any): () => void {
   const update = () => {
     scheduled = false;
     if (disposed) return;
-    const state = sessions.list.getSnapshot();
-    const sessionId = state.current;
-    const enabled = !!sessionId && state.byId[sessionId]?.agentPreset === 'vasp';
     for (const flow of document.querySelectorAll<HTMLElement>(FLOW)) {
+      const enabled = !!flow.querySelector('[data-dsh-vaspflow-tool]');
       const desired = new Map<HTMLElement, { first: boolean; open: boolean; label?: string; key?: string }>();
       if (enabled) for (const run of workRuns(flow)) {
         const first = run[0];
-        const key = `${sessionId}:${first.dataset.chatFlowKey ?? ''}`;
+        const key = `${flow.dataset.chatFlowKey ?? ''}:${first.dataset.chatFlowKey ?? ''}`;
         const open = expanded.has(key);
         const errors = run.some((row) => !!row.querySelector('[data-state="error"]'));
         const active = run.some((row) => !!row.querySelector('[data-state="running"]'));
@@ -90,12 +88,10 @@ export function mountWorkCollapse(sessions: any): () => void {
   };
   const observer = new MutationObserver(schedule);
   observer.observe(document.body, { childList: true, subtree: true });
-  const unsubscribe = sessions.list.subscribe(schedule);
   schedule();
   return () => {
     disposed = true;
     observer.disconnect();
-    unsubscribe();
     for (const row of document.querySelectorAll<HTMLElement>('[data-vfp-work-first],[data-vfp-work-member]')) {
       row.querySelector(`:scope > ${SUMMARY}`)?.remove();
       row.removeAttribute('data-vfp-work-first');

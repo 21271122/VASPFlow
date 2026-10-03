@@ -2,7 +2,7 @@
 
 面向 [DeepSeek Harness (DSH)](https://deepseek.com) 的 **VASP 科研助手插件**：右侧任务面板（任务列表、收敛曲线、3D 结构查看、文件浏览）+ 一套共享的 Node 数据服务。其 `vasp_*` 工具仅向随附的 VASP Agent 预设暴露。
 
-> 本插件包内含可选的 **`vasp` Agent 预设**（科研助手模式），位于 [preset/vasp](preset/vasp)。安装方法见下文。
+> 本插件包声明 **`vasp` Agent 预设**（科研助手模式），与插件一起安装。
 
 ---
 
@@ -27,42 +27,34 @@ VASP 预设采用工具输出协议：模型的每一步必须调用工具。领
 
 ### 兼容版本
 
-当前唯一允许安装的 DSH 版本为 `0.1.0-rc.6`。安装器会先执行 DSH 版本检查，检测到其他版本即停止，不会留下半安装状态。它优先使用 PATH 中的 `dsh`；Windows 上若 DSH 由 npx 缓存启动，也会自动定位缓存中的该版本。本插件尚未适配 DSH `0.1.2-rc.1` 的新版客户端模块体系。
+本分支适配 **DSH `0.2.0-rc.2`**（Web 与官方 Desktop 使用相同版本的运行时）。安装器会检查 CLI 版本；其它版本需要单独验证。旧版插件已保留在 Git 标签 `vaspflow-dsh-rc6-backup-2026-10-03`。
 
-从仓库检出版本安装时，在 DSH 的 Web profile 上执行下面这一条命令。它会同时安装插件和随附预设；`web` 是最常见的 profile 名：
+从仓库检出版本安装到 Web profile：
 
 ```bash
 node scripts/install-dsh.mjs install --profile web --package .
 ```
 
-安装后 **重启 DSH Web GUI**（不是刷新页面），在侧边栏出现 **VASP** 入口，右侧可打开任务面板。
+插件包的第二个 bundle patch 会注册 `vasp` 预设，无需复制文件到 `.agent-presets`。安装后重启 DSH Web GUI，在侧边栏打开 **VASP**，新建会话时选择 **VASP 计算助手**。
 
-发布到 npm 后，普通用户可不下载仓库，直接运行：
+本分支发布到 npm 后可运行：
 
 ```bash
 npx --yes dsh-vaspflow install --profile web
 ```
 
-安装器会调用 DSH 自己的插件命令来登记 bundle，再安装 VASP 预设；若找不到 `dsh` 命令，它会提示先安装 DSH。`--package .` 只用于仓库内本地测试，普通用户无需填写。
+安装器调用 DSH 的插件命令登记 bundle；`--package .` 用于仓库内安装。发布前请使用上面的本地安装命令。
 
-### 安装随附的 VASP Agent 预设
+### 官方 Desktop
 
-插件与预设属于同一个 VASPFlow 发布包，但 DSH 会把预设按会话加载。上述一键安装器会将 `preset/vasp` 复制到 DSH 的用户预设目录，默认不覆盖已有预设。重启 DSH 后，新建会话时选择 **VASP 计算助手**；只有该预设会注册全部 `vasp_*` 工具，普通预设不会看到它们。
+Desktop 拥有独立的 `desktop` profile。请在 Desktop 的 **插件** 页面安装本地 `plugins/dsh-vaspflow` 目录（发布后可填 npm 包名），然后重启 Desktop。也可先启动 Desktop 一次以初始化 profile，完全退出应用，再用 **Desktop 自带**的 `dsh` 命令执行 `node scripts/install-dsh.mjs install --profile desktop --package .`；npm 安装的独立 DSH CLI 不能修改 Desktop profile。预设随 bundle 注册，同样选择 **VASP 计算助手**；普通预设不会看到 `vasp_*` 工具。
 
-若明确需要用插件包内的版本替换本地预设：
-
-```bash
-npx --yes dsh-vaspflow install --profile web --replace
-```
-
-旧预设会被保留为带时间戳的备份目录。
-
-> 从 `0.1.x` 升级到 `0.2.0` 时，请务必执行一次 `node scripts/install-preset.mjs --replace`。新版将全部 `vasp_*` 工具限制为 VASP 计算助手预设；旧预设不能加载这套工具。
+从旧版升级时，旧的 `$DSH_HOME/.agent-presets/vasp` 不再被 DSH 0.2 读取；保留它作为用户数据备份即可。新预设沿用 `vasp` ID，安装新版 bundle 后可继续选择该模式。
 
 ### 依赖
 
-- **Node.js ≥ 18**
-- **pnpm**（`dsh plugin` 依赖它；可用 `corepack enable` 或 `npm i -g pnpm` 安装）
+- **Node.js：以 DSH 0.2 的要求为准**（本地验证使用 Node.js 22.23.2）
+- **pnpm**（Web CLI 的 `dsh plugin` 依赖它；官方 Desktop 自带）
 - **DSH**（`dsh` CLI 在 PATH 中）
 
 `dsh plugin` 会自动 pnpm 安装插件依赖，并将之写入 profile 的 `dsh.profile.bundles` 层。
@@ -101,7 +93,6 @@ pnpm install --frozen-lockfile
 npm run build          # 构建浏览器 bundle → lib/client.js
 npm test               # 运行宿主单元测试
 npm run verify         # 校验发布产物
-npm run install-preset # 安装随插件发布的 vasp Agent 预设
 npm run install-dsh -- install --profile web --package . # 本地测试一键安装器
 ```
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Install the published VASPFlow bundle into one DSH profile, then install
- * its bundled Agent preset. This is the command exposed through `npx`.
+ * Install the published VASPFlow bundle, including its declared Agent preset,
+ * into one DSH profile. This is the command exposed through `npx`.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -12,19 +12,18 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const pluginRoot = resolve(scriptDir, '..');
 const pkg = JSON.parse(readFileSync(resolve(pluginRoot, 'package.json'), 'utf8'));
-const supportedDshVersion = '0.1.0-rc.6';
+const supportedDshVersion = '0.2.0-rc.2';
 
 const args = process.argv.slice(2);
 let profile = null;
 let dshHome = null;
-let replace = false;
 let packageSpec = `${pkg.name}@${pkg.version}`;
 
 function usage() {
-  console.log(`Usage: ${pkg.name} install --profile <name> [--replace] [--dsh-home <path>]`);
+  console.log(`Usage: ${pkg.name} install --profile <name> [--dsh-home <path>] [--package <specifier>]`);
   console.log('');
-  console.log('Installs the VASPFlow DSH bundle and its bundled VASP Agent preset.');
-  console.log('Existing presets are kept unless --replace is supplied.');
+  console.log('Installs the VASPFlow DSH bundle; its VASP Agent preset is declared by the bundle.');
+  console.log('For Desktop, use its Plugins page or its bundled dsh command after initializing and quitting the app.');
 }
 
 function isDshOnPath() {
@@ -109,8 +108,6 @@ if (args.shift() !== 'install') {
     } else if (arg === '--dsh-home') {
       dshHome = args[index + 1] ?? null;
       index += 1;
-    } else if (arg === '--replace') {
-      replace = true;
     } else if (arg === '--package') {
       packageSpec = args[index + 1] ?? '';
       index += 1;
@@ -170,15 +167,7 @@ if (process.exitCode === undefined) {
       } else if (pluginResult.status !== 0) {
         process.exitCode = pluginResult.status ?? 1;
       } else {
-        const presetArgs = [resolve(scriptDir, 'install-preset.mjs')];
-        if (dshHome) presetArgs.push('--dsh-home', resolve(dshHome));
-        if (replace) presetArgs.push('--replace');
-
-        const presetResult = spawnSync(process.execPath, presetArgs, { env, stdio: 'inherit' });
-        process.exitCode = presetResult.status ?? 1;
-        if (presetResult.status === 0) {
-          console.log('VASPFlow installation complete. Restart DSH, then choose “VASP 计算助手” for a new session.');
-        }
+        console.log('VASPFlow installation complete. Restart DSH, then choose “VASP 计算助手” for a new session.');
       }
     }
   }

@@ -102397,21 +102397,19 @@ function setAttr(node2, name, value) {
     node2.setAttribute(name, value);
   }
 }
-function mountWorkCollapse(sessions) {
+function mountWorkCollapse() {
   const expanded = /* @__PURE__ */ new Set();
   let scheduled = false;
   let disposed = false;
   const update = () => {
     scheduled = false;
     if (disposed) return;
-    const state = sessions.list.getSnapshot();
-    const sessionId = state.current;
-    const enabled = !!sessionId && state.byId[sessionId]?.agentPreset === "vasp";
     for (const flow of document.querySelectorAll(FLOW)) {
+      const enabled = !!flow.querySelector("[data-dsh-vaspflow-tool]");
       const desired = /* @__PURE__ */ new Map();
       if (enabled) for (const run of workRuns(flow)) {
         const first = run[0];
-        const key = `${sessionId}:${first.dataset.chatFlowKey ?? ""}`;
+        const key = `${flow.dataset.chatFlowKey ?? ""}:${first.dataset.chatFlowKey ?? ""}`;
         const open = expanded.has(key);
         const errors = run.some((row) => !!row.querySelector('[data-state="error"]'));
         const active = run.some((row) => !!row.querySelector('[data-state="running"]'));
@@ -102452,12 +102450,10 @@ function mountWorkCollapse(sessions) {
   };
   const observer = new MutationObserver(schedule);
   observer.observe(document.body, { childList: true, subtree: true });
-  const unsubscribe = sessions.list.subscribe(schedule);
   schedule();
   return () => {
     disposed = true;
     observer.disconnect();
-    unsubscribe();
     for (const row of document.querySelectorAll("[data-vfp-work-first],[data-vfp-work-member]")) {
       row.querySelector(`:scope > ${SUMMARY}`)?.remove();
       row.removeAttribute("data-vfp-work-first");
@@ -102813,7 +102809,7 @@ function prefillConversationInput(text) {
   textarea.setSelectionRange(text.length, text.length);
   return true;
 }
-var inject = ["slots", "sessions", "workspaces", "connection", "settingsScope", "locale"];
+var inject = ["slots", "workspaces"];
 function subscribeDarkTheme(callback) {
   const observer = new MutationObserver(callback);
   observer.observe(document.body, { attributes: true, attributeFilter: ["data-ds-dark-theme"] });
@@ -103237,7 +103233,7 @@ function apply(ctx) {
   const panel = /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(PanelRoot, { onAnalyzeTask: handleAnalyzeTask, onPickWorkspace });
   const disposers = [];
   try {
-    disposers.push(mountWorkCollapse(ctx.sessions));
+    disposers.push(mountWorkCollapse());
     disposers.push(mountSidebarEntry(toggle, () => panelStore.getSnapshot().open, panelStore.subscribe));
     const layoutApi = mountPanelLayout({
       renderPanel: () => panel,

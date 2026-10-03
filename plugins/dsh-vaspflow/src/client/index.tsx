@@ -396,7 +396,7 @@ function prefillConversationInput(text: string): boolean {
 
 // ---- entry ------------------------------------------------------------------
 
-const inject = ['slots', 'sessions', 'workspaces', 'connection', 'settingsScope', 'locale'];
+const inject = ['slots', 'workspaces'];
 
 /** Subscribe to the DSH dark-theme marker (body[data-ds-dark-theme]). */
 function subscribeDarkTheme(callback: () => void): () => void {
@@ -783,7 +783,7 @@ function apply(ctx: any) {
 
   const disposers: Array<() => void> = [];
   try {
-    disposers.push(mountWorkCollapse(ctx.sessions));
+    disposers.push(mountWorkCollapse());
     disposers.push(mountSidebarEntry(toggle, () => panelStore.getSnapshot().open, panelStore.subscribe));
     const layoutApi = mountPanelLayout({
       renderPanel: () => panel,

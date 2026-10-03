@@ -150,14 +150,14 @@ INCAR、OUTCAR 等已属于任务目录的文件，统一由 `vasp_inspect_task`
 ## 8. 安装 / 构建 / 测试 / 验证
 
 ```bash
-# 从源码安装插件与预设（仅支持 DSH 0.1.0-rc.6）
-node scripts/install-dsh.mjs install --profile web --package .
+# 从源码安装插件与预设（已验证 DSH 0.2.0-rc.2）
+node plugins/dsh-vaspflow/scripts/install-dsh.mjs install --profile web --package ./plugins/dsh-vaspflow
 
 # 开发
 cd plugins/dsh-vaspflow
 pnpm install --frozen-lockfile
 npm run build      # 构建浏览器 bundle → lib/client.js
- npm test           # 宿主单元 + schema 校验测试（77 项）
+npm test           # 宿主单元 + schema 校验测试
 npm run verify     # 产物一致性检查
 ```
 
