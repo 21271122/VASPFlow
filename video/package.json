@@ -1,0 +1,26 @@
+{
+  "name": "vaspflow-promo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VASPFlow 工具结果卡片 介绍宣传片 (Remotion)",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render Promo out/vaspflow-tool-cards.mp4",
+    "render:director": "remotion render DirectorCut out/vaspflow-director-cut.mp4",
+    "render:director:v2": "remotion render DirectorCutV2 out/vaspflow-director-cut-v2.mp4",
+    "render:preview": "remotion render Promo out/vaspflow-tool-cards-preview.mp4 --scale=0.5",
+    "still": "remotion still Promo out/frame.png",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.532",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.532"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "typescript": "5.9.3"
+  }
+}

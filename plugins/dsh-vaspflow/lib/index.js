@@ -27,6 +27,7 @@ import z from '@deepseek-ai/schemastery';
 import { defineTool } from '@deepseek-ai/dsh-tools';
 import { scanProject, scanSingleDir } from './host/scanner.js';
 import { parseConvergence, parseConvergenceSummary } from './host/parser.js';
+import { collectResults } from './host/result-collector.js';
 import { getStructure, getStructureScene } from './host/structure.js';
 import {
   listFilesAndDirs,
@@ -43,7 +44,7 @@ import { scanTemplates } from './host/scan-templates.js';
 import { fileURLToPath } from 'node:url';
 import { join as joinPath, basename, dirname, resolve as resolvePath, relative as relativePath, isAbsolute, sep } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 
@@ -181,6 +182,25 @@ function renderSeries(values, limit = 120) {
   return { head: values.slice(0, head), tail: values.slice(-head), omitted: values.length - head * 2 };
 }
 
+function buildSourceStamps(results = []) {
+  const paths = [...new Set(results.flatMap((row) => Object.values(row?.sources ?? {})).filter((path) => typeof path === 'string'))].sort();
+  return paths.map((path) => {
+    try {
+      const stat = statSync(path);
+      return { path, size: stat.size, mtimeMs: stat.mtimeMs };
+    } catch {
+      return { path, missing: true };
+    }
+  });
+}
+
+function writeJsonAtomic(path, value) {
+  mkdirSync(dirname(path), { recursive: true });
+  const temporary = `${path}.${process.pid}.tmp`;
+  writeFileSync(temporary, JSON.stringify(value), 'utf8');
+  renameSync(temporary, path);
+}
+
 /**
  * Conversation-page presentation for the input builder.
  *
@@ -282,7 +302,7 @@ function parseQuery(url) {
  * that preset. `store` remains host-owned so agent scans and the dock panel
  * still observe the same task ids and task data.
  */
-export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode = { dryRun: true }, buildOutcomes = new Map(), saveBuildOutcomes = () => {}) {
+export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode = { dryRun: true }, buildOutcomes = new Map(), saveBuildOutcomes = () => {}, saveBuildPlans = () => {}) {
 
   ctx.tools.register(defineTool({
     name: 'vasp_scan',
@@ -383,6 +403,39 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
       }
     },
     presentCall: (args) => ({ card: 'generic', title: `查看 ${args.relPaths?.length ?? 0} 个 VASP 任务的计算状态`, kind: 'other', rawInput: args }),
+  }));
+
+  ctx.tools.register(defineTool({
+    name: 'vasp_collect_results',
+    description: '按父目录深度与精确任务路径的并集查看一批弛豫或频率/ZPE 计算的逐任务数值。一次调用只查一种计算类别；返回每项数值、单位、来源、缺失原因。',
+    parameters: {
+      rootPath: { type: 'string', required: true, description: '项目根目录绝对路径。' },
+      scope: { type: 'object', required: true, additionalProperties: false, properties: {
+        subtrees: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
+          relPath: { type: 'string', required: true }, maxDepth: { type: 'number', required: true },
+        } }, description: '可选：父目录及向下查找层数；0 只查父目录本身，最大 20。' },
+        taskPaths: { type: 'array', items: { type: 'string' }, description: '可选：精确任务路径，只查所列任务本身。' },
+      } },
+      calculationType: { type: 'string', required: true, enum: ['RELAXATION', 'FREQUENCY_ZPE'], description: '单次仅一种计算类别。' },
+      metrics: { type: 'array', required: true, items: { type: 'string' }, description: '弛豫：last_ionic_free_energy、last_max_force、ionic_steps；频率：frequencies、zpe、vibrational_entropy、vibrational_free_energy。' },
+      conditions: { type: 'object', additionalProperties: false, properties: { temperatureK: { type: 'number', description: '计算振动熵/自由能时必填，单位 K。' } } },
+    },
+    output: {
+      schema: { type: 'object', additionalProperties: false, properties: {
+        query: { type: 'object', additionalProperties: true },
+        summary: { type: 'object', additionalProperties: true },
+        rows: { type: 'array', items: { type: 'object', additionalProperties: true } },
+        excluded: { type: 'array', items: { type: 'object', additionalProperties: true } },
+        error: { type: 'string', required: true },
+      } },
+      render: (_args, value) => [{ type: 'text', text: value.error ? `查看计算数据失败：${value.error}` : clipRenderText(`${value.summary.included} 个 ${value.query.calculationType} 任务；${value.summary.partial} 个指标缺失或无效，${value.summary.excluded} 个路径/其他类别排除。\n${value.rows.map((row) => `${row.relPath} (${row.composition || '组成未知'}): ${Object.entries(row.values).map(([key, item]) => `${key}=${item.status === 'ok' ? Array.isArray(item.value) ? `${item.value.length} 个模式` : `${item.value} ${item.unit}` : `${item.status}(${item.note})`}`).join('；')}`).join('\n')}\n${value.excluded.map((row) => `${row.relPath}: ${row.reason}`).join('\n')}`) }],
+      presentationMeta: (_args, value) => ({ rootPath: value.query?.rootPath, query: value.query, summary: value.summary, rows: value.rows, excluded: value.excluded, error: value.error }),
+    },
+    async execute(args) {
+      try { return await collectResults(args); }
+      catch (caught) { return { query: args, summary: { discovered: 0, included: 0, excluded: 0, complete: 0, partial: 0 }, rows: [], excluded: [], error: `结果解析失败：${String(caught)}` }; }
+    },
+    presentCall: (args) => ({ card: 'generic', title: args.calculationType === 'FREQUENCY_ZPE' ? '查看频率与 ZPE' : '查看弛豫数据', kind: 'other', rawInput: args }),
   }));
 
   ctx.tools.register(defineTool({
@@ -632,7 +685,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
           okCount: { type: 'number' }, warnCount: { type: 'number' }, errorCount: { type: 'number' },
           dryRun: { type: 'boolean' }, count: { type: 'number' }, wroteCount: { type: 'number' },
           written: { type: 'boolean' },
-          planId: { type: 'string' }, projectRoot: { type: 'string' },
+          planId: { type: 'string' }, revision: { type: 'number' }, projectRoot: { type: 'string' },
           error: { type: 'string', required: true },
         },
       },
@@ -643,6 +696,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
       presentationMeta: (_args, value) => ({
         error: value.error,
         ...(value.planId ? { planId: value.planId } : {}),
+        ...(value.revision ? { revision: value.revision } : {}),
         ...(value.projectRoot ? { projectRoot: value.projectRoot } : {}),
         dryRun: value.dryRun,
         count: value.count,
@@ -669,18 +723,28 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
         const result = await buildInputs(projectRoot, args.tasks ?? [], { dryRun, linkPotcar: !!args.linkPotcar });
         if (dryRun && Array.isArray(args.tasks) && args.tasks.length > 0) {
           for (const [id, plan] of buildPlans) {
-            if (Date.now() - plan.createdAt > 30 * 60 * 1000) buildPlans.delete(id);
+            if (Date.now() - plan.createdAt > 24 * 60 * 60 * 1000) buildPlans.delete(id);
+            else if (plan.state === 'pending' && Date.now() - plan.createdAt > 30 * 60 * 1000) {
+              plan.state = 'invalidated';
+              if (plan.sessionId) {
+                const rows = buildOutcomes.get(plan.sessionId) ?? [];
+                buildOutcomes.set(plan.sessionId, rows.map((row) => row.planId === id ? { ...row, state: 'invalidated', updatedAt: Date.now() } : row));
+                saveBuildOutcomes();
+              }
+            }
           }
           const planId = randomUUID();
           const sessionId = exec?.agent?.session?.header?.id;
-          buildPlans.set(planId, { projectRoot, tasks: structuredClone(args.tasks), linkPotcar: !!args.linkPotcar, sessionId, createdAt: Date.now() });
+          buildPlans.set(planId, { projectRoot, tasks: structuredClone(args.tasks), linkPotcar: !!args.linkPotcar,
+            sessionId, createdAt: Date.now(), revision: 1, state: 'pending', preview: result, sourceStamps: buildSourceStamps(result.results) });
+          saveBuildPlans();
           if (sessionId) {
             const rows = buildOutcomes.get(sessionId) ?? [];
             buildOutcomes.set(sessionId, [...rows.slice(-19), { planId, state: 'pending', projectRoot, dirs: args.tasks.map((task) => task.dir), updatedAt: Date.now() }]);
             saveBuildOutcomes();
           }
           exec?.concludeTurn?.();
-          return { ...result, projectRoot, planId, error: '' };
+          return { ...result, projectRoot, planId, revision: 1, error: '' };
         }
         return { ...result, projectRoot, error: '' };
       } catch (caught) {
@@ -750,11 +814,17 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
       render: (_args, value) => [{
         type: 'text',
         text: clipRenderText(value.error ? `输入检查失败：${value.error}` : value.results.map((r) => {
+          const code = r.input_check?.code;
+          const fileIssue = r.error || (r.poscarPotcar !== 'OK' && !(r.input_check?.profileId === 'neb' && r.poscarPotcar === 'POSCAR_MISSING'))
+            || typeof r.incar !== 'object' || !r.incar || /MISSING|UNREADABLE/.test(String(r.kpoints))
+            || /PARSE_ERROR|COUNT_MISMATCH|FLAG_MISSING/.test(String(r.sd));
+          const verdict = fileIssue ? '[文件异常]' : code === 'PASS' ? '[规则通过]' : code === 'FAIL' ? '[规则未通过]'
+            : code === 'WARN' || r.warnings?.length ? '[注意]' : '[已解析·未套规则]';
           const inc = typeof r.incar === 'object' && r.incar ? Object.entries(r.incar).slice(0, 8).map(([k, v]) => k + '=' + v).join('; ') : (r.incar || '-');
           const warn = (r.warnings && r.warnings.length > 0) ? ' | 警告: ' + r.warnings.join('; ') : '';
           const check = r.input_check ? ` | 输入检查: ${r.input_check.label ?? r.input_check.code ?? '未检查'}${r.input_check.profileId ? `（${r.input_check.profileId}）` : ''}` : '';
           const evidence = r.input_check?.evidence?.length ? ` | 检查依据: ${r.input_check.evidence.map((item) => item.message ?? item.ruleId).join('; ')}` : '';
-          return (r.error ? '[CRASH] ' : '[ok] ') + r.dir + ' -> ' + r.resolved + ' | POTCAR-POSCAR: ' + r.poscarPotcar + ' | SD: ' + r.sd + ' | ' + inc + ' | ' + r.kpoints + check + evidence + (r.error ? ' | ' + r.error : '') + warn;
+          return verdict + ' ' + r.dir + ' -> ' + r.resolved + ' | POTCAR-POSCAR: ' + r.poscarPotcar + ' | SD: ' + r.sd + ' | ' + inc + ' | ' + r.kpoints + check + evidence + (r.error ? ' | ' + r.error : '') + warn;
         }).join('\n') + `\n目录一致性：${value.consistency?.note ?? '未提供'}\n[面板同步] 已关联 ${value.linked_count ?? 0} 个任务${value.unlinked_dirs?.length ? `；未关联：${value.unlinked_dirs.join(', ')}` : ''}`),
       }],
       presentationMeta: (args, value) => ({ projectRoot: value.project_root ?? args.projectRoot, profileId: args.profileId, results: value.results, consistency: value.consistency, error: value.error }),
@@ -915,16 +985,23 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
 
 export function apply(ctx, config) {
   const store = new TaskStore();
-  const buildPlans = new Map();
   const buildMode = { dryRun: config?.dryRun !== false };
   const outcomeFile = joinPath(process.env.DSH_HOME || joinPath(homedir(), '.dsh'), 'vaspflow', 'build-outcomes.json');
+  const planFile = joinPath(dirname(outcomeFile), 'build-plans.json');
+  let savedPlans = {};
+  try { savedPlans = JSON.parse(readFileSync(planFile, 'utf8')); } catch { /* no prior plans */ }
+  const buildPlans = new Map(Object.entries(savedPlans).filter(([, plan]) => plan && Array.isArray(plan.tasks)));
+  const saveBuildPlans = () => {
+    try {
+      writeJsonAtomic(planFile, Object.fromEntries([...buildPlans].slice(-40)));
+    } catch { /* live session still retains plans */ }
+  };
   let savedOutcomes = {};
   try { savedOutcomes = JSON.parse(readFileSync(outcomeFile, 'utf8')); } catch { /* no prior outcomes */ }
   const buildOutcomes = new Map(Object.entries(savedOutcomes).filter(([, rows]) => Array.isArray(rows)));
   const saveBuildOutcomes = () => {
     try {
-      mkdirSync(dirname(outcomeFile), { recursive: true });
-      writeFileSync(outcomeFile, JSON.stringify(Object.fromEntries([...buildOutcomes].slice(-40))), 'utf8');
+      writeJsonAtomic(outcomeFile, Object.fromEntries([...buildOutcomes].slice(-40)));
     } catch { /* live session still retains the result */ }
   };
   const updateBuildOutcome = (sessionId, planId, patch) => {
@@ -933,6 +1010,25 @@ export function apply(ctx, config) {
     buildOutcomes.set(sessionId, rows.map((row) => row.planId === planId ? { ...row, ...patch, updatedAt: Date.now() } : row));
     saveBuildOutcomes();
   };
+  const markPlan = (planId, plan, state, patch = {}) => {
+    plan.state = state;
+    Object.assign(plan, patch);
+    saveBuildPlans();
+    updateBuildOutcome(plan.sessionId, planId, { state, ...patch });
+  };
+  const getBuildPlan = (planId) => {
+    const plan = typeof planId === 'string' ? buildPlans.get(planId) : null;
+    if (plan?.state === 'pending' && Date.now() - plan.createdAt > 30 * 60 * 1000) markPlan(planId, plan, 'invalidated');
+    return plan;
+  };
+  for (const [planId, plan] of buildPlans) {
+    if (plan.state === 'writing') markPlan(planId, plan, 'uncertain');
+    else if (plan.state === 'repreviewing') markPlan(planId, plan, 'pending');
+    else if (plan.state === 'confirming' || (plan.state === 'pending' && Date.now() - plan.createdAt > 30 * 60 * 1000)) markPlan(planId, plan, 'invalidated');
+  }
+  for (const [sessionId, rows] of buildOutcomes) {
+    for (const row of rows) if (row.state === 'pending' && !buildPlans.has(row.planId)) updateBuildOutcome(sessionId, row.planId, { state: 'invalidated' });
+  }
 
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembly = await next();
@@ -944,6 +1040,10 @@ export function apply(ctx, config) {
       ? `构建计划 ${item.planId}：用户已在界面确认，写入 ${item.wroteCount}/${item.selectedCount} 个任务，失败 ${item.errorCount} 个；目录数据：${JSON.stringify(item.dirs.slice(0, 12))}。${item.sourceOverrides?.length ? `用户调整的来源：${JSON.stringify(item.sourceOverrides.slice(0, 8))}。` : ''}不要说仍待确认。`
       : item.state === 'cancelled'
         ? `构建计划 ${item.planId}：用户已取消，未执行写入。`
+        : item.state === 'confirming'
+          ? `构建计划 ${item.planId}：正在确认预览，尚未开始写入；等待界面返回结果。`
+        : item.state === 'writing' || item.state === 'uncertain'
+          ? `构建计划 ${item.planId}：写入状态待核查；不要声称已写入或未写入，先查询计划状态并核对目标目录。`
         : item.state === 'invalidated' || Date.now() - item.updatedAt > 30 * 60 * 1000
           ? `构建计划 ${item.planId}：预览已失效，尚未写入；需要重新预览。`
           : `构建计划 ${item.planId}：仍在预览，尚未写入；目录数据：${JSON.stringify(item.dirs.slice(0, 12))}。${item.sourceOverrides?.length ? `用户调整的来源：${JSON.stringify(item.sourceOverrides.slice(0, 8))}。` : ''}`).join('\n');
@@ -954,7 +1054,7 @@ export function apply(ctx, config) {
   // Its tool definitions close over this store, preserving panel/Agent state.
   ctx.provide('vaspflowTools', {
     register(toolCtx) {
-      registerVaspTools(toolCtx, store, buildPlans, buildMode, buildOutcomes, saveBuildOutcomes);
+      registerVaspTools(toolCtx, store, buildPlans, buildMode, buildOutcomes, saveBuildOutcomes, saveBuildPlans);
     },
   });
 
@@ -1012,6 +1112,21 @@ export function apply(ctx, config) {
       },
     }), 'dsh-vaspflow: input build mode');
 
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: '/plugins/dsh-vaspflow/build-inputs/plan',
+      handler: async (req, res) => {
+        if (req.method !== 'GET') return json(res, 405, { error: 'GET required' });
+        const planId = parseQuery(req.url ?? '').planId;
+        const plan = getBuildPlan(planId);
+        if (!plan) return json(res, 404, { error: '未找到构建计划，请重新预览' });
+        return json(res, 200, {
+          planId, state: plan.state, revision: plan.revision, projectRoot: plan.projectRoot, tasks: plan.tasks,
+          preview: plan.preview, selectedIndices: plan.selectedIndices, result: plan.result,
+        });
+      },
+    }), 'dsh-vaspflow: build plan status');
+
     // Replace one source in an existing preview plan. The edited plan is used
     // by confirmation, so the visible re-preview and eventual write agree.
     ctx.effect(() => webServer.register({
@@ -1019,18 +1134,20 @@ export function apply(ctx, config) {
       path: '/plugins/dsh-vaspflow/build-inputs/repreview',
       handler: async (req, res) => {
         if (req.method !== 'POST') return json(res, 405, { error: 'POST required' });
+        let plan;
         try {
           let raw = '';
           for await (const chunk of req) {
             raw += chunk.toString();
             if (raw.length > 4096) return json(res, 413, { error: 'Request too large' });
           }
-          const { planId, taskIndex, sourceKind, rootPath, relPath, file } = JSON.parse(raw);
-          const plan = typeof planId === 'string' ? buildPlans.get(planId) : null;
-          if (!plan || Date.now() - plan.createdAt > 30 * 60 * 1000) {
-            buildPlans.delete(planId);
+          const { planId, revision, taskIndex, sourceKind, rootPath, relPath, file } = JSON.parse(raw);
+          plan = getBuildPlan(planId);
+          if (!plan) {
             return json(res, 404, { error: '预览已使用或过期，请重新预览' });
           }
+          if (plan.state !== 'pending') return json(res, 409, { error: '此预览已结束，请查询计划状态', state: plan.state });
+          if (revision !== plan.revision && !(revision === undefined && plan.revision === 1)) return json(res, 409, { error: '预览版本已变化，请刷新卡片', revision: plan.revision });
           if (!Number.isInteger(taskIndex) || taskIndex < 0 || taskIndex >= plan.tasks.length
             || !['structure', 'template'].includes(sourceKind)
             || typeof rootPath !== 'string' || !isAbsolute(rootPath) || !isDirectory(rootPath)
@@ -1060,12 +1177,20 @@ export function apply(ctx, config) {
             for (const key of ['incarSrc', 'kpointsSrc', 'potcarSrc']) delete task[key];
             if (task.sources) for (const key of ['incar', 'kpoints', 'potcar']) delete task.sources[key];
           }
+          plan.state = 'repreviewing';
+          saveBuildPlans();
           const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar });
           plan.tasks = tasks;
+          plan.revision += 1;
+          plan.preview = preview;
+          plan.sourceStamps = buildSourceStamps(preview.results);
+          plan.state = 'pending';
           plan.sourceOverrides = [...(plan.sourceOverrides ?? []).filter((item) => item.dir !== task.dir || item.kind !== sourceKind), { dir: task.dir, kind: sourceKind, source }];
-          updateBuildOutcome(plan.sessionId, planId, { sourceOverrides: plan.sourceOverrides });
-          return json(res, 200, { ...preview, projectRoot: plan.projectRoot, planId, tasks, error: '' });
+          saveBuildPlans();
+          updateBuildOutcome(plan.sessionId, planId, { sourceOverrides: plan.sourceOverrides, revision: plan.revision });
+          return json(res, 200, { ...preview, projectRoot: plan.projectRoot, planId, revision: plan.revision, tasks, error: '' });
         } catch (error) {
+          if (plan?.state === 'repreviewing') { plan.state = 'pending'; saveBuildPlans(); }
           return json(res, 400, { error: String(error) });
         }
       },
@@ -1078,21 +1203,30 @@ export function apply(ctx, config) {
       path: '/plugins/dsh-vaspflow/build-inputs/confirm',
       handler: async (req, res) => {
         if (req.method !== 'POST') return json(res, 405, { error: 'POST required' });
+        let planId;
+        let plan;
         try {
           let raw = '';
           for await (const chunk of req) {
             raw += chunk.toString();
             if (raw.length > 16384) return json(res, 413, { error: 'Request too large' });
           }
-          const { planId, selectedIndices, cancel, enableDirect } = JSON.parse(raw);
-          const plan = typeof planId === 'string' ? buildPlans.get(planId) : null;
-          if (!plan || Date.now() - plan.createdAt > 30 * 60 * 1000) {
-            buildPlans.delete(planId);
+          const body = JSON.parse(raw);
+          planId = body.planId;
+          const { selectedIndices, cancel, enableDirect, revision } = body;
+          plan = getBuildPlan(planId);
+          if (!plan) {
             return json(res, 404, { error: '预览已使用或过期，请重新预览' });
           }
+          if (plan.state === 'confirmed') {
+            if (JSON.stringify(selectedIndices) === JSON.stringify(plan.selectedIndices) && !!enableDirect === !!plan.enableDirect) return json(res, 200, plan.result);
+            return json(res, 409, { error: '此计划已按另一组选择写入，不能再次构建', state: plan.state });
+          }
+          if (plan.state === 'cancelled' && cancel === true) return json(res, 200, { cancelled: true });
+          if (plan.state !== 'pending') return json(res, 409, { error: '此预览已结束，请查询计划状态', state: plan.state });
+          if (revision !== plan.revision && !(revision === undefined && plan.revision === 1)) return json(res, 409, { error: '预览版本已变化，请刷新卡片', revision: plan.revision });
           if (cancel === true) {
-            buildPlans.delete(planId);
-            updateBuildOutcome(plan.sessionId, planId, { state: 'cancelled' });
+            markPlan(planId, plan, 'cancelled');
             return json(res, 200, { cancelled: true });
           }
           if (!Array.isArray(selectedIndices) || selectedIndices.length === 0
@@ -1100,19 +1234,31 @@ export function apply(ctx, config) {
             || new Set(selectedIndices).size !== selectedIndices.length) {
             return json(res, 400, { error: '请选择有效的构建任务' });
           }
-          buildPlans.delete(planId);
+          if (JSON.stringify(buildSourceStamps(plan.preview?.results)) !== JSON.stringify(plan.sourceStamps)) {
+            markPlan(planId, plan, 'invalidated');
+            return json(res, 409, { error: '构建来源在预览后已变化，请重新预览', state: 'invalidated' });
+          }
+          markPlan(planId, plan, 'confirming');
           const tasks = selectedIndices.map((index) => plan.tasks[index]);
           const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar });
           if (preview.errorCount > 0) {
-            updateBuildOutcome(plan.sessionId, planId, { state: 'invalidated' });
+            markPlan(planId, plan, 'invalidated');
             return json(res, 409, { error: '任务预览已出现错误，请重新检查', ...preview });
           }
+          markPlan(planId, plan, 'writing');
           const result = await buildInputs(plan.projectRoot, tasks, { dryRun: false, linkPotcar: plan.linkPotcar });
-          updateBuildOutcome(plan.sessionId, planId, { state: 'confirmed', selectedCount: tasks.length, wroteCount: result.wroteCount, errorCount: result.errorCount, dirs: tasks.map((task) => task.dir) });
           if (enableDirect === true && result.errorCount === 0 && result.wroteCount === tasks.length) buildMode.dryRun = false;
+          const response = { ...result, projectRoot: plan.projectRoot, dryRunMode: buildMode.dryRun, error: '' };
+          plan.result = response;
+          plan.selectedIndices = selectedIndices;
+          plan.enableDirect = !!enableDirect;
+          markPlan(planId, plan, 'confirmed', { selectedCount: tasks.length, wroteCount: result.wroteCount,
+            errorCount: result.errorCount, dirs: tasks.map((task) => task.dir) });
           store.version += 1;
-          return json(res, 200, { ...result, projectRoot: plan.projectRoot, dryRunMode: buildMode.dryRun, error: '' });
+          return json(res, 200, response);
         } catch (error) {
+          if (plan?.state === 'confirming') markPlan(planId, plan, 'invalidated');
+          else if (plan?.state === 'writing') markPlan(planId, plan, 'uncertain');
           return json(res, 400, { error: String(error) });
         }
       },

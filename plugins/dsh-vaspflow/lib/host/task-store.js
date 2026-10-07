@@ -44,6 +44,19 @@ function inputSignature(rootPath, relPath, task) {
   return entries.join('|');
 }
 
+function staleInputCheck(check) {
+  return {
+    ...check,
+    code: 'STALE',
+    label: '输入文件已变化，需重新校验',
+    previousCode: check.previousCode ?? check.code,
+    previousObservedAt: check.previousObservedAt ?? check.observedAt,
+    checkedFiles: [],
+    evidence: [{ ruleId: 'INPUT_CHANGED', file: '', severity: 'warning', message: '输入文件在上次检查后已变化' }],
+    observedAt: new Date().toISOString(),
+  };
+}
+
 export class TaskStore {
   constructor({ inputCheckCacheFile = defaultInputCheckCacheFile() } = {}) {
     this.projects = new Map(); // id -> {root_path, tasks, directories}
@@ -94,6 +107,10 @@ export class TaskStore {
     const taskPathKey = this.taskPathKey(rootPath, taskData.rel_path);
     const cachedEntry = this.cachedInputCheck(taskPathKey);
     const cachedCheck = cachedEntry?.value;
+    const staleCheck = previous?.input_check?.code && previous.input_check.code !== 'NOT_REQUESTED'
+      && this.inputCheckSignatures.get(taskId) !== nextInputSignature
+      ? previous?.input_check
+      : cachedCheck?.signature !== nextInputSignature ? cachedCheck?.inputCheck : null;
     // Scans create NOT_REQUESTED by default. Retain an explicit check only
     // while the checked input files are unchanged, including after DSH restarts.
     if (previous?.input_check?.code && previous.input_check.code !== 'NOT_REQUESTED'
@@ -112,13 +129,17 @@ export class TaskStore {
         this.persistedInputChecks.set(taskPathKey, cachedCheck);
         this.saveInputCheckCache();
       }
-    }
-    if (this.inputCheckSignatures.get(taskId) !== nextInputSignature) this.inputCheckSignatures.delete(taskId);
-    if (cachedCheck && cachedCheck.signature !== nextInputSignature) {
-      this.persistedInputChecks.delete(cachedEntry.key);
-      if (cachedEntry.key !== taskPathKey) this.legacyInputChecksByTaskPath.delete(taskPathKey);
+    } else if (staleCheck && taskData.input_check?.code === 'NOT_REQUESTED') {
+      taskData.input_check = staleInputCheck(staleCheck);
+      this.inputCheckSignatures.set(taskId, nextInputSignature);
+      if (cachedEntry) {
+        this.persistedInputChecks.delete(cachedEntry.key);
+        this.legacyInputChecksByTaskPath.delete(taskPathKey);
+      }
+      this.persistedInputChecks.set(taskPathKey, { signature: nextInputSignature, inputCheck: taskData.input_check });
       this.saveInputCheckCache();
     }
+    if (this.inputCheckSignatures.get(taskId) !== nextInputSignature) this.inputCheckSignatures.delete(taskId);
     taskData.id = taskId;
     this.tasks.set(taskId, { ...taskData, root_path: rootPath });
     this.version += 1;

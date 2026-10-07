@@ -49,6 +49,8 @@ npx --yes dsh-vaspflow install --profile web
 
 Desktop 拥有独立的 `desktop` profile。请在 Desktop 的 **插件** 页面安装本地 `plugins/dsh-vaspflow` 目录（发布后可填 npm 包名），然后重启 Desktop。也可先启动 Desktop 一次以初始化 profile，完全退出应用，再用 **Desktop 自带**的 `dsh` 命令执行 `node scripts/install-dsh.mjs install --profile desktop --package .`；npm 安装的独立 DSH CLI 不能修改 Desktop profile。预设随 bundle 注册，同样选择 **VASP 计算助手**；普通预设不会看到 `vasp_*` 工具。
 
+本地目录安装后的 profile 有自己的插件文件副本。修改已有文件可能同步到副本，但**新增模块文件不会自动进入副本**；新增文件后应在 Desktop 插件页重新安装/更新本地目录并重启，否则插件主模块可能因缺失 import 而无法加载，VASP 入口、预设和工具卡片会同时消失。Web 与 Desktop 的安装副本需分别更新。
+
 从旧版升级时，旧的 `$DSH_HOME/.agent-presets/vasp` 不再被 DSH 0.2 读取；保留它作为用户数据备份即可。新预设沿用 `vasp` ID，安装新版 bundle 后可继续选择该模式。
 
 ### 依赖

@@ -346,7 +346,7 @@ test('TaskStore assigns stable ids and root keys are casefolded', () => {
   }
 });
 
-test('TaskStore keeps an input check only while its four input files are unchanged', () => {
+test('TaskStore marks an input check stale when an input changes', () => {
   const root = mkdtempSync(join(tmpdir(), 'vfp-input-cache-'));
   const store = new TaskStore({ inputCheckCacheFile: join(root, 'cache', 'input-checks.json') });
   const taskDir = join(root, 'run');
@@ -365,13 +365,16 @@ test('TaskStore keeps an input check only while its four input files are unchang
 
     writeFileSync(join(taskDir, 'POSCAR'), 'POSCAR changed');
     store.addProject(root, [task()], []);
-    assert.equal(store.tasks.get(1).input_check.code, 'NOT_REQUESTED');
+    assert.equal(store.tasks.get(1).input_check.code, 'STALE');
+    assert.equal(store.tasks.get(1).input_check.previousCode, 'PASS');
+    store.setInputCheck(root, 'run', { code: 'PASS', label: '重新检查通过' });
+    assert.equal(store.tasks.get(1).input_check.code, 'PASS');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('TaskStore restores an input check after restart, then drops it when an input changes', () => {
+test('TaskStore restores an input check after restart, then retains a stale warning after an input changes', () => {
   const root = mkdtempSync(join(tmpdir(), 'vfp-persisted-input-cache-'));
   const cacheFile = join(root, 'cache', 'input-checks.json');
   const taskDir = join(root, 'run');
@@ -394,7 +397,10 @@ test('TaskStore restores an input check after restart, then drops it when an inp
     writeFileSync(join(taskDir, 'INCAR'), 'INCAR changed');
     const changedInputStore = new TaskStore({ inputCheckCacheFile: cacheFile });
     changedInputStore.addProject(root, [task()], []);
-    assert.equal(changedInputStore.tasks.get(1).input_check.code, 'NOT_REQUESTED');
+    assert.equal(changedInputStore.tasks.get(1).input_check.code, 'STALE');
+    const staleStore = new TaskStore({ inputCheckCacheFile: cacheFile });
+    staleStore.addProject(root, [task()], []);
+    assert.equal(staleStore.tasks.get(1).input_check.code, 'STALE');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

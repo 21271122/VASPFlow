@@ -39,8 +39,10 @@ services.get('vaspflowTools').register(ctx);
 
 const builder = registered.find((t) => t.name === 'vasp_build_inputs');
 const checker = registered.find((t) => t.name === 'vasp_check_inputs');
+const collector = registered.find((t) => t.name === 'vasp_collect_results');
 assert.ok(builder, 'vasp_build_inputs registered');
 assert.ok(checker, 'vasp_check_inputs registered');
+assert.ok(collector, 'vasp_collect_results registered');
 
 function assertValidOutputs(tool, result) {
   const violations = validateJsonSchemaValue(tool.output.schema, result, 'value');
@@ -95,6 +97,46 @@ function makeFixture() {
   writeFileSync(join(dir, 'struc/surface.vasp'), POSCAR);
   return dir;
 }
+
+test('collect results combines subtree depth and exact paths without inventing missing data', async () => {
+  const dir = makeFixture();
+  try {
+    mkdirSync(join(dir, 'group'));
+    mkdirSync(join(dir, 'group/one'));
+    for (const file of ['POSCAR', 'POTCAR', 'INCAR', 'KPOINTS']) writeFileSync(join(dir, 'group/one', file), file === 'POSCAR' ? POSCAR : file === 'POTCAR' ? POTCAR : file === 'INCAR' ? INCAR : KPOINTS);
+    writeFileSync(join(dir, 'group/one/OSZICAR'), ' 1 F= -.100000E+01 E0= -.900000E+00\n 2 F= -.110000E+01 E0= -.100000E+01\n');
+    const args = { rootPath: dir, scope: { subtrees: [{ relPath: 'group', maxDepth: 1 }], taskPaths: ['group/one', 'good'] }, calculationType: 'RELAXATION', metrics: ['last_ionic_free_energy', 'last_max_force', 'ionic_steps'] };
+    const result = await collector.execute(args, {});
+    assertValidOutputs(collector, result);
+    assert.equal(result.error, '');
+    assert.equal(result.rows.length, 2);
+    const row = result.rows.find((item) => item.relPath.replace(/\\/g, '/') === 'group/one');
+    assert.equal(row.matchedBy.length, 2);
+    assert.equal(row.values.last_ionic_free_energy.value, -1.1);
+    assert.equal(row.values.ionic_steps.value, 2);
+    assert.equal(row.values.last_max_force.value, null);
+    assert.equal(row.values.last_max_force.status, 'missing');
+    const exact = await collector.execute({ ...args, scope: { taskPaths: ['group'] } }, {});
+    assert.equal(exact.rows.length, 0, 'exact path does not include descendants');
+    const shallow = await collector.execute({ ...args, scope: { subtrees: [{ relPath: 'group', maxDepth: 0 }] } }, {});
+    assert.equal(shallow.rows.length, 0, 'depth zero does not include children');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('collect frequency modes retains imaginary mode and refuses a ZPE value', async () => {
+  const dir = makeFixture();
+  try {
+    writeFileSync(join(dir, 'good/INCAR'), 'IBRION = 5\nNSW = 1\nNFREE = 2\n');
+    writeFileSync(join(dir, 'good/OUTCAR'), '  1 f  =  20.900983 THz 131.324750 2PiTHz 697.181730 cm-1 86.439549 meV\n  2 f/i=  1.000000 THz 6.283185 2PiTHz 33.356410 cm-1 4.135668 meV\n');
+    const result = await collector.execute({ rootPath: dir, scope: { taskPaths: ['good'] }, calculationType: 'FREQUENCY_ZPE', metrics: ['frequencies', 'zpe', 'vibrational_entropy'], conditions: { temperatureK: 298.15 } }, {});
+    assertValidOutputs(collector, result);
+    assert.equal(result.rows.length, 1);
+    assert.equal(result.rows[0].values.frequencies.value.length, 2);
+    assert.equal(result.rows[0].values.frequencies.value[1].kind, 'imaginary');
+    assert.equal(result.rows[0].values.zpe.value, null);
+    assert.equal(result.rows[0].values.vibrational_entropy.status, 'invalid');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
 
 function renderedText(toolDefinition, args, value) {
   return toolDefinition.output.render(args, value).map((block) => block.text ?? '').join('\n');

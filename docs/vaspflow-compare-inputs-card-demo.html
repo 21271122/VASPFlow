@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VASPFlow · 跨任务输入比较卡片 Demo</title>
+  <style>
+    :root { color-scheme:dark; font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif; --bg:#11182b; --panel:#151d32; --ink:#e9eef8; --muted:#a0abc0; --line:#303d58; --blue:#78b9f1; --green:#2da87a; --row:#1c353e; --yellow:#edbd62; --red:#ec777a; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:radial-gradient(circle at 83% 12%,#202f49 0,transparent 34%),var(--bg); font-size:14px; line-height:1.5; }
+    button,input { font:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,input:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+    .frame { max-width:1080px; margin:0 auto; padding:24px 24px 80px; }
+    .top { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:0 0 19px; border-bottom:1px solid var(--line); }
+    .brand { display:flex; gap:12px; align-items:baseline; }
+    .brand strong { color:var(--blue); font-size:18px; }
+    .brand span,.top small { color:var(--muted); font-size:12px; }
+    .top a { color:var(--blue); font-size:12px; }
+    .chat { max-width:880px; margin:30px auto; }
+    .bubble { width:max-content; max-width:86%; margin:0 0 25px auto; padding:10px 15px; border-radius:17px 17px 4px 17px; background:#202b47; }
+    .tool { border-left:3px solid #68a9e4; background:rgba(21,29,50,.8); padding:13px 18px 19px 20px; }
+    .tool-head { display:flex; gap:12px; align-items:baseline; justify-content:space-between; border-bottom:1px solid var(--line); padding-bottom:10px; }
+    .tool-head button { display:flex; align-items:center; gap:9px; min-width:0; border:0; padding:0; background:none; color:var(--blue); text-align:left; font-weight:700; font-size:15px; }
+    .tool-head button span { width:12px; }
+    .tool-head small { color:var(--muted); white-space:nowrap; }
+    .tool-body[hidden] { display:none; }
+    .scope { padding:10px 0 8px; color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+    .scope code,.entry-path { color:#c5d5e9; font:12px Consolas,monospace; }
+    .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; margin:5px 0 15px; background:var(--line); border:1px solid var(--line); }
+    .metric { min-width:0; padding:12px; background:#172238; }
+    .metric strong { display:block; color:var(--ink); font-size:23px; line-height:1.1; font-variant-numeric:tabular-nums; }
+    .metric span { display:block; margin-top:4px; color:var(--ink); font-size:12px; }
+    .metric small { display:block; margin-top:3px; color:var(--muted); font-size:11px; line-height:1.35; }
+    .metric.warning strong { color:var(--yellow); }
+    .coverage { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+    .coverage-item { min-width:0; }
+    .coverage-label { display:flex; justify-content:space-between; gap:4px; margin-bottom:4px; font-size:11px; }
+    .coverage-label span:last-child { color:var(--muted); font-variant-numeric:tabular-nums; }
+    .coverage-track { height:5px; background:#344058; }
+    .coverage-fill { height:100%; background:var(--green); }
+    .tabs { display:flex; gap:18px; align-items:center; border-bottom:1px solid var(--line); margin-top:16px; }
+    .tabs button { border:0; border-bottom:2px solid transparent; padding:10px 1px 9px; color:#c2cbda; background:none; white-space:nowrap; }
+    .tabs button[aria-selected="true"] { color:var(--blue); border-color:var(--green); font-weight:700; }
+    .controls { display:flex; gap:10px 16px; align-items:center; flex-wrap:wrap; padding:13px 0 10px; }
+    .controls label { display:inline-flex; align-items:center; gap:7px; color:var(--muted); font-size:12px; }
+    .controls input[type="search"] { min-width:180px; max-width:260px; width:30vw; height:31px; padding:0 8px; border:1px solid #495776; border-radius:3px; color:var(--ink); background:#121b2e; }
+    .controls .spacer { flex:1; }
+    .filters { display:flex; flex-wrap:wrap; gap:6px; min-height:24px; margin-bottom:7px; }
+    .filters button { border:1px solid #376579; border-radius:3px; padding:2px 7px; background:#1c3b47; color:#d6eced; font-size:11px; }
+    .filters .clear { color:var(--blue); background:none; border-color:transparent; }
+    .quiet { color:var(--muted); font-size:12px; }
+    .view-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:9px 0 7px; }
+    .view-head strong { font-size:13px; }
+    .view-head small { color:var(--muted); }
+    .distribution { display:grid; gap:12px; }
+    .param-row { border-top:1px solid var(--line); padding-top:9px; }
+    .param-head { display:flex; justify-content:space-between; gap:10px; margin-bottom:6px; }
+    .param-head strong { color:var(--blue); font:700 13px Consolas,monospace; }
+    .param-head span { color:var(--muted); font-size:11px; }
+    .values { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:5px; }
+    .value { position:relative; display:flex; justify-content:space-between; gap:7px; overflow:hidden; min-height:34px; align-items:center; border:1px solid #31485a; border-radius:3px; padding:5px 8px; color:var(--ink); background:#172735; text-align:left; }
+    .value i { position:absolute; z-index:0; inset:0 auto 0 0; background:#245846; opacity:.5; }
+    .value span,.value b { position:relative; z-index:1; }
+    .value b { color:#b7d8cb; font-size:11px; font-variant-numeric:tabular-nums; }
+    .value[data-active] { border-color:var(--yellow); color:#ffe6ab; }
+    .value:hover { border-color:var(--green); }
+    .fixed { margin:15px 0 4px; padding:10px 12px; border-left:2px solid #4f738e; background:#19253a; font-size:12px; }
+    .fixed b { color:var(--blue); }
+    .fixed span { color:var(--muted); }
+    .matrix-wrap { overflow:auto; max-height:410px; border:1px solid var(--line); }
+    .explain { margin:0 0 10px; color:var(--muted); font-size:12px; }
+    table { width:100%; border-collapse:collapse; min-width:610px; font-size:12px; }
+    th { position:sticky; top:0; z-index:1; padding:8px; background:#202b43; color:var(--muted); text-align:left; font-weight:600; }
+    td { padding:0; border-top:1px solid #293750; }
+    td button { display:block; width:100%; min-height:36px; border:0; padding:7px 8px; color:var(--ink); background:transparent; text-align:left; }
+    tr:hover td,tr[data-selected] td { background:#21413f; }
+    td:last-child { text-align:right; }
+    .table-foot { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:8px; color:var(--muted); font-size:12px; }
+    .pager { display:flex; gap:5px; }
+    .pager button { min-height:30px; border:1px solid #465773; border-radius:3px; padding:3px 9px; color:var(--ink); background:#1b2740; }
+    .pager button:disabled { opacity:.45; cursor:default; }
+    .detail { margin-top:15px; padding:10px 12px; border-left:2px solid var(--yellow); background:#20283b; }
+    .detail h3 { margin:0 0 6px; font-size:13px; }
+    .detail p { margin:5px 0; color:var(--muted); font-size:12px; }
+    .detail code { overflow-wrap:anywhere; color:var(--ink); }
+    .tree-area { max-height:450px; overflow:auto; border-top:1px solid var(--line); padding:7px 0; }
+    .tree-row { display:flex; gap:8px; align-items:center; width:100%; min-height:32px; border:0; border-radius:3px; padding:4px 8px; color:var(--ink); background:none; text-align:left; }
+    .tree-row:hover { background:#24324b; }
+    .tree-row.folder { color:#c9d6e5; }
+    .tree-row.leaf { background:var(--row); margin:2px 0; }
+    .tree-row.leaf[data-selected] { outline:1px solid var(--yellow); color:#ffe6ab; }
+    .tree-row small { margin-left:auto; color:var(--muted); }
+    .tree-row .arrow { width:12px; flex:none; color:var(--muted); }
+    .tree-children { margin-left:15px; padding-left:11px; border-left:1px solid #354762; }
+    .notice { margin-top:12px; color:var(--muted); font-size:11px; line-height:1.5; }
+    @media(max-width:680px) { .frame { padding:16px 11px 40px; } .tool { padding:11px 11px 15px 13px; } .metrics { grid-template-columns:repeat(2,1fr); } .coverage { grid-template-columns:repeat(2,1fr); } .tabs { gap:11px; overflow:auto; } .controls input[type="search"] { width:100%; max-width:none; } .controls .spacer { display:none; } }
+  </style>
+</head>
+<body>
+  <main class="frame">
+    <header class="top"><div class="brand"><strong>VASPFlow</strong><span>工具卡片设计预览</span></div><div><small>虚拟数据 · 不读取或写入文件</small> · <a href="vaspflow-compare-results-card-demo.html">查看计算数据 Demo</a></div></header>
+    <section class="chat" aria-label="示例对话">
+      <div class="bubble">比较这些任务的输入文件。我想知道哪些 INCAR 参数在变，以及每个组合在哪些目录。</div>
+      <article class="tool" aria-label="对比 VASP 输入卡片">
+        <div class="tool-head"><button id="collapse" type="button" aria-expanded="true"><span id="collapseIcon">▾</span>对比 VASP 输入</button><small id="headSummary">完成</small></div>
+        <div class="tool-body" id="toolBody">
+          <div class="scope"><code>D:\Projects\VASPFlow\test</code> · 比较所选目录的直属输入文件</div>
+          <div class="metrics" id="metrics"></div>
+          <div class="coverage" id="coverage"></div>
+          <div class="tabs" role="tablist" aria-label="比较结果视图">
+            <button type="button" role="tab" data-tab="distribution" aria-selected="true">参数分布</button>
+            <button type="button" role="tab" data-tab="matrix" aria-selected="false">INCAR 版本列表</button>
+            <button type="button" role="tab" data-tab="tree" aria-selected="false">目录树</button>
+          </div>
+          <div class="controls"><span class="quiet">版本划分固定忽略 SYSTEM；原值仍保留在目录详情中。</span><span class="spacer"></span><label>查找目录 <input id="pathSearch" type="search" placeholder="输入任务名或路径"></label></div>
+          <div class="filters" id="filters"></div>
+          <div id="view" role="tabpanel"></div>
+          <div class="notice">这里的“版本”只表示 INCAR 参数文本在规范化后相同；不代表计算结果可直接比较，也不代替输入规则校验。</div>
+        </div>
+      </article>
+    </section>
+  </main>
+  <script>
+    const ediffs = ['1E-3','1E-4','1E-5'];
+    const ediffgs = ['-0.5','-0.1','-0.05','-0.02'];
+    const nsws = ['300','400','500'];
+    const roots = ['1-NO3/relax','2-NO/relax','8-NO-scan/src'];
+    const data = [];
+    for (const ediff of ediffs) for (const ediffg of ediffgs) for (const nsw of nsws) for (let replica=0;replica<3;replica++) {
+      const number = data.length + 1;
+      data.push({
+        dir:`${roots[replica]}/E${ediff.replace('-','m')}/G${ediffg.replace('-','m')}/NSW${nsw}`,
+        incar:{SYSTEM:`run-${String(number).padStart(3,'0')}`,ENCUT:'400',ALGO:'Normal',IBRION:'2',ISIF:'2',ISPIN:'2',ISMEAR:'0',EDIFF:ediff,EDIFFG:ediffg,NSW:nsw},
+        INCAR:true, KPOINTS:number % 18 !== 0, POTCAR:true,
+        POSCAR:!(replica === 1 && nsw !== '300'),
+        potcarVariant:number % 27 === 0,
+      });
+    }
+    const state = { tab:'distribution', filters:{}, search:'', page:0, combo:'', dir:'', openPath:'', rootOpen:true, collapsed:false };
+    const $ = (id) => document.getElementById(id);
+    const escapeHtml = (value) => String(value).replace(/[&<>"']/g,(char)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const valueOf = (row,key) => row.incar[key] ?? '未设置';
+    const incarKeys = [...new Set(data.flatMap((row) => Object.keys(row.incar)))].filter((key) => key !== 'SYSTEM').sort();
+    const params = incarKeys.filter((key) => new Set(data.map((row) => valueOf(row,key))).size > 1);
+    const fixed = incarKeys.filter((key) => !params.includes(key));
+    const matching = (exceptKey) => data.filter((row) => row.dir.toLowerCase().includes(state.search.toLowerCase()) && Object.entries(state.filters).every(([key,value]) => key===exceptKey || valueOf(row,key)===value));
+    const comboKey = (row) => JSON.stringify(incarKeys.map((key) => [key,valueOf(row,key)]));
+    const groupsOf = (rows) => {
+      const map = new Map();
+      for (const row of rows) { const key=comboKey(row); if(!map.has(key)) map.set(key,[]); map.get(key).push(row); }
+      return [...map].map(([key,members])=>({key,members,example:members[0]})).sort((a,b)=>a.key.localeCompare(b.key,undefined,{numeric:true}));
+    };
+    function renderOverview(rows,groups) {
+      const warnings=rows.filter((row)=>!row.KPOINTS||row.potcarVariant).length;
+      const metrics=[
+        ['参与比较的目录',rows.length,'当前筛选范围内的目录'],
+        ['INCAR 版本',groups.length,'除 SYSTEM 外，参数和值相同算一版'],
+        ['有变化的 INCAR 参数',params.length,`本次全部目录：${params.join('、')||'没有参数变化'}`],
+        ['需查看的目录',warnings,'缺 KPOINTS 或 POTCAR 来源不同'],
+      ];
+      $('metrics').innerHTML=metrics.map(([label,count,help])=>`<div class="metric ${label==='需查看的目录'?'warning':''}"><strong>${count}</strong><span>${label}</span><small>${escapeHtml(help)}</small></div>`).join('');
+      $('coverage').innerHTML=['INCAR','KPOINTS','POTCAR','POSCAR'].map((name)=>{ const count=rows.filter((row)=>row[name]).length;return `<div class="coverage-item"><div class="coverage-label"><span>${name}</span><span>${count}/${rows.length}</span></div><div class="coverage-track"><div class="coverage-fill" style="width:${rows.length?count/rows.length*100:0}%"></div></div></div>`; }).join('');
+      $('headSummary').textContent=state.collapsed?`完成 · ${rows.length} 个目录 · ${groups.length} 个 INCAR 版本`:'完成';
+      $('filters').innerHTML=Object.entries(state.filters).map(([key,value])=>`<button type="button" data-remove="${key}" aria-label="移除 ${key} ${value} 筛选">${key} = ${escapeHtml(value)} ×</button>`).join('')+(Object.keys(state.filters).length||state.search?'<button type="button" class="clear" data-clear="1">清除筛选</button>':'<span class="quiet">点击某个参数值，可查看使用该值的目录与 INCAR 版本。</span>');
+    }
+    function renderDistribution(rows) {
+      const blocks=params.map((key)=>{
+        const pool=matching(key);
+        const values=[...new Set(data.map((row)=>valueOf(row,key)))];
+        return `<section class="param-row"><div class="param-head"><strong>${key}</strong><span>${values.length} 个取值 · 点击交叉筛选</span></div><div class="values">${values.map((value)=>{const count=pool.filter((row)=>valueOf(row,key)===value).length;return `<button type="button" class="value" ${state.filters[key]===value?'data-active=""':''} data-key="${key}" data-value="${escapeHtml(value)}" aria-pressed="${state.filters[key]===value}"><i style="width:${pool.length?count/pool.length*100:0}%"></i><span>${escapeHtml(value)}</span><b>${count}</b></button>`;}).join('')}</div></section>`;
+      }).join('');
+      return `<div class="view-head"><strong>变化参数</strong><small>当前 ${rows.length} / ${data.length} 个目录</small></div><p class="explain">自动检查所有已读取的 INCAR 参数。本示例只有 ${params.map(escapeHtml).join('、')} 发生变化，不是预设只检查这几项。</p><div class="distribution">${blocks||'<p class="quiet">所选目录的 INCAR 参数没有差异。</p>'}</div><div class="fixed"><b>这些参数在全部目录中相同</b><br>${fixed.map((key)=>`${escapeHtml(key)} ${escapeHtml(valueOf(data[0],key))}`).join(' · ')}<br><span>SYSTEM 是目录标签，不参与版本划分；每个目录的原值仍可在“目录树”查看。</span></div>`;
+    }
+    function renderMatrix(groups) {
+      const pages=Math.max(1,Math.ceil(groups.length/12)); state.page=Math.min(state.page,pages-1);
+      const shown=groups.slice(state.page*12,state.page*12+12);
+      const selected=shown.find((item)=>item.key===state.combo)??shown[0];
+      if(selected) state.combo=selected.key;
+      const rows=shown.map((group,index)=>`<tr ${group.key===state.combo?'data-selected=""':''}><td><button type="button" data-combo="${escapeHtml(group.key)}">${String(state.page*12+index+1).padStart(2,'0')}</button></td>${params.map((key)=>`<td><button type="button" data-combo="${escapeHtml(group.key)}">${escapeHtml(valueOf(group.example,key))}</button></td>`).join('')}<td><button type="button" data-combo="${escapeHtml(group.key)}">${group.members.length} 目录</button></td></tr>`).join('');
+      return `<div class="view-head"><strong>INCAR 版本列表</strong><small>${groups.length} 个版本 · 每页 12 个</small></div><p class="explain">每一行是一组参数和值相同的目录；只列出发生变化的参数。点击一行查看目录位置。</p><div class="matrix-wrap"><table><thead><tr><th>版本</th>${params.map((key)=>`<th>${escapeHtml(key)}</th>`).join('')}<th>目录数</th></tr></thead><tbody>${rows||`<tr><td colspan="${params.length+2}" style="padding:14px">没有符合筛选的目录</td></tr>`}</tbody></table></div><div class="table-foot"><span>第 ${state.page+1} / ${pages} 页</span><span class="pager"><button type="button" data-page="-1" ${state.page===0?'disabled':''}>上一页</button><button type="button" data-page="1" ${state.page>=pages-1?'disabled':''}>下一页</button></span></div>${selected?`<div class="detail"><h3>此版本出现于 ${selected.members.length} 个目录</h3><p>${params.map((key)=>`${escapeHtml(key)} ${escapeHtml(valueOf(selected.example,key))}`).join(' · ')}</p>${selected.members.map((row)=>`<p><code>${escapeHtml(row.dir)}</code>${!row.KPOINTS?' · 缺 KPOINTS':''}${row.potcarVariant?' · POTCAR 来源不同':''}</p>`).join('')}</div>`:''}`;
+    }
+    function treeOf(rows) {
+      const root={count:0,children:new Map(),entry:null};
+      for(const row of rows){let node=root;node.count++;for(const part of row.dir.split('/')){if(!node.children.has(part))node.children.set(part,{count:0,children:new Map(),entry:null});node=node.children.get(part);node.count++;}node.entry=row;}
+      return root;
+    }
+    function renderTree(rows) {
+      const root=treeOf(rows);
+      const renderNode=(node,name,parent)=>{
+        const path=parent?`${parent}/${name}`:name;
+        const children=[...node.children].sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}));
+        if(!children.length){const row=node.entry;return `<button type="button" class="tree-row leaf" ${state.dir===row.dir?'data-selected=""':''} data-dir="${escapeHtml(row.dir)}"><span class="arrow">·</span><span>${escapeHtml(name)}</span><small>${!row.KPOINTS?'缺 KPOINTS':row.potcarVariant?'POTCAR 有差异':''}</small></button>`;}
+        const open=state.openPath===path||state.openPath.startsWith(path+'/');
+        return `<div><button type="button" class="tree-row folder" data-folder="${escapeHtml(path)}" aria-expanded="${open}"><span class="arrow">${open?'▾':'▸'}</span><span>${escapeHtml(name)}</span><small>${node.count}</small></button>${open?`<div class="tree-children">${children.map(([childName,child])=>renderNode(child,childName,path)).join('')}</div>`:''}</div>`;
+      };
+      const selected=rows.find((row)=>row.dir===state.dir);
+      return `<div class="view-head"><strong>目录位置</strong><small>${rows.length} 个目录 · 点击展开</small></div><div class="tree-area"><button type="button" class="tree-row folder" data-root="1" aria-expanded="${state.rootOpen}"><span class="arrow">${state.rootOpen?'▾':'▸'}</span><span>根目录</span><small>${root.count}</small></button>${state.rootOpen?`<div class="tree-children">${[...root.children].sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true})).map(([name,node])=>renderNode(node,name,'')).join('')}</div>`:''}</div>${selected?`<div class="detail"><h3>${escapeHtml(selected.incar.SYSTEM)}</h3><p class="entry-path">${escapeHtml(selected.dir)}</p><p>${params.map((key)=>`${escapeHtml(key)} ${escapeHtml(valueOf(selected,key))}`).join(' · ')}</p><p>INCAR 已读取 · ${selected.KPOINTS?'KPOINTS 已读取':'KPOINTS 未提供'} · POTCAR 已读取${selected.potcarVariant?'（来源不同）':''} · ${selected.POSCAR?'POSCAR 已读取':'POSCAR 未提供'}</p></div>`:''}`;
+    }
+    function render() {
+      const rows=matching(); const groups=groupsOf(rows);
+      renderOverview(rows,groups);
+      document.querySelectorAll('[data-tab]').forEach((button)=>button.setAttribute('aria-selected',button.dataset.tab===state.tab?'true':'false'));
+      $('view').innerHTML=state.tab==='matrix'?renderMatrix(groups):state.tab==='tree'?renderTree(rows):renderDistribution(rows);
+    }
+    $('collapse').addEventListener('click',()=>{state.collapsed=!state.collapsed;$('toolBody').hidden=state.collapsed;$('collapse').setAttribute('aria-expanded',String(!state.collapsed));$('collapseIcon').textContent=state.collapsed?'▸':'▾';render();});
+    document.querySelectorAll('[data-tab]').forEach((button)=>button.addEventListener('click',()=>{state.tab=button.dataset.tab;render();}));
+    document.querySelector('.tabs').addEventListener('keydown',(event)=>{if(!['ArrowLeft','ArrowRight'].includes(event.key))return;event.preventDefault();const tabs=['distribution','matrix','tree'];const index=tabs.indexOf(state.tab);const next=Math.min(tabs.length-1,Math.max(0,index+(event.key==='ArrowRight'?1:-1)));state.tab=tabs[next];render();document.querySelector(`[data-tab="${state.tab}"]`).focus();});
+    $('pathSearch').addEventListener('input',(event)=>{state.search=event.target.value;state.page=0;render();});
+    $('filters').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.clear){state.filters={};state.search='';$('pathSearch').value='';}else delete state.filters[button.dataset.remove];state.page=0;render();});
+    $('view').addEventListener('click',(event)=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.key){const {key,value}=button.dataset;state.filters[key]=state.filters[key]===value?undefined:value;if(!state.filters[key])delete state.filters[key];state.page=0;state.combo='';}else if(button.dataset.combo){state.combo=button.dataset.combo;}else if(button.dataset.page){state.page+=Number(button.dataset.page);state.combo='';}else if(button.dataset.root){state.rootOpen=!state.rootOpen;if(!state.rootOpen)state.openPath='';}else if(button.dataset.folder){state.openPath=state.openPath===button.dataset.folder?button.dataset.folder.split('/').slice(0,-1).join('/'):button.dataset.folder;}else if(button.dataset.dir){state.dir=button.dataset.dir;}render();});
+    render();
+  </script>
+</body>
+</html>

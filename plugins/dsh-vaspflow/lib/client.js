@@ -5471,7 +5471,7 @@ __export(index_exports, {
   setProjectPathForPrefill: () => setProjectPathForPrefill
 });
 module.exports = __toCommonJS(index_exports);
-var import_react169 = __toESM(require("react"), 1);
+var import_react170 = __toESM(require("react"), 1);
 
 // node_modules/.pnpm/@babel+runtime@7.29.7/node_modules/@babel/runtime/helpers/esm/extends.js
 function _extends() {
@@ -59055,7 +59055,7 @@ var typography_default = Typography2;
 var import_zh_CN2 = __toESM(require_zh_CN7(), 1);
 
 // src/client/Panel.tsx
-var import_react167 = __toESM(require("react"), 1);
+var import_react168 = __toESM(require("react"), 1);
 
 // node_modules/.pnpm/@ant-design+icons@5.6.1_rea_e7698d4cd1fc8436afad1b188c3665aa/node_modules/@ant-design/icons/es/icons/AppstoreOutlined.js
 var React392 = __toESM(require("react"));
@@ -59401,9 +59401,62 @@ function readStructureDrag(dataTransfer) {
 init_api();
 
 // src/client/components.tsx
-var import_react129 = __toESM(require("react"), 1);
+var import_react130 = __toESM(require("react"), 1);
 
 // src/client/tree-scroll.ts
+var import_react129 = require("react");
+function useTreeScrollPath(ref, version4) {
+  const [path3, setPath] = (0, import_react129.useState)("");
+  (0, import_react129.useEffect)(() => {
+    const container = ref.current;
+    if (!container) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const top = container.getBoundingClientRect().top + container.clientTop + 1;
+      const breadcrumb = container.parentElement?.querySelector(".vfp-tree-breadcrumb");
+      const visibleTop = top + (breadcrumb && !breadcrumb.hidden ? breadcrumb.getBoundingClientRect().height : 0);
+      const expanded = (folder2) => folder2.tagName === "DETAILS" ? folder2.hasAttribute("open") : !!folder2.querySelector(":scope > .vfp-path-children");
+      const visible = (entry) => {
+        let ancestor = entry.parentElement?.closest(".vfp-path-folder") ?? null;
+        if (entry.dataset.vfpTreePath !== void 0 && ancestor === entry.parentElement) {
+          ancestor = ancestor.parentElement?.closest(".vfp-path-folder") ?? null;
+        }
+        for (; ancestor; ancestor = ancestor.parentElement?.closest(".vfp-path-folder") ?? null) {
+          if (!expanded(ancestor)) return false;
+        }
+        return true;
+      };
+      const current = [...container.querySelectorAll("[data-vfp-tree-path], [data-vfp-tree-parent]")].find((entry) => {
+        const rect = entry.getBoundingClientRect();
+        return visible(entry) && rect.height > 0 && rect.bottom > visibleTop;
+      });
+      let folder = current?.closest(".vfp-path-folder") ?? null;
+      if (folder && current?.dataset.vfpTreePath !== void 0 && (!expanded(folder) || current.getBoundingClientRect().top >= visibleTop)) {
+        folder = folder.parentElement?.closest(".vfp-path-folder") ?? null;
+      }
+      let nextPath = "";
+      for (; folder; folder = folder.parentElement?.closest(".vfp-path-folder") ?? null) {
+        const heading = folder.querySelector(":scope > [data-vfp-tree-path]");
+        if (heading && expanded(folder) && heading.getBoundingClientRect().top < visibleTop) {
+          nextPath = heading.dataset.vfpTreePath ?? "";
+          break;
+        }
+      }
+      setPath((previous) => previous === nextPath ? previous : nextPath);
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    container.addEventListener("scroll", schedule, { passive: true });
+    schedule();
+    return () => {
+      container.removeEventListener("scroll", schedule);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [ref, version4, path3]);
+  return path3;
+}
 function scrollExpandedTreeRow(row) {
   if (!row) return;
   requestAnimationFrame(() => {
@@ -59413,7 +59466,9 @@ function scrollExpandedTreeRow(row) {
       container = container.parentElement;
     }
     if (!container) return;
-    const top = row.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - container.clientTop;
+    const path3 = row.dataset.vfpTreePath ?? row.closest("[data-vfp-tree-parent]")?.dataset.vfpTreeParent ?? row.querySelector("[data-vfp-tree-path]")?.dataset.vfpTreePath ?? "";
+    const breadcrumbOffset = container.classList.contains("vfp-path-tree") && path3.includes("/") ? 32 : 0;
+    const top = row.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - container.clientTop - breadcrumbOffset;
     container.scrollTo({ top, behavior: "smooth" });
   });
 }
@@ -59559,7 +59614,7 @@ function collectKeys(nodes) {
 }
 function TaskTable({ onTaskSelected }) {
   const { projectPath, tasks, loading, filterStatus, filterConverged, searchText, selectedTask } = usePanelStore();
-  const filteredTasks = import_react129.default.useMemo(() => {
+  const filteredTasks = import_react130.default.useMemo(() => {
     let result = tasks;
     if (filterStatus) result = result.filter((t) => taskStatusCode(t) === filterStatus);
     if (filterConverged !== null) result = result.filter((t) => t.is_converged === filterConverged);
@@ -59720,14 +59775,14 @@ function TreeView({ onTaskSelected }) {
     filterConverged,
     searchText
   } = usePanelStore();
-  const [expandedKeys, setExpandedKeys] = import_react129.default.useState([]);
-  const fullTree = import_react129.default.useMemo(() => buildProjectTree(directories, tasks, pendingDirectories, failedDirectories), [directories, tasks, pendingDirectories, failedDirectories]);
-  const visibleTree = import_react129.default.useMemo(
+  const [expandedKeys, setExpandedKeys] = import_react130.default.useState([]);
+  const fullTree = import_react130.default.useMemo(() => buildProjectTree(directories, tasks, pendingDirectories, failedDirectories), [directories, tasks, pendingDirectories, failedDirectories]);
+  const visibleTree = import_react130.default.useMemo(
     () => filterTaskTree(fullTree, filterStatus, filterConverged, searchText),
     [fullTree, filterStatus, filterConverged, searchText]
   );
-  import_react129.default.useEffect(() => setExpandedKeys([]), [projectPath]);
-  import_react129.default.useEffect(() => {
+  import_react130.default.useEffect(() => setExpandedKeys([]), [projectPath]);
+  import_react130.default.useEffect(() => {
     const visibleKeys = new Set(collectKeys(visibleTree));
     setExpandedKeys((prev2) => prev2.filter((key) => visibleKeys.has(String(key))));
   }, [visibleTree]);
@@ -59827,10 +59882,10 @@ function TreeView({ onTaskSelected }) {
 }
 
 // src/client/ConvergenceChart.tsx
-var import_react164 = require("react");
+var import_react165 = require("react");
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/container/Surface.js
-var import_react132 = __toESM(require("react"));
+var import_react133 = __toESM(require("react"));
 
 // node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
 function r(e) {
@@ -59854,7 +59909,7 @@ var import_isNil2 = __toESM(require_isNil());
 var import_isString2 = __toESM(require_isString());
 var import_isFunction = __toESM(require_isFunction());
 var import_isObject2 = __toESM(require_isObject());
-var import_react131 = require("react");
+var import_react132 = require("react");
 var import_react_is2 = __toESM(require_react_is());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/DataUtils.js
@@ -59982,7 +60037,7 @@ function shallowEqual(a2, b) {
 }
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/types.js
-var import_react130 = require("react");
+var import_react131 = require("react");
 var import_isObject = __toESM(require_isObject());
 function _typeof2(o) {
   "@babel/helpers - typeof";
@@ -60315,7 +60370,7 @@ var adaptEventHandlers = function adaptEventHandlers2(props, newHandler) {
     return null;
   }
   var inputProps = props;
-  if (/* @__PURE__ */ (0, import_react130.isValidElement)(props)) {
+  if (/* @__PURE__ */ (0, import_react131.isValidElement)(props)) {
     inputProps = props.props;
   }
   if (!(0, import_isObject.default)(inputProps)) {
@@ -60421,7 +60476,7 @@ var toArray7 = function toArray8(children) {
     return lastResult;
   }
   var result = [];
-  import_react131.Children.forEach(children, function(child) {
+  import_react132.Children.forEach(children, function(child) {
     if ((0, import_isNil2.default)(child)) return;
     if ((0, import_react_is2.isFragment)(child)) {
       result = result.concat(toArray8(child.props.children));
@@ -60482,7 +60537,7 @@ var filterProps = function filterProps2(props, includeEvents, svgElementType) {
     return null;
   }
   var inputProps = props;
-  if (/* @__PURE__ */ (0, import_react131.isValidElement)(props)) {
+  if (/* @__PURE__ */ (0, import_react132.isValidElement)(props)) {
     inputProps = props.props;
   }
   if (!(0, import_isObject2.default)(inputProps)) {
@@ -60501,8 +60556,8 @@ var isChildrenEqual = function isChildrenEqual2(nextChildren, prevChildren) {
   if (nextChildren === prevChildren) {
     return true;
   }
-  var count = import_react131.Children.count(nextChildren);
-  if (count !== import_react131.Children.count(prevChildren)) {
+  var count = import_react132.Children.count(nextChildren);
+  if (count !== import_react132.Children.count(prevChildren)) {
     return false;
   }
   if (count === 0) {
@@ -60621,17 +60676,17 @@ function Surface(props) {
     y: 0
   };
   var layerClass = clsx_default("recharts-surface", className);
-  return /* @__PURE__ */ import_react132.default.createElement("svg", _extends2({}, filterProps(others, true, "svg"), {
+  return /* @__PURE__ */ import_react133.default.createElement("svg", _extends2({}, filterProps(others, true, "svg"), {
     className: layerClass,
     width,
     height,
     style: style2,
     viewBox: "".concat(svgView.x, " ").concat(svgView.y, " ").concat(svgView.width, " ").concat(svgView.height)
-  }), /* @__PURE__ */ import_react132.default.createElement("title", null, title), /* @__PURE__ */ import_react132.default.createElement("desc", null, desc), children);
+  }), /* @__PURE__ */ import_react133.default.createElement("title", null, title), /* @__PURE__ */ import_react133.default.createElement("desc", null, desc), children);
 }
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/container/Layer.js
-var import_react133 = __toESM(require("react"));
+var import_react134 = __toESM(require("react"));
 var _excluded61 = ["children", "className"];
 function _extends3() {
   _extends3 = Object.assign ? Object.assign.bind() : function(target) {
@@ -60673,10 +60728,10 @@ function _objectWithoutPropertiesLoose4(source, excluded) {
   }
   return target;
 }
-var Layer = /* @__PURE__ */ import_react133.default.forwardRef(function(props, ref) {
+var Layer = /* @__PURE__ */ import_react134.default.forwardRef(function(props, ref) {
   var children = props.children, className = props.className, others = _objectWithoutProperties4(props, _excluded61);
   var layerClass = clsx_default("recharts-layer", className);
-  return /* @__PURE__ */ import_react133.default.createElement("g", _extends3({
+  return /* @__PURE__ */ import_react134.default.createElement("g", _extends3({
     className: layerClass
   }, filterProps(others, true), {
     ref
@@ -60684,10 +60739,10 @@ var Layer = /* @__PURE__ */ import_react133.default.forwardRef(function(props, r
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/Legend.js
-var import_react136 = __toESM(require("react"));
+var import_react137 = __toESM(require("react"));
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/DefaultLegendContent.js
-var import_react135 = __toESM(require("react"));
+var import_react136 = __toESM(require("react"));
 var import_isFunction2 = __toESM(require_isFunction());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/LogUtils.js
@@ -60714,7 +60769,7 @@ var warn = function warn2(condition, format3) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Symbols.js
-var import_react134 = __toESM(require("react"));
+var import_react135 = __toESM(require("react"));
 var import_upperFirst = __toESM(require_upperFirst());
 
 // node_modules/.pnpm/d3-shape@3.2.0/node_modules/d3-shape/src/constant.js
@@ -61835,7 +61890,7 @@ var Symbols = function Symbols2(_ref) {
   var className = props.className, cx = props.cx, cy = props.cy;
   var filteredProps = filterProps(props, true);
   if (cx === +cx && cy === +cy && size === +size) {
-    return /* @__PURE__ */ import_react134.default.createElement("path", _extends4({}, filteredProps, {
+    return /* @__PURE__ */ import_react135.default.createElement("path", _extends4({}, filteredProps, {
       className: clsx_default("recharts-symbols", className),
       transform: "translate(".concat(cx, ", ").concat(cy, ")"),
       d: getPath5()
@@ -62002,7 +62057,7 @@ var DefaultLegendContent = /* @__PURE__ */ (function(_PureComponent) {
         var thirdSize = SIZE / 3;
         var color2 = data.inactive ? inactiveColor : data.color;
         if (data.type === "plainline") {
-          return /* @__PURE__ */ import_react135.default.createElement("line", {
+          return /* @__PURE__ */ import_react136.default.createElement("line", {
             strokeWidth: 4,
             fill: "none",
             stroke: color2,
@@ -62015,7 +62070,7 @@ var DefaultLegendContent = /* @__PURE__ */ (function(_PureComponent) {
           });
         }
         if (data.type === "line") {
-          return /* @__PURE__ */ import_react135.default.createElement("path", {
+          return /* @__PURE__ */ import_react136.default.createElement("path", {
             strokeWidth: 4,
             fill: "none",
             stroke: color2,
@@ -62024,19 +62079,19 @@ var DefaultLegendContent = /* @__PURE__ */ (function(_PureComponent) {
           });
         }
         if (data.type === "rect") {
-          return /* @__PURE__ */ import_react135.default.createElement("path", {
+          return /* @__PURE__ */ import_react136.default.createElement("path", {
             stroke: "none",
             fill: color2,
             d: "M0,".concat(SIZE / 8, "h").concat(SIZE, "v").concat(SIZE * 3 / 4, "h").concat(-SIZE, "z"),
             className: "recharts-legend-icon"
           });
         }
-        if (/* @__PURE__ */ import_react135.default.isValidElement(data.legendIcon)) {
+        if (/* @__PURE__ */ import_react136.default.isValidElement(data.legendIcon)) {
           var iconProps = _objectSpread3({}, data);
           delete iconProps.legendIcon;
-          return /* @__PURE__ */ import_react135.default.cloneElement(data.legendIcon, iconProps);
+          return /* @__PURE__ */ import_react136.default.cloneElement(data.legendIcon, iconProps);
         }
-        return /* @__PURE__ */ import_react135.default.createElement(Symbols, {
+        return /* @__PURE__ */ import_react136.default.createElement(Symbols, {
           fill: color2,
           cx: halfSize,
           cy: halfSize,
@@ -62085,16 +62140,16 @@ var DefaultLegendContent = /* @__PURE__ */ (function(_PureComponent) {
           // eslint-disable-line max-len
         );
         var color2 = entry.inactive ? inactiveColor : entry.color;
-        return /* @__PURE__ */ import_react135.default.createElement("li", _extends5({
+        return /* @__PURE__ */ import_react136.default.createElement("li", _extends5({
           className,
           style: itemStyle,
           key: "legend-item-".concat(i)
-        }, adaptEventsOfChild(_this.props, entry, i)), /* @__PURE__ */ import_react135.default.createElement(Surface, {
+        }, adaptEventsOfChild(_this.props, entry, i)), /* @__PURE__ */ import_react136.default.createElement(Surface, {
           width: iconSize,
           height: iconSize,
           viewBox,
           style: svgStyle
-        }, _this.renderIcon(entry)), /* @__PURE__ */ import_react135.default.createElement("span", {
+        }, _this.renderIcon(entry)), /* @__PURE__ */ import_react136.default.createElement("span", {
           className: "recharts-legend-item-text",
           style: {
             color: color2
@@ -62114,13 +62169,13 @@ var DefaultLegendContent = /* @__PURE__ */ (function(_PureComponent) {
         margin: 0,
         textAlign: layout === "horizontal" ? align : "left"
       };
-      return /* @__PURE__ */ import_react135.default.createElement("ul", {
+      return /* @__PURE__ */ import_react136.default.createElement("ul", {
         className: "recharts-default-legend",
         style: finalStyle
       }, this.renderItems());
     }
   }]);
-})(import_react135.PureComponent);
+})(import_react136.PureComponent);
 _defineProperty3(DefaultLegendContent, "displayName", "Legend");
 _defineProperty3(DefaultLegendContent, "defaultProps", {
   iconSize: 14,
@@ -62295,14 +62350,14 @@ function defaultUniqBy(entry) {
   return entry.value;
 }
 function renderContent(content, props) {
-  if (/* @__PURE__ */ import_react136.default.isValidElement(content)) {
-    return /* @__PURE__ */ import_react136.default.cloneElement(content, props);
+  if (/* @__PURE__ */ import_react137.default.isValidElement(content)) {
+    return /* @__PURE__ */ import_react137.default.cloneElement(content, props);
   }
   if (typeof content === "function") {
-    return /* @__PURE__ */ import_react136.default.createElement(content, props);
+    return /* @__PURE__ */ import_react137.default.createElement(content, props);
   }
   var ref = props.ref, otherProps = _objectWithoutProperties6(props, _excluded63);
-  return /* @__PURE__ */ import_react136.default.createElement(DefaultLegendContent, otherProps);
+  return /* @__PURE__ */ import_react137.default.createElement(DefaultLegendContent, otherProps);
 }
 var EPS = 1;
 var Legend = /* @__PURE__ */ (function(_PureComponent) {
@@ -62418,7 +62473,7 @@ var Legend = /* @__PURE__ */ (function(_PureComponent) {
         width: width || "auto",
         height: height || "auto"
       }, this.getDefaultPosition(wrapperStyle)), wrapperStyle);
-      return /* @__PURE__ */ import_react136.default.createElement("div", {
+      return /* @__PURE__ */ import_react137.default.createElement("div", {
         className: "recharts-legend-wrapper",
         style: outerStyle,
         ref: function ref(node2) {
@@ -62445,7 +62500,7 @@ var Legend = /* @__PURE__ */ (function(_PureComponent) {
       return null;
     }
   }]);
-})(import_react136.PureComponent);
+})(import_react137.PureComponent);
 _defineProperty4(Legend, "displayName", "Legend");
 _defineProperty4(Legend, "defaultProps", {
   iconSize: 14,
@@ -62455,10 +62510,10 @@ _defineProperty4(Legend, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/Tooltip.js
-var import_react139 = __toESM(require("react"));
+var import_react140 = __toESM(require("react"));
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/DefaultTooltipContent.js
-var import_react137 = __toESM(require("react"));
+var import_react138 = __toESM(require("react"));
 var import_sortBy = __toESM(require_sortBy());
 var import_isNil3 = __toESM(require_isNil());
 function _typeof7(o) {
@@ -62607,22 +62662,22 @@ var DefaultTooltipContent = function DefaultTooltipContent2(props) {
         }
         return (
           // eslint-disable-next-line react/no-array-index-key
-          /* @__PURE__ */ import_react137.default.createElement("li", {
+          /* @__PURE__ */ import_react138.default.createElement("li", {
             className: "recharts-tooltip-item",
             key: "tooltip-item-".concat(i),
             style: finalItemStyle
-          }, isNumOrStr(finalName) ? /* @__PURE__ */ import_react137.default.createElement("span", {
+          }, isNumOrStr(finalName) ? /* @__PURE__ */ import_react138.default.createElement("span", {
             className: "recharts-tooltip-item-name"
-          }, finalName) : null, isNumOrStr(finalName) ? /* @__PURE__ */ import_react137.default.createElement("span", {
+          }, finalName) : null, isNumOrStr(finalName) ? /* @__PURE__ */ import_react138.default.createElement("span", {
             className: "recharts-tooltip-item-separator"
-          }, separator) : null, /* @__PURE__ */ import_react137.default.createElement("span", {
+          }, separator) : null, /* @__PURE__ */ import_react138.default.createElement("span", {
             className: "recharts-tooltip-item-value"
-          }, finalValue), /* @__PURE__ */ import_react137.default.createElement("span", {
+          }, finalValue), /* @__PURE__ */ import_react138.default.createElement("span", {
             className: "recharts-tooltip-item-unit"
           }, entry.unit || ""))
         );
       });
-      return /* @__PURE__ */ import_react137.default.createElement("ul", {
+      return /* @__PURE__ */ import_react138.default.createElement("ul", {
         className: "recharts-tooltip-item-list",
         style: listStyle
       }, items);
@@ -62650,17 +62705,17 @@ var DefaultTooltipContent = function DefaultTooltipContent2(props) {
     role: "status",
     "aria-live": "assertive"
   } : {};
-  return /* @__PURE__ */ import_react137.default.createElement("div", _extends6({
+  return /* @__PURE__ */ import_react138.default.createElement("div", _extends6({
     className: wrapperCN,
     style: finalStyle
-  }, accessibilityAttributes), /* @__PURE__ */ import_react137.default.createElement("p", {
+  }, accessibilityAttributes), /* @__PURE__ */ import_react138.default.createElement("p", {
     className: labelCN,
     style: finalLabelStyle
-  }, /* @__PURE__ */ import_react137.default.isValidElement(finalLabel) ? finalLabel : "".concat(finalLabel)), renderContent3());
+  }, /* @__PURE__ */ import_react138.default.isValidElement(finalLabel) ? finalLabel : "".concat(finalLabel)), renderContent3());
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/TooltipBoundingBox.js
-var import_react138 = __toESM(require("react"));
+var import_react139 = __toESM(require("react"));
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/tooltip/translate.js
 function _typeof8(o) {
@@ -63007,7 +63062,7 @@ var TooltipBoundingBox = /* @__PURE__ */ (function(_PureComponent) {
       return (
         // This element allow listening to the `Escape` key.
         // See https://github.com/recharts/recharts/pull/2925
-        /* @__PURE__ */ import_react138.default.createElement("div", {
+        /* @__PURE__ */ import_react139.default.createElement("div", {
           tabIndex: -1,
           className: cssClasses,
           style: outerStyle,
@@ -63018,7 +63073,7 @@ var TooltipBoundingBox = /* @__PURE__ */ (function(_PureComponent) {
       );
     }
   }]);
-})(import_react138.PureComponent);
+})(import_react139.PureComponent);
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/Global.js
 var parseIsSsrByDefault = function parseIsSsrByDefault2() {
@@ -63168,13 +63223,13 @@ function defaultUniqBy2(entry) {
   return entry.dataKey;
 }
 function renderContent2(content, props) {
-  if (/* @__PURE__ */ import_react139.default.isValidElement(content)) {
-    return /* @__PURE__ */ import_react139.default.cloneElement(content, props);
+  if (/* @__PURE__ */ import_react140.default.isValidElement(content)) {
+    return /* @__PURE__ */ import_react140.default.cloneElement(content, props);
   }
   if (typeof content === "function") {
-    return /* @__PURE__ */ import_react139.default.createElement(content, props);
+    return /* @__PURE__ */ import_react140.default.createElement(content, props);
   }
-  return /* @__PURE__ */ import_react139.default.createElement(DefaultTooltipContent, props);
+  return /* @__PURE__ */ import_react140.default.createElement(DefaultTooltipContent, props);
 }
 var Tooltip4 = /* @__PURE__ */ (function(_PureComponent) {
   function Tooltip5() {
@@ -63194,7 +63249,7 @@ var Tooltip4 = /* @__PURE__ */ (function(_PureComponent) {
         }), payloadUniqBy, defaultUniqBy2);
       }
       var hasPayload = finalPayload.length > 0;
-      return /* @__PURE__ */ import_react139.default.createElement(TooltipBoundingBox, {
+      return /* @__PURE__ */ import_react140.default.createElement(TooltipBoundingBox, {
         allowEscapeViewBox,
         animationDuration,
         animationEasing,
@@ -63213,7 +63268,7 @@ var Tooltip4 = /* @__PURE__ */ (function(_PureComponent) {
       })));
     }
   }]);
-})(import_react139.PureComponent);
+})(import_react140.PureComponent);
 _defineProperty8(Tooltip4, "displayName", "Tooltip");
 _defineProperty8(Tooltip4, "defaultProps", {
   accessibilityLayer: false,
@@ -63252,7 +63307,7 @@ _defineProperty8(Tooltip4, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/ResponsiveContainer.js
-var import_react140 = __toESM(require("react"));
+var import_react141 = __toESM(require("react"));
 var import_throttle = __toESM(require_throttle());
 function _typeof11(o) {
   "@babel/helpers - typeof";
@@ -63349,15 +63404,15 @@ function _iterableToArrayLimit3(r2, l) {
 function _arrayWithHoles3(arr) {
   if (Array.isArray(arr)) return arr;
 }
-var ResponsiveContainer = /* @__PURE__ */ (0, import_react140.forwardRef)(function(_ref, ref) {
+var ResponsiveContainer = /* @__PURE__ */ (0, import_react141.forwardRef)(function(_ref, ref) {
   var aspect2 = _ref.aspect, _ref$initialDimension = _ref.initialDimension, initialDimension = _ref$initialDimension === void 0 ? {
     width: -1,
     height: -1
   } : _ref$initialDimension, _ref$width = _ref.width, width = _ref$width === void 0 ? "100%" : _ref$width, _ref$height = _ref.height, height = _ref$height === void 0 ? "100%" : _ref$height, _ref$minWidth = _ref.minWidth, minWidth = _ref$minWidth === void 0 ? 0 : _ref$minWidth, minHeight = _ref.minHeight, maxHeight = _ref.maxHeight, children = _ref.children, _ref$debounce = _ref.debounce, debounce2 = _ref$debounce === void 0 ? 0 : _ref$debounce, id = _ref.id, className = _ref.className, onResize2 = _ref.onResize, _ref$style = _ref.style, style2 = _ref$style === void 0 ? {} : _ref$style;
-  var containerRef = (0, import_react140.useRef)(null);
-  var onResizeRef = (0, import_react140.useRef)();
+  var containerRef = (0, import_react141.useRef)(null);
+  var onResizeRef = (0, import_react141.useRef)();
   onResizeRef.current = onResize2;
-  (0, import_react140.useImperativeHandle)(ref, function() {
+  (0, import_react141.useImperativeHandle)(ref, function() {
     return Object.defineProperty(containerRef.current, "current", {
       get: function get8() {
         console.warn("The usage of ref.current.current is deprecated and will no longer be supported.");
@@ -63366,11 +63421,11 @@ var ResponsiveContainer = /* @__PURE__ */ (0, import_react140.forwardRef)(functi
       configurable: true
     });
   });
-  var _useState = (0, import_react140.useState)({
+  var _useState = (0, import_react141.useState)({
     containerWidth: initialDimension.width,
     containerHeight: initialDimension.height
   }), _useState2 = _slicedToArray3(_useState, 2), sizes2 = _useState2[0], setSizes = _useState2[1];
-  var setContainerSize = (0, import_react140.useCallback)(function(newWidth, newHeight) {
+  var setContainerSize = (0, import_react141.useCallback)(function(newWidth, newHeight) {
     setSizes(function(prevState) {
       var roundedWidth = Math.round(newWidth);
       var roundedHeight = Math.round(newHeight);
@@ -63383,7 +63438,7 @@ var ResponsiveContainer = /* @__PURE__ */ (0, import_react140.forwardRef)(functi
       };
     });
   }, []);
-  (0, import_react140.useEffect)(function() {
+  (0, import_react141.useEffect)(function() {
     var callback = function callback2(entries) {
       var _onResizeRef$current;
       var _entries$0$contentRec = entries[0].contentRect, containerWidth2 = _entries$0$contentRec.width, containerHeight2 = _entries$0$contentRec.height;
@@ -63404,7 +63459,7 @@ var ResponsiveContainer = /* @__PURE__ */ (0, import_react140.forwardRef)(functi
       observer.disconnect();
     };
   }, [setContainerSize, debounce2]);
-  var chartContent = (0, import_react140.useMemo)(function() {
+  var chartContent = (0, import_react141.useMemo)(function() {
     var containerWidth = sizes2.containerWidth, containerHeight = sizes2.containerHeight;
     if (containerWidth < 0 || containerHeight < 0) {
       return null;
@@ -63425,9 +63480,9 @@ var ResponsiveContainer = /* @__PURE__ */ (0, import_react140.forwardRef)(functi
     }
     warn(calculatedWidth > 0 || calculatedHeight > 0, "The width(%s) and height(%s) of chart should be greater than 0,\n       please check the style of container, or the props width(%s) and height(%s),\n       or add a minWidth(%s) or minHeight(%s) or use aspect(%s) to control the\n       height and width.", calculatedWidth, calculatedHeight, width, height, minWidth, minHeight, aspect2);
     var isCharts = !Array.isArray(children) && getDisplayName(children.type).endsWith("Chart");
-    return import_react140.default.Children.map(children, function(child) {
-      if (/* @__PURE__ */ import_react140.default.isValidElement(child)) {
-        return /* @__PURE__ */ (0, import_react140.cloneElement)(child, _objectSpread8({
+    return import_react141.default.Children.map(children, function(child) {
+      if (/* @__PURE__ */ import_react141.default.isValidElement(child)) {
+        return /* @__PURE__ */ (0, import_react141.cloneElement)(child, _objectSpread8({
           width: calculatedWidth,
           height: calculatedHeight
         }, isCharts ? {
@@ -63442,7 +63497,7 @@ var ResponsiveContainer = /* @__PURE__ */ (0, import_react140.forwardRef)(functi
       return child;
     });
   }, [aspect2, children, height, maxHeight, minHeight, minWidth, sizes2, width]);
-  return /* @__PURE__ */ import_react140.default.createElement("div", {
+  return /* @__PURE__ */ import_react141.default.createElement("div", {
     id: id ? "".concat(id) : void 0,
     className: clsx_default("recharts-responsive-container", className),
     style: _objectSpread8(_objectSpread8({}, style2), {}, {
@@ -63463,7 +63518,7 @@ var Cell2 = function Cell3(_props) {
 Cell2.displayName = "Cell";
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/Text.js
-var import_react141 = __toESM(require("react"));
+var import_react142 = __toESM(require("react"));
 var import_isNil4 = __toESM(require_isNil());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/DOMUtils.js
@@ -64041,7 +64096,7 @@ var getWordsByLines = function getWordsByLines2(_ref4) {
 var DEFAULT_FILL = "#808080";
 var Text2 = function Text3(_ref5) {
   var _ref5$x = _ref5.x, propsX = _ref5$x === void 0 ? 0 : _ref5$x, _ref5$y = _ref5.y, propsY = _ref5$y === void 0 ? 0 : _ref5$y, _ref5$lineHeight = _ref5.lineHeight, lineHeight = _ref5$lineHeight === void 0 ? "1em" : _ref5$lineHeight, _ref5$capHeight = _ref5.capHeight, capHeight = _ref5$capHeight === void 0 ? "0.71em" : _ref5$capHeight, _ref5$scaleToFit = _ref5.scaleToFit, scaleToFit = _ref5$scaleToFit === void 0 ? false : _ref5$scaleToFit, _ref5$textAnchor = _ref5.textAnchor, textAnchor = _ref5$textAnchor === void 0 ? "start" : _ref5$textAnchor, _ref5$verticalAnchor = _ref5.verticalAnchor, verticalAnchor = _ref5$verticalAnchor === void 0 ? "end" : _ref5$verticalAnchor, _ref5$fill = _ref5.fill, fill = _ref5$fill === void 0 ? DEFAULT_FILL : _ref5$fill, props = _objectWithoutProperties7(_ref5, _excluded64);
-  var wordsByLines = (0, import_react141.useMemo)(function() {
+  var wordsByLines = (0, import_react142.useMemo)(function() {
     return getWordsByLines({
       breakAll: props.breakAll,
       children: props.children,
@@ -64081,7 +64136,7 @@ var Text2 = function Text3(_ref5) {
   if (transforms.length) {
     textProps.transform = transforms.join(" ");
   }
-  return /* @__PURE__ */ import_react141.default.createElement("text", _extends7({}, filterProps(textProps, true), {
+  return /* @__PURE__ */ import_react142.default.createElement("text", _extends7({}, filterProps(textProps, true), {
     x: x2,
     y: y2,
     className: clsx_default("recharts-text", className),
@@ -64092,7 +64147,7 @@ var Text2 = function Text3(_ref5) {
     return (
       // duplicate words will cause duplicate keys
       // eslint-disable-next-line react/no-array-index-key
-      /* @__PURE__ */ import_react141.default.createElement("tspan", {
+      /* @__PURE__ */ import_react142.default.createElement("tspan", {
         x: x2,
         dy: index2 === 0 ? startDy : lineHeight,
         key: "".concat(words, "-").concat(index2)
@@ -64102,14 +64157,14 @@ var Text2 = function Text3(_ref5) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/Label.js
-var import_react144 = __toESM(require("react"));
+var import_react145 = __toESM(require("react"));
 var import_isNil7 = __toESM(require_isNil());
 var import_isFunction6 = __toESM(require_isFunction());
 var import_isObject3 = __toESM(require_isObject());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/PolarUtils.js
 var import_isNil6 = __toESM(require_isNil());
-var import_react143 = require("react");
+var import_react144 = require("react");
 var import_isFunction5 = __toESM(require_isFunction());
 
 // node_modules/.pnpm/victory-vendor@36.9.2/node_modules/victory-vendor/es/d3-scale.js
@@ -67386,7 +67441,7 @@ var getTickValues = memoize(getTickValuesFn);
 var getTickValuesFixedDomain = memoize(getTickValuesFixedDomainFn);
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/ErrorBar.js
-var import_react142 = __toESM(require("react"));
+var import_react143 = __toESM(require("react"));
 
 // node_modules/.pnpm/tiny-invariant@1.3.3/node_modules/tiny-invariant/dist/esm/tiny-invariant.js
 var isProduction = true;
@@ -67664,23 +67719,23 @@ var ErrorBar = /* @__PURE__ */ (function(_React$Component) {
             y2: _yMin
           });
         }
-        return /* @__PURE__ */ import_react142.default.createElement(Layer, _extends8({
+        return /* @__PURE__ */ import_react143.default.createElement(Layer, _extends8({
           className: "recharts-errorBar",
           key: "bar-".concat(lineCoordinates.map(function(c2) {
             return "".concat(c2.x1, "-").concat(c2.x2, "-").concat(c2.y1, "-").concat(c2.y2);
           }))
         }, svgProps), lineCoordinates.map(function(coordinates) {
-          return /* @__PURE__ */ import_react142.default.createElement("line", _extends8({}, coordinates, {
+          return /* @__PURE__ */ import_react143.default.createElement("line", _extends8({}, coordinates, {
             key: "line-".concat(coordinates.x1, "-").concat(coordinates.x2, "-").concat(coordinates.y1, "-").concat(coordinates.y2)
           }));
         }));
       });
-      return /* @__PURE__ */ import_react142.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react143.default.createElement(Layer, {
         className: "recharts-errorBars"
       }, errorBars);
     }
   }]);
-})(import_react142.default.Component);
+})(import_react143.default.Component);
 _defineProperty11(ErrorBar, "defaultProps", {
   stroke: "black",
   strokeWidth: 1.5,
@@ -68977,13 +69032,13 @@ var renderRadialLabel = function renderRadialLabel2(labelProps, label, attrs) {
   var endPoint = polarToCartesian(cx, cy, radius2, labelAngle + (direction ? 1 : -1) * 359);
   var path3 = "M".concat(startPoint.x, ",").concat(startPoint.y, "\n    A").concat(radius2, ",").concat(radius2, ",0,1,").concat(direction ? 0 : 1, ",\n    ").concat(endPoint.x, ",").concat(endPoint.y);
   var id = (0, import_isNil7.default)(labelProps.id) ? uniqueId("recharts-radial-line-") : labelProps.id;
-  return /* @__PURE__ */ import_react144.default.createElement("text", _extends9({}, attrs, {
+  return /* @__PURE__ */ import_react145.default.createElement("text", _extends9({}, attrs, {
     dominantBaseline: "central",
     className: clsx_default("recharts-radial-bar-label", className)
-  }), /* @__PURE__ */ import_react144.default.createElement("defs", null, /* @__PURE__ */ import_react144.default.createElement("path", {
+  }), /* @__PURE__ */ import_react145.default.createElement("defs", null, /* @__PURE__ */ import_react145.default.createElement("path", {
     id,
     d: path3
-  })), /* @__PURE__ */ import_react144.default.createElement("textPath", {
+  })), /* @__PURE__ */ import_react145.default.createElement("textPath", {
     xlinkHref: "#".concat(id)
   }, label));
 };
@@ -69184,16 +69239,16 @@ function Label(_ref4) {
     offset: offset3
   }, restProps);
   var viewBox = props.viewBox, position3 = props.position, value = props.value, children = props.children, content = props.content, _props$className = props.className, className = _props$className === void 0 ? "" : _props$className, textBreakAll = props.textBreakAll;
-  if (!viewBox || (0, import_isNil7.default)(value) && (0, import_isNil7.default)(children) && !/* @__PURE__ */ (0, import_react144.isValidElement)(content) && !(0, import_isFunction6.default)(content)) {
+  if (!viewBox || (0, import_isNil7.default)(value) && (0, import_isNil7.default)(children) && !/* @__PURE__ */ (0, import_react145.isValidElement)(content) && !(0, import_isFunction6.default)(content)) {
     return null;
   }
-  if (/* @__PURE__ */ (0, import_react144.isValidElement)(content)) {
-    return /* @__PURE__ */ (0, import_react144.cloneElement)(content, props);
+  if (/* @__PURE__ */ (0, import_react145.isValidElement)(content)) {
+    return /* @__PURE__ */ (0, import_react145.cloneElement)(content, props);
   }
   var label;
   if ((0, import_isFunction6.default)(content)) {
-    label = /* @__PURE__ */ (0, import_react144.createElement)(content, props);
-    if (/* @__PURE__ */ (0, import_react144.isValidElement)(label)) {
+    label = /* @__PURE__ */ (0, import_react145.createElement)(content, props);
+    if (/* @__PURE__ */ (0, import_react145.isValidElement)(label)) {
       return label;
     }
   } else {
@@ -69205,7 +69260,7 @@ function Label(_ref4) {
     return renderRadialLabel(props, label, attrs);
   }
   var positionAttrs = isPolarLabel ? getAttrsOfPolarLabel(props) : getAttrsOfCartesianLabel(props);
-  return /* @__PURE__ */ import_react144.default.createElement(Text2, _extends9({
+  return /* @__PURE__ */ import_react145.default.createElement(Text2, _extends9({
     className: clsx_default("recharts-label", className)
   }, attrs, positionAttrs, {
     breakAll: textBreakAll
@@ -69264,40 +69319,40 @@ var parseLabel = function parseLabel2(label, viewBox) {
     return null;
   }
   if (label === true) {
-    return /* @__PURE__ */ import_react144.default.createElement(Label, {
+    return /* @__PURE__ */ import_react145.default.createElement(Label, {
       key: "label-implicit",
       viewBox
     });
   }
   if (isNumOrStr(label)) {
-    return /* @__PURE__ */ import_react144.default.createElement(Label, {
+    return /* @__PURE__ */ import_react145.default.createElement(Label, {
       key: "label-implicit",
       viewBox,
       value: label
     });
   }
-  if (/* @__PURE__ */ (0, import_react144.isValidElement)(label)) {
+  if (/* @__PURE__ */ (0, import_react145.isValidElement)(label)) {
     if (label.type === Label) {
-      return /* @__PURE__ */ (0, import_react144.cloneElement)(label, {
+      return /* @__PURE__ */ (0, import_react145.cloneElement)(label, {
         key: "label-implicit",
         viewBox
       });
     }
-    return /* @__PURE__ */ import_react144.default.createElement(Label, {
+    return /* @__PURE__ */ import_react145.default.createElement(Label, {
       key: "label-implicit",
       content: label,
       viewBox
     });
   }
   if ((0, import_isFunction6.default)(label)) {
-    return /* @__PURE__ */ import_react144.default.createElement(Label, {
+    return /* @__PURE__ */ import_react145.default.createElement(Label, {
       key: "label-implicit",
       content: label,
       viewBox
     });
   }
   if ((0, import_isObject3.default)(label)) {
-    return /* @__PURE__ */ import_react144.default.createElement(Label, _extends9({
+    return /* @__PURE__ */ import_react145.default.createElement(Label, _extends9({
       viewBox
     }, label, {
       key: "label-implicit"
@@ -69313,7 +69368,7 @@ var renderCallByParent = function renderCallByParent2(parentProps, viewBox) {
   var children = parentProps.children;
   var parentViewBox = parseViewBox(parentProps);
   var explicitChildren = findAllByType(children, Label).map(function(child, index2) {
-    return /* @__PURE__ */ (0, import_react144.cloneElement)(child, {
+    return /* @__PURE__ */ (0, import_react145.cloneElement)(child, {
       viewBox: viewBox || parentViewBox,
       // eslint-disable-next-line react/no-array-index-key
       key: "label-".concat(index2)
@@ -69329,7 +69384,7 @@ Label.parseViewBox = parseViewBox;
 Label.renderCallByParent = renderCallByParent;
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/LabelList.js
-var import_react145 = __toESM(require("react"));
+var import_react146 = __toESM(require("react"));
 var import_isNil8 = __toESM(require_isNil());
 var import_isObject4 = __toESM(require_isObject());
 var import_isFunction7 = __toESM(require_isFunction());
@@ -69462,14 +69517,14 @@ function LabelList(_ref) {
   if (!data || !data.length) {
     return null;
   }
-  return /* @__PURE__ */ import_react145.default.createElement(Layer, {
+  return /* @__PURE__ */ import_react146.default.createElement(Layer, {
     className: "recharts-label-list"
   }, data.map(function(entry, index2) {
     var value = (0, import_isNil8.default)(dataKey) ? valueAccessor(entry, index2) : getValueByDataKey(entry && entry.payload, dataKey);
     var idProps = (0, import_isNil8.default)(id) ? {} : {
       id: "".concat(id, "-").concat(index2)
     };
-    return /* @__PURE__ */ import_react145.default.createElement(Label, _extends10({}, filterProps(entry, true), others, idProps, {
+    return /* @__PURE__ */ import_react146.default.createElement(Label, _extends10({}, filterProps(entry, true), others, idProps, {
       parentViewBox: entry.parentViewBox,
       value,
       textBreakAll,
@@ -69487,20 +69542,20 @@ function parseLabelList(label, data) {
     return null;
   }
   if (label === true) {
-    return /* @__PURE__ */ import_react145.default.createElement(LabelList, {
+    return /* @__PURE__ */ import_react146.default.createElement(LabelList, {
       key: "labelList-implicit",
       data
     });
   }
-  if (/* @__PURE__ */ import_react145.default.isValidElement(label) || (0, import_isFunction7.default)(label)) {
-    return /* @__PURE__ */ import_react145.default.createElement(LabelList, {
+  if (/* @__PURE__ */ import_react146.default.isValidElement(label) || (0, import_isFunction7.default)(label)) {
+    return /* @__PURE__ */ import_react146.default.createElement(LabelList, {
       key: "labelList-implicit",
       data,
       content: label
     });
   }
   if ((0, import_isObject4.default)(label)) {
-    return /* @__PURE__ */ import_react145.default.createElement(LabelList, _extends10({
+    return /* @__PURE__ */ import_react146.default.createElement(LabelList, _extends10({
       data
     }, label, {
       key: "labelList-implicit"
@@ -69515,7 +69570,7 @@ function renderCallByParent3(parentProps, data) {
   }
   var children = parentProps.children;
   var explicitChildren = findAllByType(children, LabelList).map(function(child, index2) {
-    return /* @__PURE__ */ (0, import_react145.cloneElement)(child, {
+    return /* @__PURE__ */ (0, import_react146.cloneElement)(child, {
       data,
       // eslint-disable-next-line react/no-array-index-key
       key: "labelList-".concat(index2)
@@ -69530,7 +69585,7 @@ function renderCallByParent3(parentProps, data) {
 LabelList.renderCallByParent = renderCallByParent3;
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Sector.js
-var import_react146 = __toESM(require("react"));
+var import_react147 = __toESM(require("react"));
 function _typeof20(o) {
   "@babel/helpers - typeof";
   return _typeof20 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
@@ -69744,7 +69799,7 @@ var Sector = function Sector2(sectorProps) {
       endAngle
     });
   }
-  return /* @__PURE__ */ import_react146.default.createElement("path", _extends11({}, filterProps(props, true), {
+  return /* @__PURE__ */ import_react147.default.createElement("path", _extends11({}, filterProps(props, true), {
     className: layerClass,
     d: path3,
     role: "img"
@@ -69907,10 +69962,10 @@ var Curve = function Curve2(props) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Rectangle.js
-var import_react148 = __toESM(require("react"));
+var import_react149 = __toESM(require("react"));
 
 // node_modules/.pnpm/react-smooth@4.0.4_react-do_b6c06f245dfc0c697fe8a346e1e2c144/node_modules/react-smooth/es6/Animate.js
-var import_react147 = __toESM(require("react"));
+var import_react148 = __toESM(require("react"));
 var import_prop_types = __toESM(require_prop_types());
 
 // node_modules/.pnpm/fast-equals@5.4.1/node_modules/fast-equals/dist/es/index.mjs
@@ -71354,7 +71409,7 @@ var Animate = /* @__PURE__ */ (function(_PureComponent) {
     key: "render",
     value: function render2() {
       var _this$props4 = this.props, children = _this$props4.children, begin = _this$props4.begin, duration = _this$props4.duration, attributeName = _this$props4.attributeName, easing = _this$props4.easing, isActive2 = _this$props4.isActive, steps = _this$props4.steps, from2 = _this$props4.from, to = _this$props4.to, canBegin = _this$props4.canBegin, onAnimationEnd2 = _this$props4.onAnimationEnd, shouldReAnimate = _this$props4.shouldReAnimate, onAnimationReStart = _this$props4.onAnimationReStart, others = _objectWithoutProperties11(_this$props4, _excluded68);
-      var count = import_react147.Children.count(children);
+      var count = import_react148.Children.count(children);
       var stateStyle = this.state.style;
       if (typeof children === "function") {
         return children(stateStyle);
@@ -71364,22 +71419,22 @@ var Animate = /* @__PURE__ */ (function(_PureComponent) {
       }
       var cloneContainer = function cloneContainer2(container) {
         var _container$props = container.props, _container$props$styl = _container$props.style, style2 = _container$props$styl === void 0 ? {} : _container$props$styl, className = _container$props.className;
-        var res = /* @__PURE__ */ (0, import_react147.cloneElement)(container, _objectSpread19(_objectSpread19({}, others), {}, {
+        var res = /* @__PURE__ */ (0, import_react148.cloneElement)(container, _objectSpread19(_objectSpread19({}, others), {}, {
           style: _objectSpread19(_objectSpread19({}, style2), stateStyle),
           className
         }));
         return res;
       };
       if (count === 1) {
-        return cloneContainer(import_react147.Children.only(children));
+        return cloneContainer(import_react148.Children.only(children));
       }
-      return /* @__PURE__ */ import_react147.default.createElement("div", null, import_react147.Children.map(children, function(child) {
+      return /* @__PURE__ */ import_react148.default.createElement("div", null, import_react148.Children.map(children, function(child) {
         return cloneContainer(child);
       }));
     }
   }]);
   return Animate2;
-})(import_react147.PureComponent);
+})(import_react148.PureComponent);
 Animate.displayName = "Animate";
 Animate.defaultProps = {
   begin: 0,
@@ -71604,9 +71659,9 @@ var defaultProps2 = {
 };
 var Rectangle = function Rectangle2(rectangleProps) {
   var props = _objectSpread20(_objectSpread20({}, defaultProps2), rectangleProps);
-  var pathRef = (0, import_react148.useRef)();
-  var _useState = (0, import_react148.useState)(-1), _useState2 = _slicedToArray10(_useState, 2), totalLength = _useState2[0], setTotalLength = _useState2[1];
-  (0, import_react148.useEffect)(function() {
+  var pathRef = (0, import_react149.useRef)();
+  var _useState = (0, import_react149.useState)(-1), _useState2 = _slicedToArray10(_useState, 2), totalLength = _useState2[0], setTotalLength = _useState2[1];
+  (0, import_react149.useEffect)(function() {
     if (pathRef.current && pathRef.current.getTotalLength) {
       try {
         var pathTotalLength = pathRef.current.getTotalLength();
@@ -71624,12 +71679,12 @@ var Rectangle = function Rectangle2(rectangleProps) {
   }
   var layerClass = clsx_default("recharts-rectangle", className);
   if (!isUpdateAnimationActive) {
-    return /* @__PURE__ */ import_react148.default.createElement("path", _extends13({}, filterProps(props, true), {
+    return /* @__PURE__ */ import_react149.default.createElement("path", _extends13({}, filterProps(props, true), {
       className: layerClass,
       d: getRectanglePath(x2, y2, width, height, radius2)
     }));
   }
-  return /* @__PURE__ */ import_react148.default.createElement(es6_default, {
+  return /* @__PURE__ */ import_react149.default.createElement(es6_default, {
     canBegin: totalLength > 0,
     from: {
       width,
@@ -71648,7 +71703,7 @@ var Rectangle = function Rectangle2(rectangleProps) {
     isActive: isUpdateAnimationActive
   }, function(_ref) {
     var currWidth = _ref.width, currHeight = _ref.height, currX = _ref.x, currY = _ref.y;
-    return /* @__PURE__ */ import_react148.default.createElement(es6_default, {
+    return /* @__PURE__ */ import_react149.default.createElement(es6_default, {
       canBegin: totalLength > 0,
       from: "0px ".concat(totalLength === -1 ? 1 : totalLength, "px"),
       to: "".concat(totalLength, "px 0px"),
@@ -71657,7 +71712,7 @@ var Rectangle = function Rectangle2(rectangleProps) {
       duration: animationDuration,
       isActive: isAnimationActive,
       easing: animationEasing
-    }, /* @__PURE__ */ import_react148.default.createElement("path", _extends13({}, filterProps(props, true), {
+    }, /* @__PURE__ */ import_react149.default.createElement("path", _extends13({}, filterProps(props, true), {
       className: layerClass,
       d: getRectanglePath(currX, currY, currWidth, currHeight, radius2),
       ref: pathRef
@@ -71696,7 +71751,7 @@ var Dot3 = function Dot4(props) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Cross.js
-var import_react149 = __toESM(require("react"));
+var import_react150 = __toESM(require("react"));
 function _typeof27(o) {
   "@babel/helpers - typeof";
   return _typeof27 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
@@ -71806,21 +71861,21 @@ var Cross = function Cross2(_ref) {
   if (!isNumber(x2) || !isNumber(y2) || !isNumber(width) || !isNumber(height) || !isNumber(top) || !isNumber(left)) {
     return null;
   }
-  return /* @__PURE__ */ import_react149.default.createElement("path", _extends15({}, filterProps(props, true), {
+  return /* @__PURE__ */ import_react150.default.createElement("path", _extends15({}, filterProps(props, true), {
     className: clsx_default("recharts-cross", className),
     d: getPath3(x2, y2, width, height, top, left)
   }));
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/ActiveShapeUtils.js
-var import_react151 = __toESM(require("react"));
+var import_react152 = __toESM(require("react"));
 var import_isFunction9 = __toESM(require_isFunction());
 var import_isPlainObject = __toESM(require_isPlainObject());
 var import_isBoolean = __toESM(require_isBoolean());
 var import_isEqual12 = __toESM(require_isEqual());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Trapezoid.js
-var import_react150 = __toESM(require("react"));
+var import_react151 = __toESM(require("react"));
 function _typeof28(o) {
   "@babel/helpers - typeof";
   return _typeof28 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
@@ -71953,9 +72008,9 @@ var defaultProps3 = {
 };
 var Trapezoid = function Trapezoid2(props) {
   var trapezoidProps = _objectSpread22(_objectSpread22({}, defaultProps3), props);
-  var pathRef = (0, import_react150.useRef)();
-  var _useState = (0, import_react150.useState)(-1), _useState2 = _slicedToArray11(_useState, 2), totalLength = _useState2[0], setTotalLength = _useState2[1];
-  (0, import_react150.useEffect)(function() {
+  var pathRef = (0, import_react151.useRef)();
+  var _useState = (0, import_react151.useState)(-1), _useState2 = _slicedToArray11(_useState, 2), totalLength = _useState2[0], setTotalLength = _useState2[1];
+  (0, import_react151.useEffect)(function() {
     if (pathRef.current && pathRef.current.getTotalLength) {
       try {
         var pathTotalLength = pathRef.current.getTotalLength();
@@ -71973,12 +72028,12 @@ var Trapezoid = function Trapezoid2(props) {
   }
   var layerClass = clsx_default("recharts-trapezoid", className);
   if (!isUpdateAnimationActive) {
-    return /* @__PURE__ */ import_react150.default.createElement("g", null, /* @__PURE__ */ import_react150.default.createElement("path", _extends16({}, filterProps(trapezoidProps, true), {
+    return /* @__PURE__ */ import_react151.default.createElement("g", null, /* @__PURE__ */ import_react151.default.createElement("path", _extends16({}, filterProps(trapezoidProps, true), {
       className: layerClass,
       d: getTrapezoidPath(x2, y2, upperWidth, lowerWidth, height)
     })));
   }
-  return /* @__PURE__ */ import_react150.default.createElement(es6_default, {
+  return /* @__PURE__ */ import_react151.default.createElement(es6_default, {
     canBegin: totalLength > 0,
     from: {
       upperWidth: 0,
@@ -71999,7 +72054,7 @@ var Trapezoid = function Trapezoid2(props) {
     isActive: isUpdateAnimationActive
   }, function(_ref) {
     var currUpperWidth = _ref.upperWidth, currLowerWidth = _ref.lowerWidth, currHeight = _ref.height, currX = _ref.x, currY = _ref.y;
-    return /* @__PURE__ */ import_react150.default.createElement(es6_default, {
+    return /* @__PURE__ */ import_react151.default.createElement(es6_default, {
       canBegin: totalLength > 0,
       from: "0px ".concat(totalLength === -1 ? 1 : totalLength, "px"),
       to: "".concat(totalLength, "px 0px"),
@@ -72007,7 +72062,7 @@ var Trapezoid = function Trapezoid2(props) {
       begin: animationBegin,
       duration: animationDuration,
       easing: animationEasing
-    }, /* @__PURE__ */ import_react150.default.createElement("path", _extends16({}, filterProps(trapezoidProps, true), {
+    }, /* @__PURE__ */ import_react151.default.createElement("path", _extends16({}, filterProps(trapezoidProps, true), {
       className: layerClass,
       d: getTrapezoidPath(currX, currY, currUpperWidth, currLowerWidth, currHeight),
       ref: pathRef
@@ -72105,14 +72160,14 @@ function ShapeSelector(_ref) {
   var shapeType = _ref.shapeType, elementProps = _ref.elementProps;
   switch (shapeType) {
     case "rectangle":
-      return /* @__PURE__ */ import_react151.default.createElement(Rectangle, elementProps);
+      return /* @__PURE__ */ import_react152.default.createElement(Rectangle, elementProps);
     case "trapezoid":
-      return /* @__PURE__ */ import_react151.default.createElement(Trapezoid, elementProps);
+      return /* @__PURE__ */ import_react152.default.createElement(Trapezoid, elementProps);
     case "sector":
-      return /* @__PURE__ */ import_react151.default.createElement(Sector, elementProps);
+      return /* @__PURE__ */ import_react152.default.createElement(Sector, elementProps);
     case "symbols":
       if (isSymbolsProps(shapeType, elementProps)) {
-        return /* @__PURE__ */ import_react151.default.createElement(Symbols, elementProps);
+        return /* @__PURE__ */ import_react152.default.createElement(Symbols, elementProps);
       }
       break;
     default:
@@ -72120,7 +72175,7 @@ function ShapeSelector(_ref) {
   }
 }
 function getPropsFromShapeOption(option) {
-  if (/* @__PURE__ */ (0, import_react151.isValidElement)(option)) {
+  if (/* @__PURE__ */ (0, import_react152.isValidElement)(option)) {
     return option.props;
   }
   return option;
@@ -72128,25 +72183,25 @@ function getPropsFromShapeOption(option) {
 function Shape(_ref2) {
   var option = _ref2.option, shapeType = _ref2.shapeType, _ref2$propTransformer = _ref2.propTransformer, propTransformer = _ref2$propTransformer === void 0 ? defaultPropTransformer : _ref2$propTransformer, _ref2$activeClassName = _ref2.activeClassName, activeClassName = _ref2$activeClassName === void 0 ? "recharts-active-shape" : _ref2$activeClassName, isActive2 = _ref2.isActive, props = _objectWithoutProperties13(_ref2, _excluded70);
   var shape;
-  if (/* @__PURE__ */ (0, import_react151.isValidElement)(option)) {
-    shape = /* @__PURE__ */ (0, import_react151.cloneElement)(option, _objectSpread23(_objectSpread23({}, props), getPropsFromShapeOption(option)));
+  if (/* @__PURE__ */ (0, import_react152.isValidElement)(option)) {
+    shape = /* @__PURE__ */ (0, import_react152.cloneElement)(option, _objectSpread23(_objectSpread23({}, props), getPropsFromShapeOption(option)));
   } else if ((0, import_isFunction9.default)(option)) {
     shape = option(props);
   } else if ((0, import_isPlainObject.default)(option) && !(0, import_isBoolean.default)(option)) {
     var nextProps = propTransformer(option, props);
-    shape = /* @__PURE__ */ import_react151.default.createElement(ShapeSelector, {
+    shape = /* @__PURE__ */ import_react152.default.createElement(ShapeSelector, {
       shapeType,
       elementProps: nextProps
     });
   } else {
     var elementProps = props;
-    shape = /* @__PURE__ */ import_react151.default.createElement(ShapeSelector, {
+    shape = /* @__PURE__ */ import_react152.default.createElement(ShapeSelector, {
       shapeType,
       elementProps
     });
   }
   if (isActive2) {
-    return /* @__PURE__ */ import_react151.default.createElement(Layer, {
+    return /* @__PURE__ */ import_react152.default.createElement(Layer, {
       className: activeClassName
     }, shape);
   }
@@ -72233,7 +72288,7 @@ function getActiveShapeIndexForTooltip(_ref3) {
 }
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/Brush.js
-var import_react152 = __toESM(require("react"));
+var import_react153 = __toESM(require("react"));
 var import_isFunction10 = __toESM(require_isFunction());
 var import_range3 = __toESM(require_range());
 
@@ -72675,7 +72730,7 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
     key: "renderBackground",
     value: function renderBackground() {
       var _this$props6 = this.props, x2 = _this$props6.x, y2 = _this$props6.y, width = _this$props6.width, height = _this$props6.height, fill = _this$props6.fill, stroke = _this$props6.stroke;
-      return /* @__PURE__ */ import_react152.default.createElement("rect", {
+      return /* @__PURE__ */ import_react153.default.createElement("rect", {
         stroke,
         fill,
         x: x2,
@@ -72688,11 +72743,11 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
     key: "renderPanorama",
     value: function renderPanorama() {
       var _this$props7 = this.props, x2 = _this$props7.x, y2 = _this$props7.y, width = _this$props7.width, height = _this$props7.height, data = _this$props7.data, children = _this$props7.children, padding = _this$props7.padding;
-      var chartElement = import_react152.Children.only(children);
+      var chartElement = import_react153.Children.only(children);
       if (!chartElement) {
         return null;
       }
-      return /* @__PURE__ */ import_react152.default.cloneElement(chartElement, {
+      return /* @__PURE__ */ import_react153.default.cloneElement(chartElement, {
         x: x2,
         y: y2,
         width,
@@ -72715,7 +72770,7 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
         height
       });
       var ariaLabelBrush = ariaLabel || "Min value: ".concat((_data$startIndex = data[startIndex]) === null || _data$startIndex === void 0 ? void 0 : _data$startIndex.name, ", Max value: ").concat((_data$endIndex = data[endIndex]) === null || _data$endIndex === void 0 ? void 0 : _data$endIndex.name);
-      return /* @__PURE__ */ import_react152.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react153.default.createElement(Layer, {
         tabIndex: 0,
         role: "slider",
         "aria-label": ariaLabelBrush,
@@ -72754,7 +72809,7 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
       var _this$props9 = this.props, y2 = _this$props9.y, height = _this$props9.height, stroke = _this$props9.stroke, travellerWidth = _this$props9.travellerWidth;
       var x2 = Math.min(startX, endX) + travellerWidth;
       var width = Math.max(Math.abs(endX - startX) - travellerWidth, 0);
-      return /* @__PURE__ */ import_react152.default.createElement("rect", {
+      return /* @__PURE__ */ import_react153.default.createElement("rect", {
         className: "recharts-brush-slide",
         onMouseEnter: this.handleEnterSlideOrTraveller,
         onMouseLeave: this.handleLeaveSlideOrTraveller,
@@ -72782,14 +72837,14 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
         pointerEvents: "none",
         fill: stroke
       };
-      return /* @__PURE__ */ import_react152.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react153.default.createElement(Layer, {
         className: "recharts-brush-texts"
-      }, /* @__PURE__ */ import_react152.default.createElement(Text2, _extends17({
+      }, /* @__PURE__ */ import_react153.default.createElement(Text2, _extends17({
         textAnchor: "end",
         verticalAnchor: "middle",
         x: Math.min(startX, endX) - offset3,
         y: y2 + height / 2
-      }, attrs), this.getTextOfTick(startIndex)), /* @__PURE__ */ import_react152.default.createElement(Text2, _extends17({
+      }, attrs), this.getTextOfTick(startIndex)), /* @__PURE__ */ import_react153.default.createElement(Text2, _extends17({
         textAnchor: "start",
         verticalAnchor: "middle",
         x: Math.max(startX, endX) + travellerWidth + offset3,
@@ -72805,9 +72860,9 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
         return null;
       }
       var layerClass = clsx_default("recharts-brush", className);
-      var isPanoramic = import_react152.default.Children.count(children) === 1;
+      var isPanoramic = import_react153.default.Children.count(children) === 1;
       var style2 = generatePrefixStyle("userSelect", "none");
-      return /* @__PURE__ */ import_react152.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react153.default.createElement(Layer, {
         className: layerClass,
         onMouseLeave: this.handleLeaveWrapper,
         onTouchMove: this.handleTouchMove,
@@ -72819,21 +72874,21 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
     value: function renderDefaultTraveller(props) {
       var x2 = props.x, y2 = props.y, width = props.width, height = props.height, stroke = props.stroke;
       var lineY = Math.floor(y2 + height / 2) - 1;
-      return /* @__PURE__ */ import_react152.default.createElement(import_react152.default.Fragment, null, /* @__PURE__ */ import_react152.default.createElement("rect", {
+      return /* @__PURE__ */ import_react153.default.createElement(import_react153.default.Fragment, null, /* @__PURE__ */ import_react153.default.createElement("rect", {
         x: x2,
         y: y2,
         width,
         height,
         fill: stroke,
         stroke: "none"
-      }), /* @__PURE__ */ import_react152.default.createElement("line", {
+      }), /* @__PURE__ */ import_react153.default.createElement("line", {
         x1: x2 + 1,
         y1: lineY,
         x2: x2 + width - 1,
         y2: lineY,
         fill: "none",
         stroke: "#fff"
-      }), /* @__PURE__ */ import_react152.default.createElement("line", {
+      }), /* @__PURE__ */ import_react153.default.createElement("line", {
         x1: x2 + 1,
         y1: lineY + 2,
         x2: x2 + width - 1,
@@ -72846,8 +72901,8 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
     key: "renderTraveller",
     value: function renderTraveller(option, props) {
       var rectangle;
-      if (/* @__PURE__ */ import_react152.default.isValidElement(option)) {
-        rectangle = /* @__PURE__ */ import_react152.default.cloneElement(option, props);
+      if (/* @__PURE__ */ import_react153.default.isValidElement(option)) {
+        rectangle = /* @__PURE__ */ import_react153.default.cloneElement(option, props);
       } else if ((0, import_isFunction10.default)(option)) {
         rectangle = option(props);
       } else {
@@ -72913,7 +72968,7 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
       return x2 >= valueRange[end] ? end : start;
     }
   }]);
-})(import_react152.PureComponent);
+})(import_react153.PureComponent);
 _defineProperty27(Brush, "displayName", "Brush");
 _defineProperty27(Brush, "defaultProps", {
   height: 40,
@@ -72932,7 +72987,7 @@ _defineProperty27(Brush, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/ReferenceLine.js
-var import_react156 = __toESM(require("react"));
+var import_react157 = __toESM(require("react"));
 var import_isFunction11 = __toESM(require_isFunction());
 var import_some = __toESM(require_some());
 
@@ -72951,12 +73006,12 @@ var import_mapValues = __toESM(require_mapValues());
 var import_every = __toESM(require_every());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/Bar.js
-var import_react154 = __toESM(require("react"));
+var import_react155 = __toESM(require("react"));
 var import_isEqual13 = __toESM(require_isEqual());
 var import_isNil9 = __toESM(require_isNil());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/BarUtils.js
-var import_react153 = __toESM(require("react"));
+var import_react154 = __toESM(require("react"));
 var _excluded71 = ["x", "y"];
 function _typeof32(o) {
   "@babel/helpers - typeof";
@@ -73072,7 +73127,7 @@ function typeguardBarRectangleProps(_ref, props) {
   });
 }
 function BarRectangle(props) {
-  return /* @__PURE__ */ import_react153.default.createElement(Shape, _extends18({
+  return /* @__PURE__ */ import_react154.default.createElement(Shape, _extends18({
     shapeType: "rectangle",
     propTransformer: typeguardBarRectangleProps,
     activeClassName: "recharts-active-bar"
@@ -73304,13 +73359,13 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
           onAnimationStart: _this2.handleAnimationStart,
           onAnimationEnd: _this2.handleAnimationEnd
         });
-        return /* @__PURE__ */ import_react154.default.createElement(Layer, _extends19({
+        return /* @__PURE__ */ import_react155.default.createElement(Layer, _extends19({
           className: "recharts-bar-rectangle"
         }, adaptEventsOfChild(_this2.props, entry, i), {
           // https://github.com/recharts/recharts/issues/5415
           // eslint-disable-next-line react/no-array-index-key
           key: "rectangle-".concat(entry === null || entry === void 0 ? void 0 : entry.x, "-").concat(entry === null || entry === void 0 ? void 0 : entry.y, "-").concat(entry === null || entry === void 0 ? void 0 : entry.value, "-").concat(i)
-        }), /* @__PURE__ */ import_react154.default.createElement(BarRectangle, props));
+        }), /* @__PURE__ */ import_react155.default.createElement(BarRectangle, props));
       });
     }
   }, {
@@ -73319,7 +73374,7 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
       var _this3 = this;
       var _this$props2 = this.props, data = _this$props2.data, layout = _this$props2.layout, isAnimationActive = _this$props2.isAnimationActive, animationBegin = _this$props2.animationBegin, animationDuration = _this$props2.animationDuration, animationEasing = _this$props2.animationEasing, animationId = _this$props2.animationId;
       var prevData = this.state.prevData;
-      return /* @__PURE__ */ import_react154.default.createElement(es6_default, {
+      return /* @__PURE__ */ import_react155.default.createElement(es6_default, {
         begin: animationBegin,
         duration: animationDuration,
         isActive: isAnimationActive,
@@ -73363,7 +73418,7 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
             width: w
           });
         });
-        return /* @__PURE__ */ import_react154.default.createElement(Layer, null, _this3.renderRectanglesStatically(stepData));
+        return /* @__PURE__ */ import_react155.default.createElement(Layer, null, _this3.renderRectanglesStatically(stepData));
       });
     }
   }, {
@@ -73396,7 +73451,7 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
           index: i,
           className: "recharts-bar-background-rectangle"
         });
-        return /* @__PURE__ */ import_react154.default.createElement(BarRectangle, _extends19({
+        return /* @__PURE__ */ import_react155.default.createElement(BarRectangle, _extends19({
           key: "background-bar-".concat(i),
           option: _this4.props.background,
           isActive: i === activeIndex
@@ -73427,8 +73482,8 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
       var errorBarProps = {
         clipPath: needClip ? "url(#clipPath-".concat(clipPathId, ")") : null
       };
-      return /* @__PURE__ */ import_react154.default.createElement(Layer, errorBarProps, errorBarItems.map(function(item) {
-        return /* @__PURE__ */ import_react154.default.cloneElement(item, {
+      return /* @__PURE__ */ import_react155.default.createElement(Layer, errorBarProps, errorBarItems.map(function(item) {
+        return /* @__PURE__ */ import_react155.default.cloneElement(item, {
           key: "error-bar-".concat(clipPathId, "-").concat(item.props.dataKey),
           data,
           xAxis,
@@ -73452,16 +73507,16 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
       var needClipY = yAxis && yAxis.allowDataOverflow;
       var needClip = needClipX || needClipY;
       var clipPathId = (0, import_isNil9.default)(id) ? this.id : id;
-      return /* @__PURE__ */ import_react154.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react155.default.createElement(Layer, {
         className: layerClass
-      }, needClipX || needClipY ? /* @__PURE__ */ import_react154.default.createElement("defs", null, /* @__PURE__ */ import_react154.default.createElement("clipPath", {
+      }, needClipX || needClipY ? /* @__PURE__ */ import_react155.default.createElement("defs", null, /* @__PURE__ */ import_react155.default.createElement("clipPath", {
         id: "clipPath-".concat(clipPathId)
-      }, /* @__PURE__ */ import_react154.default.createElement("rect", {
+      }, /* @__PURE__ */ import_react155.default.createElement("rect", {
         x: needClipX ? left : left - width / 2,
         y: needClipY ? top : top - height / 2,
         width: needClipX ? width : width * 2,
         height: needClipY ? height : height * 2
-      }))) : null, /* @__PURE__ */ import_react154.default.createElement(Layer, {
+      }))) : null, /* @__PURE__ */ import_react155.default.createElement(Layer, {
         className: "recharts-bar-rectangles",
         clipPath: needClip ? "url(#clipPath-".concat(clipPathId, ")") : null
       }, background ? this.renderBackground() : null, this.renderRectangles()), this.renderErrorBar(needClip, clipPathId), (!isAnimationActive || isAnimationFinished) && LabelList.renderCallByParent(this.props, data));
@@ -73484,7 +73539,7 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
       return null;
     }
   }]);
-})(import_react154.PureComponent);
+})(import_react155.PureComponent);
 _Bar = Bar;
 _defineProperty29(Bar, "displayName", "Bar");
 _defineProperty29(Bar, "defaultProps", {
@@ -73888,7 +73943,7 @@ var getAngledRectangleWidth = function getAngledRectangleWidth2(_ref6) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/context/chartLayoutContext.js
-var import_react155 = __toESM(require("react"));
+var import_react156 = __toESM(require("react"));
 var import_find = __toESM(require_find());
 var import_every2 = __toESM(require_every());
 
@@ -73906,72 +73961,72 @@ var calculateViewBox = (0, import_memoize.default)(function(offset3) {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/context/chartLayoutContext.js
-var XAxisContext = /* @__PURE__ */ (0, import_react155.createContext)(void 0);
-var YAxisContext = /* @__PURE__ */ (0, import_react155.createContext)(void 0);
-var ViewBoxContext = /* @__PURE__ */ (0, import_react155.createContext)(void 0);
-var OffsetContext = /* @__PURE__ */ (0, import_react155.createContext)({});
-var ClipPathIdContext = /* @__PURE__ */ (0, import_react155.createContext)(void 0);
-var ChartHeightContext = /* @__PURE__ */ (0, import_react155.createContext)(0);
-var ChartWidthContext = /* @__PURE__ */ (0, import_react155.createContext)(0);
+var XAxisContext = /* @__PURE__ */ (0, import_react156.createContext)(void 0);
+var YAxisContext = /* @__PURE__ */ (0, import_react156.createContext)(void 0);
+var ViewBoxContext = /* @__PURE__ */ (0, import_react156.createContext)(void 0);
+var OffsetContext = /* @__PURE__ */ (0, import_react156.createContext)({});
+var ClipPathIdContext = /* @__PURE__ */ (0, import_react156.createContext)(void 0);
+var ChartHeightContext = /* @__PURE__ */ (0, import_react156.createContext)(0);
+var ChartWidthContext = /* @__PURE__ */ (0, import_react156.createContext)(0);
 var ChartLayoutContextProvider = function ChartLayoutContextProvider2(props) {
   var _props$state = props.state, xAxisMap = _props$state.xAxisMap, yAxisMap = _props$state.yAxisMap, offset3 = _props$state.offset, clipPathId = props.clipPathId, children = props.children, width = props.width, height = props.height;
   var viewBox = calculateViewBox(offset3);
-  return /* @__PURE__ */ import_react155.default.createElement(XAxisContext.Provider, {
+  return /* @__PURE__ */ import_react156.default.createElement(XAxisContext.Provider, {
     value: xAxisMap
-  }, /* @__PURE__ */ import_react155.default.createElement(YAxisContext.Provider, {
+  }, /* @__PURE__ */ import_react156.default.createElement(YAxisContext.Provider, {
     value: yAxisMap
-  }, /* @__PURE__ */ import_react155.default.createElement(OffsetContext.Provider, {
+  }, /* @__PURE__ */ import_react156.default.createElement(OffsetContext.Provider, {
     value: offset3
-  }, /* @__PURE__ */ import_react155.default.createElement(ViewBoxContext.Provider, {
+  }, /* @__PURE__ */ import_react156.default.createElement(ViewBoxContext.Provider, {
     value: viewBox
-  }, /* @__PURE__ */ import_react155.default.createElement(ClipPathIdContext.Provider, {
+  }, /* @__PURE__ */ import_react156.default.createElement(ClipPathIdContext.Provider, {
     value: clipPathId
-  }, /* @__PURE__ */ import_react155.default.createElement(ChartHeightContext.Provider, {
+  }, /* @__PURE__ */ import_react156.default.createElement(ChartHeightContext.Provider, {
     value: height
-  }, /* @__PURE__ */ import_react155.default.createElement(ChartWidthContext.Provider, {
+  }, /* @__PURE__ */ import_react156.default.createElement(ChartWidthContext.Provider, {
     value: width
   }, children)))))));
 };
 var useClipPathId = function useClipPathId2() {
-  return (0, import_react155.useContext)(ClipPathIdContext);
+  return (0, import_react156.useContext)(ClipPathIdContext);
 };
 var useXAxisOrThrow = function useXAxisOrThrow2(xAxisId) {
-  var xAxisMap = (0, import_react155.useContext)(XAxisContext);
+  var xAxisMap = (0, import_react156.useContext)(XAxisContext);
   !(xAxisMap != null) ? false ? invariant(false, "Could not find Recharts context; are you sure this is rendered inside a Recharts wrapper component?") : invariant(false) : void 0;
   var xAxis = xAxisMap[xAxisId];
   !(xAxis != null) ? false ? invariant(false, 'Could not find xAxis by id "'.concat(xAxisId, '" [').concat(_typeof(xAxisId), "]. ").concat(getKeysForDebug(xAxisMap))) : invariant(false) : void 0;
   return xAxis;
 };
 var useArbitraryXAxis = function useArbitraryXAxis2() {
-  var xAxisMap = (0, import_react155.useContext)(XAxisContext);
+  var xAxisMap = (0, import_react156.useContext)(XAxisContext);
   return getAnyElementOfObject(xAxisMap);
 };
 var useYAxisWithFiniteDomainOrRandom = function useYAxisWithFiniteDomainOrRandom2() {
-  var yAxisMap = (0, import_react155.useContext)(YAxisContext);
+  var yAxisMap = (0, import_react156.useContext)(YAxisContext);
   var yAxisWithFiniteDomain = (0, import_find.default)(yAxisMap, function(axis) {
     return (0, import_every2.default)(axis.domain, Number.isFinite);
   });
   return yAxisWithFiniteDomain || getAnyElementOfObject(yAxisMap);
 };
 var useYAxisOrThrow = function useYAxisOrThrow2(yAxisId) {
-  var yAxisMap = (0, import_react155.useContext)(YAxisContext);
+  var yAxisMap = (0, import_react156.useContext)(YAxisContext);
   !(yAxisMap != null) ? false ? invariant(false, "Could not find Recharts context; are you sure this is rendered inside a Recharts wrapper component?") : invariant(false) : void 0;
   var yAxis = yAxisMap[yAxisId];
   !(yAxis != null) ? false ? invariant(false, 'Could not find yAxis by id "'.concat(yAxisId, '" [').concat(_typeof(yAxisId), "]. ").concat(getKeysForDebug(yAxisMap))) : invariant(false) : void 0;
   return yAxis;
 };
 var useViewBox = function useViewBox2() {
-  var viewBox = (0, import_react155.useContext)(ViewBoxContext);
+  var viewBox = (0, import_react156.useContext)(ViewBoxContext);
   return viewBox;
 };
 var useOffset2 = function useOffset3() {
-  return (0, import_react155.useContext)(OffsetContext);
+  return (0, import_react156.useContext)(OffsetContext);
 };
 var useChartWidth = function useChartWidth2() {
-  return (0, import_react155.useContext)(ChartWidthContext);
+  return (0, import_react156.useContext)(ChartWidthContext);
 };
 var useChartHeight = function useChartHeight2() {
-  return (0, import_react155.useContext)(ChartHeightContext);
+  return (0, import_react156.useContext)(ChartHeightContext);
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/ReferenceLine.js
@@ -74154,12 +74209,12 @@ function _extends20() {
 }
 var renderLine = function renderLine2(option, props) {
   var line2;
-  if (/* @__PURE__ */ import_react156.default.isValidElement(option)) {
-    line2 = /* @__PURE__ */ import_react156.default.cloneElement(option, props);
+  if (/* @__PURE__ */ import_react157.default.isValidElement(option)) {
+    line2 = /* @__PURE__ */ import_react157.default.cloneElement(option, props);
   } else if ((0, import_isFunction11.default)(option)) {
     line2 = option(props);
   } else {
-    line2 = /* @__PURE__ */ import_react156.default.createElement("line", _extends20({}, props, {
+    line2 = /* @__PURE__ */ import_react157.default.createElement("line", _extends20({}, props, {
       className: "recharts-reference-line-line"
     }));
   }
@@ -74248,7 +74303,7 @@ function ReferenceLineImpl(props) {
     x2,
     y2
   });
-  return /* @__PURE__ */ import_react156.default.createElement(Layer, {
+  return /* @__PURE__ */ import_react157.default.createElement(Layer, {
     className: clsx_default("recharts-reference-line", className)
   }, renderLine(shape, lineProps), Label.renderCallByParent(props, rectWithCoords({
     x1,
@@ -74266,10 +74321,10 @@ var ReferenceLine = /* @__PURE__ */ (function(_React$Component) {
   return _createClass12(ReferenceLine2, [{
     key: "render",
     value: function render2() {
-      return /* @__PURE__ */ import_react156.default.createElement(ReferenceLineImpl, this.props);
+      return /* @__PURE__ */ import_react157.default.createElement(ReferenceLineImpl, this.props);
     }
   }]);
-})(import_react156.default.Component);
+})(import_react157.default.Component);
 _defineProperty31(ReferenceLine, "displayName", "ReferenceLine");
 _defineProperty31(ReferenceLine, "defaultProps", {
   isFront: false,
@@ -74284,7 +74339,7 @@ _defineProperty31(ReferenceLine, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/ReferenceDot.js
-var import_react157 = __toESM(require("react"));
+var import_react158 = __toESM(require("react"));
 var import_isFunction12 = __toESM(require_isFunction());
 function _extends21() {
   _extends21 = Object.assign ? Object.assign.bind() : function(target) {
@@ -74466,7 +74521,7 @@ var ReferenceDot = /* @__PURE__ */ (function(_React$Component) {
         cx,
         cy
       });
-      return /* @__PURE__ */ import_react157.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react158.default.createElement(Layer, {
         className: clsx_default("recharts-reference-dot", className)
       }, ReferenceDot2.renderDot(shape, dotProps), Label.renderCallByParent(this.props, {
         x: cx - r2,
@@ -74476,7 +74531,7 @@ var ReferenceDot = /* @__PURE__ */ (function(_React$Component) {
       }));
     }
   }]);
-})(import_react157.default.Component);
+})(import_react158.default.Component);
 _defineProperty32(ReferenceDot, "displayName", "ReferenceDot");
 _defineProperty32(ReferenceDot, "defaultProps", {
   isFront: false,
@@ -74491,12 +74546,12 @@ _defineProperty32(ReferenceDot, "defaultProps", {
 });
 _defineProperty32(ReferenceDot, "renderDot", function(option, props) {
   var dot;
-  if (/* @__PURE__ */ import_react157.default.isValidElement(option)) {
-    dot = /* @__PURE__ */ import_react157.default.cloneElement(option, props);
+  if (/* @__PURE__ */ import_react158.default.isValidElement(option)) {
+    dot = /* @__PURE__ */ import_react158.default.cloneElement(option, props);
   } else if ((0, import_isFunction12.default)(option)) {
     dot = option(props);
   } else {
-    dot = /* @__PURE__ */ import_react157.default.createElement(Dot3, _extends21({}, props, {
+    dot = /* @__PURE__ */ import_react158.default.createElement(Dot3, _extends21({}, props, {
       cx: props.cx,
       cy: props.cy,
       className: "recharts-reference-dot-dot"
@@ -74506,7 +74561,7 @@ _defineProperty32(ReferenceDot, "renderDot", function(option, props) {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/ReferenceArea.js
-var import_react158 = __toESM(require("react"));
+var import_react159 = __toESM(require("react"));
 var import_isFunction13 = __toESM(require_isFunction());
 function _extends22() {
   _extends22 = Object.assign ? Object.assign.bind() : function(target) {
@@ -74694,14 +74749,14 @@ var ReferenceArea = /* @__PURE__ */ (function(_React$Component) {
         return null;
       }
       var clipPath = ifOverflowMatches(this.props, "hidden") ? "url(#".concat(clipPathId, ")") : void 0;
-      return /* @__PURE__ */ import_react158.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react159.default.createElement(Layer, {
         className: clsx_default("recharts-reference-area", className)
       }, ReferenceArea2.renderRect(shape, _objectSpread31(_objectSpread31({
         clipPath
       }, filterProps(this.props, true)), rect)), Label.renderCallByParent(this.props, rect));
     }
   }]);
-})(import_react158.default.Component);
+})(import_react159.default.Component);
 _defineProperty33(ReferenceArea, "displayName", "ReferenceArea");
 _defineProperty33(ReferenceArea, "defaultProps", {
   isFront: false,
@@ -74716,12 +74771,12 @@ _defineProperty33(ReferenceArea, "defaultProps", {
 });
 _defineProperty33(ReferenceArea, "renderRect", function(option, props) {
   var rect;
-  if (/* @__PURE__ */ import_react158.default.isValidElement(option)) {
-    rect = /* @__PURE__ */ import_react158.default.cloneElement(option, props);
+  if (/* @__PURE__ */ import_react159.default.isValidElement(option)) {
+    rect = /* @__PURE__ */ import_react159.default.cloneElement(option, props);
   } else if ((0, import_isFunction13.default)(option)) {
     rect = option(props);
   } else {
-    rect = /* @__PURE__ */ import_react158.default.createElement(Rectangle, _extends22({}, props, {
+    rect = /* @__PURE__ */ import_react159.default.createElement(Rectangle, _extends22({}, props, {
       className: "recharts-reference-area-rect"
     }));
   }
@@ -74729,7 +74784,7 @@ _defineProperty33(ReferenceArea, "renderRect", function(option, props) {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/CartesianAxis.js
-var import_react159 = __toESM(require("react"));
+var import_react160 = __toESM(require("react"));
 var import_isFunction15 = __toESM(require_isFunction());
 var import_get10 = __toESM(require_get());
 
@@ -75329,7 +75384,7 @@ var CartesianAxis = /* @__PURE__ */ (function(_Component) {
           y2: y2 + height
         });
       }
-      return /* @__PURE__ */ import_react159.default.createElement("line", _extends23({}, props, {
+      return /* @__PURE__ */ import_react160.default.createElement("line", _extends23({}, props, {
         className: clsx_default("recharts-cartesian-axis-line", (0, import_get10.default)(axisLine, "className"))
       }));
     }
@@ -75370,14 +75425,14 @@ var CartesianAxis = /* @__PURE__ */ (function(_Component) {
             visibleTicksCount: finalTicks.length,
             tickFormatter
           });
-          return /* @__PURE__ */ import_react159.default.createElement(Layer, _extends23({
+          return /* @__PURE__ */ import_react160.default.createElement(Layer, _extends23({
             className: "recharts-cartesian-axis-tick",
             key: "tick-".concat(entry.value, "-").concat(entry.coordinate, "-").concat(entry.tickCoord)
-          }, adaptEventsOfChild(_this2.props, entry, i)), tickLine && /* @__PURE__ */ import_react159.default.createElement("line", _extends23({}, tickLineProps, lineCoord, {
+          }, adaptEventsOfChild(_this2.props, entry, i)), tickLine && /* @__PURE__ */ import_react160.default.createElement("line", _extends23({}, tickLineProps, lineCoord, {
             className: clsx_default("recharts-cartesian-axis-tick-line", (0, import_get10.default)(tickLine, "className"))
           })), tick && CartesianAxis2.renderTickItem(tick, tickProps, "".concat((0, import_isFunction15.default)(tickFormatter) ? tickFormatter(entry.value, i) : entry.value).concat(unit4 || "")));
         });
-        return /* @__PURE__ */ import_react159.default.createElement("g", {
+        return /* @__PURE__ */ import_react160.default.createElement("g", {
           className: "recharts-cartesian-axis-ticks"
         }, items);
       }
@@ -75398,7 +75453,7 @@ var CartesianAxis = /* @__PURE__ */ (function(_Component) {
       if (width <= 0 || height <= 0 || !finalTicks || !finalTicks.length) {
         return null;
       }
-      return /* @__PURE__ */ import_react159.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react160.default.createElement(Layer, {
         className: clsx_default("recharts-cartesian-axis", className),
         ref: function ref(_ref2) {
           _this3.layerReference = _ref2;
@@ -75410,8 +75465,8 @@ var CartesianAxis = /* @__PURE__ */ (function(_Component) {
     value: function renderTickItem(option, props, value) {
       var tickItem;
       var combinedClassName = clsx_default(props.className, "recharts-cartesian-axis-tick-value");
-      if (/* @__PURE__ */ import_react159.default.isValidElement(option)) {
-        tickItem = /* @__PURE__ */ import_react159.default.cloneElement(option, _objectSpread33(_objectSpread33({}, props), {}, {
+      if (/* @__PURE__ */ import_react160.default.isValidElement(option)) {
+        tickItem = /* @__PURE__ */ import_react160.default.cloneElement(option, _objectSpread33(_objectSpread33({}, props), {}, {
           className: combinedClassName
         }));
       } else if ((0, import_isFunction15.default)(option)) {
@@ -75419,14 +75474,14 @@ var CartesianAxis = /* @__PURE__ */ (function(_Component) {
           className: combinedClassName
         }));
       } else {
-        tickItem = /* @__PURE__ */ import_react159.default.createElement(Text2, _extends23({}, props, {
+        tickItem = /* @__PURE__ */ import_react160.default.createElement(Text2, _extends23({}, props, {
           className: "recharts-cartesian-axis-tick-value"
         }), value);
       }
       return tickItem;
     }
   }]);
-})(import_react159.Component);
+})(import_react160.Component);
 _defineProperty35(CartesianAxis, "displayName", "CartesianAxis");
 _defineProperty35(CartesianAxis, "defaultProps", {
   x: 0,
@@ -75456,7 +75511,7 @@ _defineProperty35(CartesianAxis, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/CartesianGrid.js
-var import_react160 = __toESM(require("react"));
+var import_react161 = __toESM(require("react"));
 var import_isFunction16 = __toESM(require_isFunction());
 var _excluded74 = ["x1", "y1", "x2", "y2", "key"];
 var _excluded217 = ["offset"];
@@ -75558,7 +75613,7 @@ var Background = function Background2(props) {
     return null;
   }
   var fillOpacity = props.fillOpacity, x2 = props.x, y2 = props.y, width = props.width, height = props.height, ry = props.ry;
-  return /* @__PURE__ */ import_react160.default.createElement("rect", {
+  return /* @__PURE__ */ import_react161.default.createElement("rect", {
     x: x2,
     y: y2,
     ry,
@@ -75572,14 +75627,14 @@ var Background = function Background2(props) {
 };
 function renderLineItem(option, props) {
   var lineItem;
-  if (/* @__PURE__ */ import_react160.default.isValidElement(option)) {
-    lineItem = /* @__PURE__ */ import_react160.default.cloneElement(option, props);
+  if (/* @__PURE__ */ import_react161.default.isValidElement(option)) {
+    lineItem = /* @__PURE__ */ import_react161.default.cloneElement(option, props);
   } else if ((0, import_isFunction16.default)(option)) {
     lineItem = option(props);
   } else {
     var x1 = props.x1, y1 = props.y1, x2 = props.x2, y2 = props.y2, key = props.key, others = _objectWithoutProperties17(props, _excluded74);
     var _filterProps = filterProps(others, false), __ = _filterProps.offset, restOfFilteredProps = _objectWithoutProperties17(_filterProps, _excluded217);
-    lineItem = /* @__PURE__ */ import_react160.default.createElement("line", _extends24({}, restOfFilteredProps, {
+    lineItem = /* @__PURE__ */ import_react161.default.createElement("line", _extends24({}, restOfFilteredProps, {
       x1,
       y1,
       x2,
@@ -75606,7 +75661,7 @@ function HorizontalGridLines(props) {
     });
     return renderLineItem(horizontal, lineItemProps);
   });
-  return /* @__PURE__ */ import_react160.default.createElement("g", {
+  return /* @__PURE__ */ import_react161.default.createElement("g", {
     className: "recharts-cartesian-grid-horizontal"
   }, items);
 }
@@ -75626,7 +75681,7 @@ function VerticalGridLines(props) {
     });
     return renderLineItem(vertical, lineItemProps);
   });
-  return /* @__PURE__ */ import_react160.default.createElement("g", {
+  return /* @__PURE__ */ import_react161.default.createElement("g", {
     className: "recharts-cartesian-grid-vertical"
   }, items);
 }
@@ -75650,7 +75705,7 @@ function HorizontalStripes(props) {
       return null;
     }
     var colorIndex = i % horizontalFill.length;
-    return /* @__PURE__ */ import_react160.default.createElement("rect", {
+    return /* @__PURE__ */ import_react161.default.createElement("rect", {
       key: "react-".concat(i),
       y: entry,
       x: x2,
@@ -75662,7 +75717,7 @@ function HorizontalStripes(props) {
       className: "recharts-cartesian-grid-bg"
     });
   });
-  return /* @__PURE__ */ import_react160.default.createElement("g", {
+  return /* @__PURE__ */ import_react161.default.createElement("g", {
     className: "recharts-cartesian-gridstripes-horizontal"
   }, items);
 }
@@ -75686,7 +75741,7 @@ function VerticalStripes(props) {
       return null;
     }
     var colorIndex = i % verticalFill.length;
-    return /* @__PURE__ */ import_react160.default.createElement("rect", {
+    return /* @__PURE__ */ import_react161.default.createElement("rect", {
       key: "react-".concat(i),
       x: entry,
       y: y2,
@@ -75698,7 +75753,7 @@ function VerticalStripes(props) {
       className: "recharts-cartesian-grid-bg"
     });
   });
-  return /* @__PURE__ */ import_react160.default.createElement("g", {
+  return /* @__PURE__ */ import_react161.default.createElement("g", {
     className: "recharts-cartesian-gridstripes-vertical"
   }, items);
 }
@@ -75795,9 +75850,9 @@ function CartesianGrid(props) {
       verticalPoints = _generatorResult;
     }
   }
-  return /* @__PURE__ */ import_react160.default.createElement("g", {
+  return /* @__PURE__ */ import_react161.default.createElement("g", {
     className: "recharts-cartesian-grid"
-  }, /* @__PURE__ */ import_react160.default.createElement(Background, {
+  }, /* @__PURE__ */ import_react161.default.createElement(Background, {
     fill: propsIncludingDefaults.fill,
     fillOpacity: propsIncludingDefaults.fillOpacity,
     x: propsIncludingDefaults.x,
@@ -75805,26 +75860,26 @@ function CartesianGrid(props) {
     width: propsIncludingDefaults.width,
     height: propsIncludingDefaults.height,
     ry: propsIncludingDefaults.ry
-  }), /* @__PURE__ */ import_react160.default.createElement(HorizontalGridLines, _extends24({}, propsIncludingDefaults, {
+  }), /* @__PURE__ */ import_react161.default.createElement(HorizontalGridLines, _extends24({}, propsIncludingDefaults, {
     offset: offset3,
     horizontalPoints,
     xAxis,
     yAxis
-  })), /* @__PURE__ */ import_react160.default.createElement(VerticalGridLines, _extends24({}, propsIncludingDefaults, {
+  })), /* @__PURE__ */ import_react161.default.createElement(VerticalGridLines, _extends24({}, propsIncludingDefaults, {
     offset: offset3,
     verticalPoints,
     xAxis,
     yAxis
-  })), /* @__PURE__ */ import_react160.default.createElement(HorizontalStripes, _extends24({}, propsIncludingDefaults, {
+  })), /* @__PURE__ */ import_react161.default.createElement(HorizontalStripes, _extends24({}, propsIncludingDefaults, {
     horizontalPoints
-  })), /* @__PURE__ */ import_react160.default.createElement(VerticalStripes, _extends24({}, propsIncludingDefaults, {
+  })), /* @__PURE__ */ import_react161.default.createElement(VerticalStripes, _extends24({}, propsIncludingDefaults, {
     verticalPoints
   })));
 }
 CartesianGrid.displayName = "CartesianGrid";
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/Line.js
-var import_react161 = __toESM(require("react"));
+var import_react162 = __toESM(require("react"));
 var import_isFunction17 = __toESM(require_isFunction());
 var import_isNil10 = __toESM(require_isNil());
 var import_isEqual14 = __toESM(require_isEqual());
@@ -76131,8 +76186,8 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
       var errorBarProps = {
         clipPath: needClip ? "url(#clipPath-".concat(clipPathId, ")") : null
       };
-      return /* @__PURE__ */ import_react161.default.createElement(Layer, errorBarProps, errorBarItems.map(function(item) {
-        return /* @__PURE__ */ import_react161.default.cloneElement(item, {
+      return /* @__PURE__ */ import_react162.default.createElement(Layer, errorBarProps, errorBarItems.map(function(item) {
+        return /* @__PURE__ */ import_react162.default.cloneElement(item, {
           key: "bar-".concat(item.props.dataKey),
           data: points,
           xAxis,
@@ -76170,7 +76225,7 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
       var dotsProps = {
         clipPath: needClip ? "url(#clipPath-".concat(clipDot ? "" : "dots-").concat(clipPathId, ")") : null
       };
-      return /* @__PURE__ */ import_react161.default.createElement(Layer, _extends25({
+      return /* @__PURE__ */ import_react162.default.createElement(Layer, _extends25({
         className: "recharts-line-dots",
         key: "dots"
       }, dotsProps), dots);
@@ -76189,7 +76244,7 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
         layout,
         connectNulls
       });
-      return /* @__PURE__ */ import_react161.default.createElement(Curve, _extends25({}, curveProps, {
+      return /* @__PURE__ */ import_react162.default.createElement(Curve, _extends25({}, curveProps, {
         pathRef: this.pathRef
       }));
     }
@@ -76199,7 +76254,7 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
       var _this2 = this;
       var _this$props4 = this.props, points = _this$props4.points, strokeDasharray = _this$props4.strokeDasharray, isAnimationActive = _this$props4.isAnimationActive, animationBegin = _this$props4.animationBegin, animationDuration = _this$props4.animationDuration, animationEasing = _this$props4.animationEasing, animationId = _this$props4.animationId, animateNewValues = _this$props4.animateNewValues, width = _this$props4.width, height = _this$props4.height;
       var _this$state = this.state, prevPoints = _this$state.prevPoints, totalLength = _this$state.totalLength;
-      return /* @__PURE__ */ import_react161.default.createElement(es6_default, {
+      return /* @__PURE__ */ import_react162.default.createElement(es6_default, {
         begin: animationBegin,
         duration: animationDuration,
         isActive: isAnimationActive,
@@ -76290,18 +76345,18 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
       }, _ref2$r = _ref2.r, r2 = _ref2$r === void 0 ? 3 : _ref2$r, _ref2$strokeWidth = _ref2.strokeWidth, strokeWidth = _ref2$strokeWidth === void 0 ? 2 : _ref2$strokeWidth;
       var _ref3 = hasClipDot(dot) ? dot : {}, _ref3$clipDot = _ref3.clipDot, clipDot = _ref3$clipDot === void 0 ? true : _ref3$clipDot;
       var dotSize = r2 * 2 + strokeWidth;
-      return /* @__PURE__ */ import_react161.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react162.default.createElement(Layer, {
         className: layerClass
-      }, needClipX || needClipY ? /* @__PURE__ */ import_react161.default.createElement("defs", null, /* @__PURE__ */ import_react161.default.createElement("clipPath", {
+      }, needClipX || needClipY ? /* @__PURE__ */ import_react162.default.createElement("defs", null, /* @__PURE__ */ import_react162.default.createElement("clipPath", {
         id: "clipPath-".concat(clipPathId)
-      }, /* @__PURE__ */ import_react161.default.createElement("rect", {
+      }, /* @__PURE__ */ import_react162.default.createElement("rect", {
         x: needClipX ? left : left - width / 2,
         y: needClipY ? top : top - height / 2,
         width: needClipX ? width : width * 2,
         height: needClipY ? height : height * 2
-      })), !clipDot && /* @__PURE__ */ import_react161.default.createElement("clipPath", {
+      })), !clipDot && /* @__PURE__ */ import_react162.default.createElement("clipPath", {
         id: "clipPath-dots-".concat(clipPathId)
-      }, /* @__PURE__ */ import_react161.default.createElement("rect", {
+      }, /* @__PURE__ */ import_react162.default.createElement("rect", {
         x: left - dotSize / 2,
         y: top - dotSize / 2,
         width: width + dotSize,
@@ -76339,14 +76394,14 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
     key: "renderDotItem",
     value: function renderDotItem(option, props) {
       var dotItem;
-      if (/* @__PURE__ */ import_react161.default.isValidElement(option)) {
-        dotItem = /* @__PURE__ */ import_react161.default.cloneElement(option, props);
+      if (/* @__PURE__ */ import_react162.default.isValidElement(option)) {
+        dotItem = /* @__PURE__ */ import_react162.default.cloneElement(option, props);
       } else if ((0, import_isFunction17.default)(option)) {
         dotItem = option(props);
       } else {
         var key = props.key, dotProps = _objectWithoutProperties18(props, _excluded218);
         var className = clsx_default("recharts-line-dot", typeof option !== "boolean" ? option.className : "");
-        dotItem = /* @__PURE__ */ import_react161.default.createElement(Dot3, _extends25({
+        dotItem = /* @__PURE__ */ import_react162.default.createElement(Dot3, _extends25({
           key
         }, dotProps, {
           className
@@ -76355,7 +76410,7 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
       return dotItem;
     }
   }]);
-})(import_react161.PureComponent);
+})(import_react162.PureComponent);
 _defineProperty37(Line, "displayName", "Line");
 _defineProperty37(Line, "defaultProps", {
   xAxisId: 0,
@@ -76761,7 +76816,7 @@ _defineProperty39(YAxis, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/chart/generateCategoricalChart.js
-var import_react163 = __toESM(require("react"));
+var import_react164 = __toESM(require("react"));
 var import_isNil11 = __toESM(require_isNil());
 var import_isFunction18 = __toESM(require_isFunction());
 var import_range4 = __toESM(require_range());
@@ -76986,7 +77041,7 @@ function isDomainSpecifiedByUser(domain, allowDataOverflow, axisType) {
 }
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/Cursor.js
-var import_react162 = require("react");
+var import_react163 = require("react");
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/cursor/getCursorRectangle.js
 function getCursorRectangle(layout, activeCoordinate, offset3, tooltipAxisBandSize) {
@@ -77144,7 +77199,7 @@ function Cursor(props) {
     payloadIndex: activeTooltipIndex,
     className: clsx_default("recharts-tooltip-cursor", elementPropsCursor.className)
   });
-  return /* @__PURE__ */ (0, import_react162.isValidElement)(elementPropsCursor) ? /* @__PURE__ */ (0, import_react162.cloneElement)(elementPropsCursor, cursorProps) : /* @__PURE__ */ (0, import_react162.createElement)(cursorComp, cursorProps);
+  return /* @__PURE__ */ (0, import_react163.isValidElement)(elementPropsCursor) ? /* @__PURE__ */ (0, import_react163.cloneElement)(elementPropsCursor, cursorProps) : /* @__PURE__ */ (0, import_react163.createElement)(cursorComp, cursorProps);
 }
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/chart/generateCategoricalChart.js
@@ -78186,7 +78241,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         var isActive2 = (_element$props$active = element.props.active) !== null && _element$props$active !== void 0 ? _element$props$active : isTooltipActive;
         var layout = _this.props.layout;
         var key = element.key || "_recharts-cursor";
-        return /* @__PURE__ */ import_react163.default.createElement(Cursor, {
+        return /* @__PURE__ */ import_react164.default.createElement(Cursor, {
           key,
           activeCoordinate,
           activePayload,
@@ -78206,7 +78261,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         var elementDefaultProps = element.type.defaultProps;
         var elementProps = elementDefaultProps !== void 0 ? _objectSpread37(_objectSpread37({}, elementDefaultProps), element.props) : element.props;
         var axisOption = axisMap && axisMap[elementProps["".concat(axisType, "Id")]];
-        return /* @__PURE__ */ (0, import_react163.cloneElement)(element, _objectSpread37(_objectSpread37({}, axisOption), {}, {
+        return /* @__PURE__ */ (0, import_react164.cloneElement)(element, _objectSpread37(_objectSpread37({}, axisOption), {}, {
           className: clsx_default(axisType, axisOption.className),
           key: element.key || "".concat(displayName, "-").concat(index2),
           ticks: getTicksOfAxis(axisOption, true)
@@ -78218,7 +78273,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         var radiusAxis = getAnyElementOfObject(radiusAxisMap);
         var angleAxis = getAnyElementOfObject(angleAxisMap);
         var cx = angleAxis.cx, cy = angleAxis.cy, innerRadius = angleAxis.innerRadius, outerRadius = angleAxis.outerRadius;
-        return /* @__PURE__ */ (0, import_react163.cloneElement)(element, {
+        return /* @__PURE__ */ (0, import_react164.cloneElement)(element, {
           polarAngles: Array.isArray(polarAngles) ? polarAngles : getTicksOfAxis(angleAxis, true).map(function(entry) {
             return entry.coordinate;
           }),
@@ -78248,7 +78303,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
           return null;
         }
         var item = props.item, otherProps = _objectWithoutProperties19(props, _excluded76);
-        return /* @__PURE__ */ (0, import_react163.cloneElement)(item, _objectSpread37(_objectSpread37({}, otherProps), {}, {
+        return /* @__PURE__ */ (0, import_react164.cloneElement)(item, _objectSpread37(_objectSpread37({}, otherProps), {}, {
           chartWidth: width,
           chartHeight: height,
           margin,
@@ -78264,7 +78319,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         }
         var _this$state5 = _this.state, isTooltipActive = _this$state5.isTooltipActive, activeCoordinate = _this$state5.activeCoordinate, activePayload = _this$state5.activePayload, activeLabel = _this$state5.activeLabel, offset3 = _this$state5.offset;
         var isActive2 = (_tooltipItem$props$ac = tooltipItem.props.active) !== null && _tooltipItem$props$ac !== void 0 ? _tooltipItem$props$ac : isTooltipActive;
-        return /* @__PURE__ */ (0, import_react163.cloneElement)(tooltipItem, {
+        return /* @__PURE__ */ (0, import_react164.cloneElement)(tooltipItem, {
           viewBox: _objectSpread37(_objectSpread37({}, offset3), {}, {
             x: offset3.left,
             y: offset3.top
@@ -78279,7 +78334,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
       _defineProperty42(_this, "renderBrush", function(element) {
         var _this$props4 = _this.props, margin = _this$props4.margin, data = _this$props4.data;
         var _this$state6 = _this.state, offset3 = _this$state6.offset, dataStartIndex = _this$state6.dataStartIndex, dataEndIndex = _this$state6.dataEndIndex, updateId = _this$state6.updateId;
-        return /* @__PURE__ */ (0, import_react163.cloneElement)(element, {
+        return /* @__PURE__ */ (0, import_react164.cloneElement)(element, {
           key: element.key || "_recharts-brush",
           onChange: combineEventHandlers(_this.handleBrushChange, element.props.onChange),
           data,
@@ -78299,7 +78354,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         var _this$state7 = _this.state, xAxisMap = _this$state7.xAxisMap, yAxisMap = _this$state7.yAxisMap, offset3 = _this$state7.offset;
         var elementDefaultProps = element.type.defaultProps || {};
         var _element$props2 = element.props, _element$props2$xAxis = _element$props2.xAxisId, xAxisId = _element$props2$xAxis === void 0 ? elementDefaultProps.xAxisId : _element$props2$xAxis, _element$props2$yAxis = _element$props2.yAxisId, yAxisId = _element$props2$yAxis === void 0 ? elementDefaultProps.yAxisId : _element$props2$yAxis;
-        return /* @__PURE__ */ (0, import_react163.cloneElement)(element, {
+        return /* @__PURE__ */ (0, import_react164.cloneElement)(element, {
           key: element.key || "".concat(displayName, "-").concat(index2),
           xAxis: xAxisMap[xAxisId],
           yAxis: yAxisMap[yAxisId],
@@ -78365,7 +78420,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
             onMouseEnter: combineEventHandlers(_this.handleItemMouseEnter, element.props.onMouseEnter)
           };
         }
-        var graphicalItem = /* @__PURE__ */ (0, import_react163.cloneElement)(element, _objectSpread37(_objectSpread37({}, item.props), itemEvents));
+        var graphicalItem = /* @__PURE__ */ (0, import_react164.cloneElement)(element, _objectSpread37(_objectSpread37({}, item.props), itemEvents));
         function findWithPayload(entry) {
           return typeof tooltipAxis.dataKey === "function" ? tooltipAxis.dataKey(entry.payload) : null;
         }
@@ -78382,7 +78437,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
             }
             if (activeShape || activeBar) {
               var activeIndex = element.props.activeIndex !== void 0 ? element.props.activeIndex : activeTooltipIndex;
-              return [/* @__PURE__ */ (0, import_react163.cloneElement)(element, _objectSpread37(_objectSpread37(_objectSpread37({}, item.props), itemEvents), {}, {
+              return [/* @__PURE__ */ (0, import_react164.cloneElement)(element, _objectSpread37(_objectSpread37(_objectSpread37({}, item.props), itemEvents), {}, {
                 activeIndex
               })), null, null];
             }
@@ -78403,7 +78458,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
             var elementProps = _objectSpread37(_objectSpread37(_objectSpread37({}, item.props), itemEvents), {}, {
               activeIndex: childIndex
             });
-            return [/* @__PURE__ */ (0, import_react163.cloneElement)(xyItem, elementProps), null, null];
+            return [/* @__PURE__ */ (0, import_react164.cloneElement)(xyItem, elementProps), null, null];
           }
         }
         if (isRange) {
@@ -78412,7 +78467,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         return [graphicalItem, null];
       });
       _defineProperty42(_this, "renderCustomized", function(element, displayName, index2) {
-        return /* @__PURE__ */ (0, import_react163.cloneElement)(element, _objectSpread37(_objectSpread37({
+        return /* @__PURE__ */ (0, import_react164.cloneElement)(element, _objectSpread37(_objectSpread37({
           key: "recharts-customized-".concat(index2)
         }, _this.props), _this.state));
       });
@@ -78718,9 +78773,9 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
       value: function renderClipPath() {
         var clipPathId = this.clipPathId;
         var _this$state$offset = this.state.offset, left = _this$state$offset.left, top = _this$state$offset.top, height = _this$state$offset.height, width = _this$state$offset.width;
-        return /* @__PURE__ */ import_react163.default.createElement("defs", null, /* @__PURE__ */ import_react163.default.createElement("clipPath", {
+        return /* @__PURE__ */ import_react164.default.createElement("defs", null, /* @__PURE__ */ import_react164.default.createElement("clipPath", {
           id: clipPathId
-        }, /* @__PURE__ */ import_react163.default.createElement("rect", {
+        }, /* @__PURE__ */ import_react164.default.createElement("rect", {
           x: left,
           y: top,
           height,
@@ -78815,12 +78870,12 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         var _this$props6 = this.props, children = _this$props6.children, className = _this$props6.className, width = _this$props6.width, height = _this$props6.height, style2 = _this$props6.style, compact = _this$props6.compact, title = _this$props6.title, desc = _this$props6.desc, others = _objectWithoutProperties19(_this$props6, _excluded219);
         var attrs = filterProps(others, false);
         if (compact) {
-          return /* @__PURE__ */ import_react163.default.createElement(ChartLayoutContextProvider, {
+          return /* @__PURE__ */ import_react164.default.createElement(ChartLayoutContextProvider, {
             state: this.state,
             width: this.props.width,
             height: this.props.height,
             clipPathId: this.clipPathId
-          }, /* @__PURE__ */ import_react163.default.createElement(Surface, _extends28({}, attrs, {
+          }, /* @__PURE__ */ import_react164.default.createElement(Surface, _extends28({}, attrs, {
             width,
             height,
             title,
@@ -78839,12 +78894,12 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
           };
         }
         var events = this.parseEventsOfWrapper();
-        return /* @__PURE__ */ import_react163.default.createElement(ChartLayoutContextProvider, {
+        return /* @__PURE__ */ import_react164.default.createElement(ChartLayoutContextProvider, {
           state: this.state,
           width: this.props.width,
           height: this.props.height,
           clipPathId: this.clipPathId
-        }, /* @__PURE__ */ import_react163.default.createElement("div", _extends28({
+        }, /* @__PURE__ */ import_react164.default.createElement("div", _extends28({
           className: clsx_default("recharts-wrapper", className),
           style: _objectSpread37({
             position: "relative",
@@ -78856,7 +78911,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
           ref: function ref(node2) {
             _this3.container = node2;
           }
-        }), /* @__PURE__ */ import_react163.default.createElement(Surface, _extends28({}, attrs, {
+        }), /* @__PURE__ */ import_react164.default.createElement(Surface, _extends28({}, attrs, {
           width,
           height,
           title,
@@ -78865,7 +78920,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         }), this.renderClipPath(), renderByOrder(children, this.renderMap)), this.renderLegend(), this.renderTooltip()));
       }
     }]);
-  })(import_react163.Component);
+  })(import_react164.Component);
   _defineProperty42(CategoricalChartWrapper, "displayName", chartName);
   _defineProperty42(CategoricalChartWrapper, "defaultProps", _objectSpread37({
     layout: "horizontal",
@@ -78957,20 +79012,20 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
   });
   _defineProperty42(CategoricalChartWrapper, "renderActiveDot", function(option, props, key) {
     var dot;
-    if (/* @__PURE__ */ (0, import_react163.isValidElement)(option)) {
-      dot = /* @__PURE__ */ (0, import_react163.cloneElement)(option, props);
+    if (/* @__PURE__ */ (0, import_react164.isValidElement)(option)) {
+      dot = /* @__PURE__ */ (0, import_react164.cloneElement)(option, props);
     } else if ((0, import_isFunction18.default)(option)) {
       dot = option(props);
     } else {
-      dot = /* @__PURE__ */ import_react163.default.createElement(Dot3, props);
+      dot = /* @__PURE__ */ import_react164.default.createElement(Dot3, props);
     }
-    return /* @__PURE__ */ import_react163.default.createElement(Layer, {
+    return /* @__PURE__ */ import_react164.default.createElement(Layer, {
       className: "recharts-active-dot",
       key
     }, dot);
   });
-  var CategoricalChart = /* @__PURE__ */ (0, import_react163.forwardRef)(function CategoricalChart2(props, ref) {
-    return /* @__PURE__ */ import_react163.default.createElement(CategoricalChartWrapper, _extends28({}, props, {
+  var CategoricalChart = /* @__PURE__ */ (0, import_react164.forwardRef)(function CategoricalChart2(props, ref) {
+    return /* @__PURE__ */ import_react164.default.createElement(CategoricalChartWrapper, _extends28({}, props, {
       ref
     }));
   });
@@ -79007,12 +79062,12 @@ function chartRows(response) {
   });
 }
 var ConvergenceChart = ({ taskId, series }) => {
-  const [data, setData] = (0, import_react164.useState)(null);
-  const [loading, setLoading] = (0, import_react164.useState)(true);
-  const [errorMsg, setErrorMsg] = (0, import_react164.useState)(null);
-  const [source, setSource] = (0, import_react164.useState)("");
-  const [logEnergy, setLogEnergy] = (0, import_react164.useState)(false);
-  (0, import_react164.useEffect)(() => {
+  const [data, setData] = (0, import_react165.useState)(null);
+  const [loading, setLoading] = (0, import_react165.useState)(true);
+  const [errorMsg, setErrorMsg] = (0, import_react165.useState)(null);
+  const [source, setSource] = (0, import_react165.useState)("");
+  const [logEnergy, setLogEnergy] = (0, import_react165.useState)(false);
+  (0, import_react165.useEffect)(() => {
     if (series) {
       setData(series.ion_steps?.length ? chartRows(series) : []);
       setErrorMsg(series.error || null);
@@ -79033,7 +79088,7 @@ var ConvergenceChart = ({ taskId, series }) => {
       setData(chartRows(response));
     }).catch(() => setData([])).finally(() => setLoading(false));
   }, [taskId, series]);
-  const relData = (0, import_react164.useMemo)(() => {
+  const relData = (0, import_react165.useMemo)(() => {
     if (!data || data.length === 0) return data;
     const refEnergy = data[data.length - 1].energy;
     if (refEnergy == null) return data;
@@ -79124,7 +79179,7 @@ var ConvergenceChart = ({ taskId, series }) => {
 var ConvergenceChart_default = ConvergenceChart;
 
 // src/client/StructureViewer.tsx
-var import_react165 = require("react");
+var import_react166 = require("react");
 
 // node_modules/.pnpm/three@0.160.1/node_modules/three/build/three.module.js
 var REVISION = "160";
@@ -99672,35 +99727,35 @@ function disposeObject3D(obj) {
   });
 }
 var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, sourcePath, active = true }) => {
-  const mountRef = (0, import_react165.useRef)(null);
-  const activeRef = (0, import_react165.useRef)(active);
+  const mountRef = (0, import_react166.useRef)(null);
+  const activeRef = (0, import_react166.useRef)(active);
   activeRef.current = active;
-  const [files, setFiles] = (0, import_react165.useState)(() => inlineScene ? [inlineLabel || "\u7ED3\u6784"] : []);
-  const [activeFile, setActiveFile] = (0, import_react165.useState)(() => inlineScene ? inlineLabel || "\u7ED3\u6784" : "");
-  const [structure, setStructure] = (0, import_react165.useState)(() => inlineScene ? structureSceneToViewerStructure(inlineScene) : null);
-  const [loading, setLoading] = (0, import_react165.useState)(!inlineScene);
-  const [error, setError] = (0, import_react165.useState)(null);
-  const [showBonds, setShowBonds] = (0, import_react165.useState)(true);
-  const [showCell, setShowCell] = (0, import_react165.useState)(true);
-  const [displayStyle, setDisplayStyle] = (0, import_react165.useState)("ball-stick");
-  const [showPeriodicImages, setShowPeriodicImages] = (0, import_react165.useState)(true);
-  const [repeat, setRepeat] = (0, import_react165.useState)([1, 1, 1]);
-  const [atomScale, setAtomScale] = (0, import_react165.useState)(100);
-  const [bondScale, setBondScale] = (0, import_react165.useState)(100);
-  const [backgroundMode, setBackgroundMode] = (0, import_react165.useState)("auto");
-  const [rotationStep, setRotationStep] = (0, import_react165.useState)(15);
-  const [wheelActive, setWheelActive] = (0, import_react165.useState)(false);
-  const [selectedAtoms, setSelectedAtoms] = (0, import_react165.useState)([]);
-  const selectedAtomsRef = (0, import_react165.useRef)([]);
-  const [sceneNonce, setSceneNonce] = (0, import_react165.useState)(0);
-  const lastStructureRef = (0, import_react165.useRef)(null);
-  const skipCameraSaveRef = (0, import_react165.useRef)(false);
-  const settingsRef = (0, import_react165.useRef)({ showBonds, showCell, showPeriodicImages, repeat, atomScale, bondScale, displayStyle, backgroundMode, rotationStep });
+  const [files, setFiles] = (0, import_react166.useState)(() => inlineScene ? [inlineLabel || "\u7ED3\u6784"] : []);
+  const [activeFile, setActiveFile] = (0, import_react166.useState)(() => inlineScene ? inlineLabel || "\u7ED3\u6784" : "");
+  const [structure, setStructure] = (0, import_react166.useState)(() => inlineScene ? structureSceneToViewerStructure(inlineScene) : null);
+  const [loading, setLoading] = (0, import_react166.useState)(!inlineScene);
+  const [error, setError] = (0, import_react166.useState)(null);
+  const [showBonds, setShowBonds] = (0, import_react166.useState)(true);
+  const [showCell, setShowCell] = (0, import_react166.useState)(true);
+  const [displayStyle, setDisplayStyle] = (0, import_react166.useState)("ball-stick");
+  const [showPeriodicImages, setShowPeriodicImages] = (0, import_react166.useState)(true);
+  const [repeat, setRepeat] = (0, import_react166.useState)([1, 1, 1]);
+  const [atomScale, setAtomScale] = (0, import_react166.useState)(100);
+  const [bondScale, setBondScale] = (0, import_react166.useState)(100);
+  const [backgroundMode, setBackgroundMode] = (0, import_react166.useState)("auto");
+  const [rotationStep, setRotationStep] = (0, import_react166.useState)(15);
+  const [wheelActive, setWheelActive] = (0, import_react166.useState)(false);
+  const [selectedAtoms, setSelectedAtoms] = (0, import_react166.useState)([]);
+  const selectedAtomsRef = (0, import_react166.useRef)([]);
+  const [sceneNonce, setSceneNonce] = (0, import_react166.useState)(0);
+  const lastStructureRef = (0, import_react166.useRef)(null);
+  const skipCameraSaveRef = (0, import_react166.useRef)(false);
+  const settingsRef = (0, import_react166.useRef)({ showBonds, showCell, showPeriodicImages, repeat, atomScale, bondScale, displayStyle, backgroundMode, rotationStep });
   settingsRef.current = { showBonds, showCell, showPeriodicImages, repeat, atomScale, bondScale, displayStyle, backgroundMode, rotationStep };
-  const applySettingsRef = (0, import_react165.useRef)(null);
-  const exportImageRef = (0, import_react165.useRef)(null);
-  const orientRef = (0, import_react165.useRef)(null);
-  (0, import_react165.useEffect)(() => {
+  const applySettingsRef = (0, import_react166.useRef)(null);
+  const exportImageRef = (0, import_react166.useRef)(null);
+  const orientRef = (0, import_react166.useRef)(null);
+  (0, import_react166.useEffect)(() => {
     const mount = mountRef.current;
     if (!mount) return;
     setWheelActive(false);
@@ -100046,31 +100101,31 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
       mount.removeChild(renderer.domElement);
     };
   }, [taskId, activeFile, structure, sceneNonce]);
-  (0, import_react165.useEffect)(() => {
+  (0, import_react166.useEffect)(() => {
     applySettingsRef.current?.();
   }, [showBonds, showCell, showPeriodicImages, atomScale, bondScale, displayStyle, backgroundMode]);
-  (0, import_react165.useEffect)(() => {
+  (0, import_react166.useEffect)(() => {
     applySettingsRef.current?.(true);
   }, [repeat]);
-  (0, import_react165.useEffect)(() => {
+  (0, import_react166.useEffect)(() => {
     selectedAtomsRef.current = [];
     setSelectedAtoms([]);
   }, [taskId, activeFile, inlineScene]);
-  (0, import_react165.useEffect)(() => {
+  (0, import_react166.useEffect)(() => {
     if (structure && effectiveRepeat(structure, repeat) !== repeat) {
       selectedAtomsRef.current = [];
       setSelectedAtoms([]);
       setRepeat([1, 1, 1]);
     }
   }, [structure, repeat]);
-  (0, import_react165.useEffect)(() => {
+  (0, import_react166.useEffect)(() => {
     if (!showPeriodicImages && selectedAtomsRef.current.some((atom) => atom.offset.some((value, axis) => value < 0 || value >= repeat[axis]))) {
       selectedAtomsRef.current = [];
       setSelectedAtoms([]);
       applySettingsRef.current?.();
     }
   }, [showPeriodicImages, structure, repeat]);
-  (0, import_react165.useEffect)(() => {
+  (0, import_react166.useEffect)(() => {
     if (inlineScene) {
       const label = inlineLabel || "\u7ED3\u6784";
       setFiles([label]);
@@ -100099,7 +100154,7 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
       cancelled = true;
     };
   }, [taskId, inlineScene, inlineLabel]);
-  (0, import_react165.useEffect)(() => {
+  (0, import_react166.useEffect)(() => {
     if (!activeFile || inlineScene || taskId === void 0) return;
     let cancelled = false;
     setLoading(true);
@@ -100118,7 +100173,7 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
       cancelled = true;
     };
   }, [taskId, activeFile, inlineScene]);
-  const handleResetView = (0, import_react165.useCallback)(() => {
+  const handleResetView = (0, import_react166.useCallback)(() => {
     skipCameraSaveRef.current = true;
     const key = `${taskId ?? inlineLabel}:${activeFile}:${repeat.join("x")}`;
     try {
@@ -100127,20 +100182,20 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
     }
     setSceneNonce((n) => n + 1);
   }, [taskId, inlineLabel, activeFile, repeat]);
-  const latticeText = (0, import_react165.useMemo)(() => {
+  const latticeText = (0, import_react166.useMemo)(() => {
     const lattice = structure ? supercellLattice(structure.lattice, effectiveRepeat(structure, repeat)) : void 0;
     if (!lattice || lattice.length < 3) return "cell: -";
     const lengths = lattice.map((v) => vectorLength(v));
     return `cell: a=${lengths[0]?.toFixed(3)} b=${lengths[1]?.toFixed(3)} c=${lengths[2]?.toFixed(3)}`;
   }, [structure, repeat]);
-  const summaryText = (0, import_react165.useMemo)(() => {
+  const summaryText = (0, import_react166.useMemo)(() => {
     const summary = structure?.scene?.summary;
     if (!summary) return "summary: -";
     const spaceGroup = summary.space_group ? `${summary.space_group}${summary.space_group_number ? ` #${summary.space_group_number}` : ""}` : "SG -";
     const bonding = summary.bond_algorithm ? `bonding ${summary.bond_algorithm}` : "bonding off";
     return `${summary.formula || "-"} | ${spaceGroup} | ${bonding}`;
   }, [structure]);
-  const measurement = (0, import_react165.useMemo)(() => {
+  const measurement = (0, import_react166.useMemo)(() => {
     if (!selectedAtoms.length) return "";
     const atomName = (atom) => `${atom.element}${atom.siteIndex + 1}${atom.offset.some(Boolean) ? ` [${atom.offset.join(",")}]` : ""}`;
     const first = selectedAtoms[0];
@@ -100148,7 +100203,7 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
     const second2 = selectedAtoms[1];
     return `${atomName(first)} \u2014 ${atomName(second2)} \xB7 ${Math.hypot(...first.position.map((value, index2) => value - second2.position[index2])).toFixed(3)} \xC5`;
   }, [selectedAtoms]);
-  const displayScene = (0, import_react165.useMemo)(() => structure ? expandStructure(structure, effectiveRepeat(structure, repeat), showPeriodicImages) : null, [structure, repeat, showPeriodicImages]);
+  const displayScene = (0, import_react166.useMemo)(() => structure ? expandStructure(structure, effectiveRepeat(structure, repeat), showPeriodicImages) : null, [structure, repeat, showPeriodicImages]);
   const hasPeriodicImages = structure?.scene?.atoms.some((atom) => atom.is_periodic_image) ?? false;
   const displayBudget = (structure?.num_atoms ?? 0) + (structure?.bonds?.length ?? 0);
   const settingsPanel = /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { width: 250, display: "grid", gap: 11, fontSize: 12 }, children: [
@@ -100304,7 +100359,7 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
 var StructureViewer_default = StructureViewer;
 
 // src/client/FileList.tsx
-var import_react166 = require("react");
+var import_react167 = require("react");
 init_api();
 var import_jsx_runtime4 = require("react/jsx-runtime");
 var { Text: Text4 } = typography_default;
@@ -100354,17 +100409,17 @@ function isTextFile(ext, name) {
   return textExts.includes(ext.toUpperCase()) || standardTextNames.has(upperName) || Boolean(ext && ext.length <= 5);
 }
 var FileList = ({ taskId, rootPath, relPath }) => {
-  const [files, setFiles] = (0, import_react166.useState)([]);
-  const [dirs, setDirs] = (0, import_react166.useState)([]);
-  const [loading, setLoading] = (0, import_react166.useState)(true);
-  const [previewOpen, setPreviewOpen] = (0, import_react166.useState)(false);
-  const [previewName, setPreviewName] = (0, import_react166.useState)("");
-  const [previewContent, setPreviewContent] = (0, import_react166.useState)("");
-  const [previewLoading, setPreviewLoading] = (0, import_react166.useState)(false);
-  const [previewTruncated, setPreviewTruncated] = (0, import_react166.useState)(false);
-  const [previewMeta, setPreviewMeta] = (0, import_react166.useState)(null);
-  const previewCache = (0, import_react166.useRef)(/* @__PURE__ */ new Map());
-  (0, import_react166.useEffect)(() => {
+  const [files, setFiles] = (0, import_react167.useState)([]);
+  const [dirs, setDirs] = (0, import_react167.useState)([]);
+  const [loading, setLoading] = (0, import_react167.useState)(true);
+  const [previewOpen, setPreviewOpen] = (0, import_react167.useState)(false);
+  const [previewName, setPreviewName] = (0, import_react167.useState)("");
+  const [previewContent, setPreviewContent] = (0, import_react167.useState)("");
+  const [previewLoading, setPreviewLoading] = (0, import_react167.useState)(false);
+  const [previewTruncated, setPreviewTruncated] = (0, import_react167.useState)(false);
+  const [previewMeta, setPreviewMeta] = (0, import_react167.useState)(null);
+  const previewCache = (0, import_react167.useRef)(/* @__PURE__ */ new Map());
+  (0, import_react167.useEffect)(() => {
     previewCache.current.clear();
     setLoading(true);
     fetchTaskFiles(taskId).then((data) => {
@@ -100375,7 +100430,7 @@ var FileList = ({ taskId, rootPath, relPath }) => {
       setDirs([]);
     }).finally(() => setLoading(false));
   }, [taskId]);
-  const loadPreview = (0, import_react166.useCallback)(async (name, offset3) => {
+  const loadPreview = (0, import_react167.useCallback)(async (name, offset3) => {
     const key = `${name}:${offset3 ?? "tail"}`;
     const cached2 = previewCache.current.get(key);
     if (cached2) {
@@ -100398,7 +100453,7 @@ var FileList = ({ taskId, rootPath, relPath }) => {
       setPreviewLoading(false);
     }
   }, [taskId]);
-  const handleFileClick = (0, import_react166.useCallback)(async (f) => {
+  const handleFileClick = (0, import_react167.useCallback)(async (f) => {
     if (!isTextFile(f.ext, f.name)) return;
     setPreviewName(f.name);
     setPreviewOpen(true);
@@ -100608,9 +100663,9 @@ async function copyText(value) {
   if (!copied) throw new Error("\u6D4F\u89C8\u5668\u672A\u5141\u8BB8\u590D\u5236\u5230\u526A\u8D34\u677F");
 }
 var PanelResizeHandle = ({ onResize: onResize2, getWidth: getWidth2 }) => {
-  const [active, setActive] = import_react167.default.useState(false);
-  const rafRef = import_react167.default.useRef(0);
-  const dragRef = import_react167.default.useRef(null);
+  const [active, setActive] = import_react168.default.useState(false);
+  const rafRef = import_react168.default.useRef(0);
+  const dragRef = import_react168.default.useRef(null);
   const stop = () => {
     if (rafRef.current !== 0) {
       cancelAnimationFrame(rafRef.current);
@@ -100642,7 +100697,7 @@ var PanelResizeHandle = ({ onResize: onResize2, getWidth: getWidth2 }) => {
     document.addEventListener("pointermove", onPointerMove);
     document.addEventListener("pointerup", stop);
   };
-  import_react167.default.useEffect(() => stop, []);
+  import_react168.default.useEffect(() => stop, []);
   return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
     "div",
     {
@@ -100689,15 +100744,15 @@ function Panel3(props) {
     open,
     workspaceItems
   } = usePanelStore();
-  const [viewMode, setViewMode] = (0, import_react167.useState)("tree");
-  const [workspaceOpen, setWorkspaceOpen] = (0, import_react167.useState)(false);
-  const [listOpen, setListOpen] = (0, import_react167.useState)(false);
-  const [copiedPath, setCopiedPath] = (0, import_react167.useState)("");
-  const [, setInputTargetRevision] = (0, import_react167.useState)(0);
-  const [checkingInput, setCheckingInput] = (0, import_react167.useState)(false);
-  const [inputCheckError, setInputCheckError] = (0, import_react167.useState)("");
-  const [modeActionError, setModeActionError] = (0, import_react167.useState)("");
-  const closeScanRef = (0, import_react167.useRef)(null);
+  const [viewMode, setViewMode] = (0, import_react168.useState)("tree");
+  const [workspaceOpen, setWorkspaceOpen] = (0, import_react168.useState)(false);
+  const [listOpen, setListOpen] = (0, import_react168.useState)(false);
+  const [copiedPath, setCopiedPath] = (0, import_react168.useState)("");
+  const [, setInputTargetRevision] = (0, import_react168.useState)(0);
+  const [checkingInput, setCheckingInput] = (0, import_react168.useState)(false);
+  const [inputCheckError, setInputCheckError] = (0, import_react168.useState)("");
+  const [modeActionError, setModeActionError] = (0, import_react168.useState)("");
+  const closeScanRef = (0, import_react168.useRef)(null);
   const startIncrementalScan = () => {
     if (!projectPath.trim()) return;
     closeScanRef.current?.();
@@ -100751,9 +100806,9 @@ function Panel3(props) {
   };
   const handleOpen = startIncrementalScan;
   const handleRefresh = startIncrementalScan;
-  (0, import_react167.useEffect)(() => () => closeScanRef.current?.(), []);
+  (0, import_react168.useEffect)(() => () => closeScanRef.current?.(), []);
   const vaspTasks = tasks.filter((t) => t.is_vasp_task !== false);
-  const stats = (0, import_react167.useMemo)(() => ({
+  const stats = (0, import_react168.useMemo)(() => ({
     total: vaspTasks.length,
     NO_OUTPUT_EVIDENCE: vaspTasks.filter((t) => taskStatusCode(t) === "NO_OUTPUT_EVIDENCE").length,
     TASK_COMPLETED: vaspTasks.filter((t) => taskStatusCode(t) === "TASK_COMPLETED").length,
@@ -100768,7 +100823,7 @@ function Panel3(props) {
   const inferredInputProfile = selectedTask ? inputFeatureProfile(selectedTask) : "basic-inputs";
   const activeInputProfile = selectedInputTarget?.profileId ?? inferredInputProfile;
   const inputProfileIsAutomatic = !selectedInputTarget;
-  (0, import_react167.useEffect)(() => {
+  (0, import_react168.useEffect)(() => {
     setCheckingInput(false);
     setInputCheckError("");
   }, [selectedTask?.id]);
@@ -100816,8 +100871,8 @@ function Panel3(props) {
     setInputTargetRevision((revision) => revision + 1);
     void runInputCheck(profileId);
   };
-  const lastVersionRef = (0, import_react167.useRef)(null);
-  (0, import_react167.useEffect)(() => {
+  const lastVersionRef = (0, import_react168.useRef)(null);
+  (0, import_react168.useEffect)(() => {
     if (!projectId || !projectPath.trim()) return;
     let cancelled = false;
     const tick = async () => {
@@ -100846,7 +100901,7 @@ function Panel3(props) {
       window.clearInterval(timer);
     };
   }, [projectId, projectPath]);
-  (0, import_react167.useEffect)(() => {
+  (0, import_react168.useEffect)(() => {
     if (selectedTask && !selectedIsVaspTask && viewTab === "chart") {
       panelStore.setViewTab("structure");
     }
@@ -100880,7 +100935,7 @@ function Panel3(props) {
       children: selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FileList_default, { taskId: selectedTask.id, rootPath: projectPath, relPath: selectedTask.rel_path }) : null
     }
   ];
-  const handleAiAction = (0, import_react167.useCallback)((task, instruction) => {
+  const handleAiAction = (0, import_react168.useCallback)((task, instruction) => {
     const draft = `${buildTaskContext(task, projectPath)}
 
 [\u534F\u4F5C\u8BF7\u6C42]
@@ -101308,12 +101363,14 @@ function compactInputCheckLabel(code) {
   if (code === "PASS") return "\u901A\u8FC7";
   if (code === "WARN") return "\u6CE8\u610F";
   if (code === "FAIL") return "\u672A\u901A\u8FC7";
+  if (code === "STALE") return "\u5DF2\u8FC7\u671F";
   return "\u672A\u68C0\u67E5";
 }
 function inputTagColor(code) {
   if (code === "PASS") return "green";
   if (code === "WARN") return "gold";
   if (code === "FAIL") return "red";
+  if (code === "STALE") return "orange";
   return "default";
 }
 function TaskStatusEvidence({ task }) {
@@ -101558,7 +101615,7 @@ function mountPanelLayout(opts) {
 }
 
 // src/client/tool-rows.tsx
-var import_react168 = require("react");
+var import_react169 = require("react");
 init_api();
 var import_jsx_runtime6 = require("react/jsx-runtime");
 var titles = {
@@ -101566,6 +101623,7 @@ var titles = {
   vasp_inspect_task: "\u67E5\u770B\u8BA1\u7B97\u72B6\u6001",
   vasp_inspect_tasks: "\u67E5\u770B\u8BA1\u7B97\u72B6\u6001",
   vasp_convergence: "\u67E5\u770B\u6536\u655B\u66F2\u7EBF",
+  vasp_collect_results: "\u67E5\u770B\u8BA1\u7B97\u6570\u636E",
   vasp_structure_scene: "\u67E5\u770B\u539F\u5B50\u7ED3\u6784",
   vasp_discover_inputs: "\u5BFB\u627E\u6784\u5EFA\u6750\u6599",
   vasp_check_inputs: "\u6821\u9A8C VASP \u8F93\u5165"
@@ -101600,8 +101658,8 @@ async function openTask(rootPath, relPath, tab) {
   panelStore.setOpen(true);
 }
 function IssueRows({ rows, rootPath, tab = "status", revealPath }) {
-  const listRef = (0, import_react168.useRef)(null);
-  (0, import_react168.useEffect)(() => {
+  const listRef = (0, import_react169.useRef)(null);
+  (0, import_react169.useEffect)(() => {
     if (!revealPath) return;
     const frame = requestAnimationFrame(() => scrollExpandedTreeRow(listRef.current?.querySelector(".vfp-result-row") ?? null));
     return () => cancelAnimationFrame(frame);
@@ -101675,9 +101733,11 @@ function relativePath(rootPath, filePath) {
   return filePath.slice(0, root.length).toLowerCase() === root.toLowerCase() && (tail === "" || /^[\\/]/.test(tail)) ? tail.replace(/^[\\/]/, "") || "." : filePath;
 }
 function PathTree({ items, pathOf, renderLeaf, revealPath }) {
-  const [openPath, setOpenPath] = (0, import_react168.useState)([]);
-  const [rootOpen, setRootOpen] = (0, import_react168.useState)(true);
-  (0, import_react168.useEffect)(() => {
+  const [openPath, setOpenPath] = (0, import_react169.useState)([]);
+  const [rootOpen, setRootOpen] = (0, import_react169.useState)(true);
+  const treeRef = (0, import_react169.useRef)(null);
+  const scrollPath = useTreeScrollPath(treeRef, `${rootOpen}:${openPath.join("/")}:${items.length}`);
+  (0, import_react169.useEffect)(() => {
     if (!revealPath) return;
     setOpenPath(revealPath.split(/[\\/]+/).filter(Boolean).slice(0, -1));
     setRootOpen(true);
@@ -101697,45 +101757,70 @@ function PathTree({ items, pathOf, renderLeaf, revealPath }) {
   const renderNode = (node2, parentPath = []) => {
     const path3 = [...parentPath, node2.name];
     const children = [...node2.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true }));
-    if (!children.length) return node2.item && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-path-leaf", children: renderLeaf(node2.item, node2.name) }, node2.name);
+    if (!children.length) return node2.item && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": parentPath.join("/"), children: renderLeaf(node2.item, node2.name) }, node2.name);
     const isOpen = path3.every((part, index2) => openPath[index2] === part);
     return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("details", { className: "vfp-path-folder", open: isOpen, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { title: node2.name, onClick: (event) => {
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { title: node2.name, "data-vfp-tree-path": path3.join("/"), onClick: (event) => {
         event.preventDefault();
-        setOpenPath(isOpen ? parentPath : path3);
-        if (!isOpen) scrollExpandedTreeRow(event.currentTarget);
+        if (isOpen) setOpenPath(parentPath);
+        else {
+          const next2 = [...path3];
+          let current = node2;
+          while (!current.item && current.children.size === 1) {
+            const child = [...current.children.values()][0];
+            if (!child.children.size) break;
+            next2.push(child.name);
+            current = child;
+          }
+          setOpenPath(next2);
+          scrollExpandedTreeRow(event.currentTarget);
+        }
       }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: node2.name }),
         /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("small", { children: node2.count })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-path-children", children: [
-        node2.item && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-path-leaf", children: renderLeaf(node2.item, "\u672C\u76EE\u5F55") }),
+        node2.item && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": path3.join("/"), children: renderLeaf(node2.item, "\u672C\u76EE\u5F55") }),
         children.map((child) => renderNode(child, path3))
       ] })
     ] }, node2.name);
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-path-tree", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("details", { className: "vfp-path-root vfp-path-folder", open: rootOpen, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { onClick: (event) => {
-      event.preventDefault();
-      if (rootOpen) setOpenPath([]);
-      else scrollExpandedTreeRow(event.currentTarget);
-      setRootOpen(!rootOpen);
-    }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u6839\u76EE\u5F55" }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("small", { children: items.length })
-    ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-path-children", children: [...root.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true })).map((node2) => renderNode(node2)) })
-  ] }) });
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-tree-shell", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-tree-breadcrumb", "aria-live": "off", hidden: !scrollPath, title: scrollPath, children: scrollPath }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { ref: treeRef, className: "vfp-path-tree", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("details", { className: "vfp-path-root vfp-path-folder", open: rootOpen, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { onClick: (event) => {
+        event.preventDefault();
+        if (rootOpen) setOpenPath([]);
+        else {
+          const next2 = [];
+          let current = root;
+          while (!current.item && current.children.size === 1) {
+            const child = [...current.children.values()][0];
+            if (!child.children.size) break;
+            next2.push(child.name);
+            current = child;
+          }
+          setOpenPath(next2);
+          scrollExpandedTreeRow(event.currentTarget);
+        }
+        setRootOpen(!rootOpen);
+      }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u6839\u76EE\u5F55" }),
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("small", { children: items.length })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-path-children", children: [...root.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true })).map((node2) => renderNode(node2)) })
+    ] }) })
+  ] });
 }
 function SourcePreview({ rootPath, filePath, onClose }) {
-  const [taskId, setTaskId] = (0, import_react168.useState)();
-  const [data, setData] = (0, import_react168.useState)();
-  const [loading, setLoading] = (0, import_react168.useState)(true);
-  const [error, setError] = (0, import_react168.useState)("");
+  const [taskId, setTaskId] = (0, import_react169.useState)();
+  const [data, setData] = (0, import_react169.useState)();
+  const [loading, setLoading] = (0, import_react169.useState)(true);
+  const [error, setError] = (0, import_react169.useState)("");
   const rel = relativePath(rootPath, filePath);
   const parts = rel.split(/[\\/]+/).filter(Boolean);
   const name = parts.at(-1) ?? "";
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     let cancelled = false;
     if (!rootPath || rel === filePath || !name) {
       setError("\u7ED3\u6784\u6587\u4EF6\u4E0D\u5728\u672C\u6B21\u641C\u7D22\u76EE\u5F55\u5185");
@@ -101786,7 +101871,7 @@ function SourcePreview({ rootPath, filePath, onClose }) {
   ] });
 }
 function ScanOverview({ value, rootPath }) {
-  const [filter2, setFilter] = (0, import_react168.useState)(null);
+  const [filter2, setFilter] = (0, import_react169.useState)(null);
   const tasks = Array.isArray(value.tasks) ? value.tasks : [];
   const directories = Array.isArray(value.directories) ? value.directories : [];
   const total = tasks.length;
@@ -101832,14 +101917,14 @@ function droppedStorageKey(block, kind = "structure") {
 }
 function useToolCardCollapse(block, kind) {
   const key = droppedStorageKey(block, `${kind}-collapsed`);
-  const [collapsed, setCollapsed] = (0, import_react168.useState)(() => {
+  const [collapsed, setCollapsed] = (0, import_react169.useState)(() => {
     try {
       return !!key && sessionStorage.getItem(key) === "1";
     } catch {
       return false;
     }
   });
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     try {
       setCollapsed(!!key && sessionStorage.getItem(key) === "1");
     } catch {
@@ -101875,9 +101960,9 @@ function readDroppedStructures(key) {
 }
 function DroppedStructurePane({ row, active }) {
   const key = structureKey(row);
-  const [scene, setScene] = (0, import_react168.useState)(() => droppedSceneCache.get(key));
-  const [error, setError] = (0, import_react168.useState)("");
-  (0, import_react168.useEffect)(() => {
+  const [scene, setScene] = (0, import_react169.useState)(() => droppedSceneCache.get(key));
+  const [error, setError] = (0, import_react169.useState)("");
+  (0, import_react169.useEffect)(() => {
     const cached2 = droppedSceneCache.get(key);
     if (cached2) {
       setScene(cached2);
@@ -101899,9 +101984,9 @@ function DroppedStructurePane({ row, active }) {
   return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(StructureViewer_default, { inlineScene: scene, inlineLabel: `${row.rel_path}/${row.file}`, sourcePath: `${row.rootPath}/${row.rel_path}/${row.file}`, active });
 }
 function ResultTabs({ rows, kind, rootPath, focus, orderStorageKey }) {
-  const [active, setActive] = (0, import_react168.useState)(0);
-  const [visited, setVisited] = (0, import_react168.useState)([0]);
-  const [savedOrder, setSavedOrder] = (0, import_react168.useState)(() => {
+  const [active, setActive] = (0, import_react169.useState)(0);
+  const [visited, setVisited] = (0, import_react169.useState)([0]);
+  const [savedOrder, setSavedOrder] = (0, import_react169.useState)(() => {
     if (!orderStorageKey) return [];
     try {
       const saved = JSON.parse(sessionStorage.getItem(orderStorageKey) || "[]");
@@ -101910,15 +101995,15 @@ function ResultTabs({ rows, kind, rootPath, focus, orderStorageKey }) {
       return [];
     }
   });
-  const dragging = (0, import_react168.useRef)(null);
-  const [dragOver, setDragOver] = (0, import_react168.useState)(null);
+  const dragging = (0, import_react169.useRef)(null);
+  const [dragOver, setDragOver] = (0, import_react169.useState)(null);
   const current = rows[active];
   const select = (index2) => {
     if (index2 === active) return;
     setActive(index2);
     setVisited((old) => [...old.filter((item) => item !== index2), index2].slice(-6));
   };
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     if (!focus?.key) return;
     const index2 = rows.findIndex((row) => kind === "structure" ? structureKey({ rootPath: row.rootPath ?? rootPath, rel_path: row.rel_path, file: row.file }) === focus.key : `${row.rootPath ?? rootPath}/${row.rel_path}`.replace(/\\/g, "/").toLowerCase() === focus.key);
     if (index2 >= 0) {
@@ -102003,7 +102088,7 @@ function ResultTabs({ rows, kind, rootPath, focus, orderStorageKey }) {
   ] });
 }
 function InputDiscovery({ value, rootPath, args }) {
-  const [previewPath, setPreviewPath] = (0, import_react168.useState)("");
+  const [previewPath, setPreviewPath] = (0, import_react169.useState)("");
   const sources = value.sources?.files ?? [];
   const templates = value.templates ?? [];
   const sourceGroups = /* @__PURE__ */ new Map();
@@ -102201,11 +102286,12 @@ function InputChecks({ value, args, rootPath }) {
   const results = Array.isArray(value.results) ? value.results : [];
   const profileId = value.profileId || args.profileId || "";
   const basicFailure = (row) => row.poscarPotcar !== "OK" && !(profileId === "neb" && row.poscarPotcar === "POSCAR_MISSING") || typeof row.incar !== "object" || !row.incar || /MISSING|UNREADABLE/.test(String(row.kpoints)) || /PARSE_ERROR|COUNT_MISMATCH|FLAG_MISSING/.test(String(row.sd));
-  const statusOf = (row) => row.error || row.input_check?.code === "FAIL" || basicFailure(row) ? "FAIL" : row.input_check?.code === "WARN" || row.warnings?.length ? "WARN" : row.input_check?.code === "PASS" ? "PASS" : "NOT_REQUESTED";
+  const statusOf = (row) => row.error || basicFailure(row) ? "FILE_FAIL" : row.input_check?.code === "FAIL" ? "RULE_FAIL" : row.input_check?.code === "WARN" || row.warnings?.length ? "WARN" : row.input_check?.code === "PASS" ? "PASS" : "NOT_REQUESTED";
   const categories = [
-    ["PASS", "\u901A\u8FC7", "#279d69"],
+    ["PASS", "\u89C4\u5219\u901A\u8FC7", "#279d69"],
     ["WARN", "\u6CE8\u610F", "#d9aa52"],
-    ["FAIL", "\u5931\u8D25", "#d55750"],
+    ["RULE_FAIL", "\u89C4\u5219\u672A\u8FC7", "#d55750"],
+    ["FILE_FAIL", "\u6587\u4EF6\u5F02\u5E38", "#a8414a"],
     ["NOT_REQUESTED", "\u672A\u5957\u89C4\u5219", "#9a91a8"]
   ];
   const counts = categories.map(([code, label, color2]) => ({ code, label, color: color2, count: results.filter((row) => statusOf(row) === code).length }));
@@ -102246,7 +102332,7 @@ function InputChecks({ value, args, rootPath }) {
       return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("details", { className: "vfp-inspection-item", children: [
         /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { title: `${row.resolved} \xB7 \u53EF\u62D6\u5230\u5176\u4ED6\u5DE5\u5177\u5361\u7247`, draggable: !!row.resolved && relativePath(rootPath, row.resolved) !== row.resolved, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "task", rootPath, relPath: checkedRows[index2].path }), children: [
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: name }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-state-chip", "data-status": state, children: state === "PASS" ? "\u901A\u8FC7" : state === "WARN" ? "\u6CE8\u610F" : state === "FAIL" ? "\u5931\u8D25" : "\u5DF2\u89E3\u6790" }),
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-state-chip", "data-status": state === "FILE_FAIL" || state === "RULE_FAIL" ? "FAIL" : state, children: state === "PASS" ? "\u89C4\u5219\u901A\u8FC7" : state === "WARN" ? "\u6CE8\u610F" : state === "RULE_FAIL" ? "\u89C4\u5219\u672A\u8FC7" : state === "FILE_FAIL" ? "\u6587\u4EF6\u5F02\u5E38" : "\u5DF2\u89E3\u6790" }),
           state !== "PASS" && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("small", { children: row.error || row.input_check?.evidence?.[0]?.message || row.warnings?.[0] || "" }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-check-matrix", children: checks.map(([label, code]) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { "data-check": code, children: [
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("i", {}),
@@ -102280,6 +102366,105 @@ function InputChecks({ value, args, rootPath }) {
     ] })
   ] });
 }
+function CollectedResults({ value, rootPath }) {
+  const rows = Array.isArray(value.rows) ? value.rows : [];
+  const excluded = Array.isArray(value.excluded) ? value.excluded : [];
+  const frequency = value.query?.calculationType === "FREQUENCY_ZPE";
+  const metrics = value.query?.metrics ?? [];
+  const parentOf = (row) => row.relPath.split(/[\\/]+/).slice(0, -1).join("/").toLowerCase();
+  const parents = [...new Set(rows.map(parentOf))];
+  const energyScales = new Map(parents.map((parent) => {
+    const members = rows.filter((row) => parentOf(row) === parent);
+    const energies = members.map((row) => row.values?.last_ionic_free_energy?.value).filter((energy) => typeof energy === "number" && Number.isFinite(energy));
+    const low = energies.length ? Math.min(...energies) : 0;
+    const high = energies.length ? Math.max(...energies) : 0;
+    const padding = high > low ? (high - low) * 0.04 : 2e-3;
+    return [parent, { hasEnergy: energies.length > 0, axisMin: low - padding, axisMax: high + padding }];
+  }));
+  const compositions = [...new Set(rows.map((row) => row.composition || "\u7EC4\u6210\u672A\u77E5"))];
+  const frequencyScales = new Map(compositions.map((composition) => {
+    const members = rows.filter((row) => (row.composition || "\u7EC4\u6210\u672A\u77E5") === composition);
+    const modes = members.flatMap((row) => Array.isArray(row.values?.frequencies?.value) ? row.values.frequencies.value : []);
+    return [composition, { frequencyMin: Math.min(-100, ...modes.map((mode) => mode.frequencyCm1)), frequencyMax: Math.max(1e3, ...modes.map((mode) => mode.frequencyCm1)) }];
+  }));
+  const number7 = (item, digits) => item?.status === "ok" && typeof item.value === "number" ? item.value.toFixed(digits) : "\u2014";
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-collect", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-scan-path", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("code", { children: rootPath }),
+      " \xB7 ",
+      frequency ? "\u9891\u7387\u4E0E ZPE" : "\u5F1B\u8C6B",
+      " \xB7 ",
+      rows.length,
+      " \u4E2A\u4EFB\u52A1",
+      excluded.length ? ` \xB7 ${excluded.length} \u4E2A\u6392\u9664` : ""
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-collect-scope", children: [
+      (value.query?.scope?.subtrees ?? []).map((item) => `${item.relPath} \u2193${item.maxDepth} \u5C42`).concat((value.query?.scope?.taskPaths ?? []).map((item) => `\u7CBE\u786E ${item}`)).join(" \xB7 "),
+      frequency && value.query?.conditions?.temperatureK ? ` \xB7 ${value.query.conditions.temperatureK} K` : !frequency && metrics.includes("last_ionic_free_energy") ? " \xB7 \u672B\u6B65 F / eV\uFF08\u540C\u4E00\u7236\u76EE\u5F55\u5171\u7528\u80FD\u91CF\u8F74\uFF09" : ""
+    ] }),
+    rows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(PathTree, { items: rows, pathOf: (row) => row.relPath, renderLeaf: (row, name) => {
+      const composition = row.composition || "\u7EC4\u6210\u672A\u77E5";
+      const { hasEnergy, axisMin, axisMax } = energyScales.get(parentOf(row));
+      const { frequencyMin, frequencyMax } = frequencyScales.get(composition);
+      const vals = row.values ?? {};
+      const energy = vals.last_ionic_free_energy;
+      const pos = energy?.status === "ok" ? (energy.value - axisMin) / (axisMax - axisMin) * 100 : 50;
+      const modes = vals.frequencies?.value;
+      return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "vfp-collect-item", title: `${row.relPath} \xB7 \u5728\u53F3\u4FA7\u67E5\u770B\u4EFB\u52A1\u8BE6\u60C5`, onClick: () => {
+        void openTask(rootPath, row.relPath, "status");
+      }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-collect-name", title: row.relPath, children: name }),
+        frequency ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-collect-track", "aria-label": `\u9891\u7387\u5206\u5E03 ${frequencyMin.toFixed(0)} \u81F3 ${frequencyMax.toFixed(0)} cm\u207B\xB9`, children: Array.isArray(modes) && modes.slice(0, 120).map((mode, index2) => /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("i", { "data-imaginary": mode.kind === "imaginary" ? "" : void 0, style: { left: `${Math.max(3, Math.min(97, (mode.frequencyCm1 - frequencyMin) / (frequencyMax - frequencyMin) * 100))}%` }, title: `${mode.frequencyCm1.toFixed(1)} cm\u207B\xB9` }, index2)) }),
+          metrics.includes("frequencies") && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("b", { children: Array.isArray(modes) ? `${modes.length} \u6A21\u5F0F` : "\u2014" }),
+          metrics.includes("zpe") && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("b", { children: [
+            "ZPE ",
+            number7(vals.zpe, 4),
+            " eV"
+          ] }),
+          metrics.includes("vibrational_entropy") && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("b", { children: [
+            "S\u1D65\u1D62\u1D66 ",
+            number7(vals.vibrational_entropy, 6),
+            " eV/K"
+          ] }),
+          metrics.includes("vibrational_free_energy") && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("b", { children: [
+            "F\u1D65\u1D62\u1D66 ",
+            number7(vals.vibrational_free_energy, 4),
+            " eV"
+          ] })
+        ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+          metrics.includes("last_ionic_free_energy") && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-collect-track", "data-range": hasEnergy ? "" : void 0, "data-min": axisMin.toFixed(3), "data-max": axisMax.toFixed(3), "aria-label": hasEnergy ? `\u672B\u6B65\u81EA\u7531\u80FD\u8F74\uFF1A${axisMin.toFixed(3)} \u81F3 ${axisMax.toFixed(3)} eV` : "\u6682\u65E0\u80FD\u91CF\u6570\u636E", children: energy?.status === "ok" && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("i", { style: { left: `${pos}%` } }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("b", { className: "vfp-collect-energy", children: [
+              number7(energy, 6),
+              " eV"
+            ] })
+          ] }),
+          metrics.includes("last_max_force") && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "vfp-collect-force", children: [
+            "\u529B ",
+            number7(vals.last_max_force, 3)
+          ] }),
+          metrics.includes("ionic_steps") && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "vfp-collect-steps", children: [
+            number7(vals.ionic_steps, 0),
+            " \u6B65"
+          ] })
+        ] })
+      ] });
+    } }),
+    !rows.length && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", children: "\u8303\u56F4\u5185\u6CA1\u6709\u8BE5\u7C7B\u522B\u4EFB\u52A1" }),
+    excluded.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("details", { className: "vfp-collect-excluded", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("summary", { children: [
+        "\u672A\u7EB3\u5165 ",
+        excluded.length
+      ] }),
+      excluded.map((item, index2) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { children: [
+        item.relPath,
+        " \xB7 ",
+        item.reason
+      ] }, index2))
+    ] })
+  ] });
+}
 function VaspToolRow({ block, toolName }) {
   const { collapsed, setCardCollapsed } = useToolCardCollapse(block, toolName);
   const args = argsOf(block);
@@ -102288,17 +102473,17 @@ function VaspToolRow({ block, toolName }) {
   const toolError = block?.result?.isError ? block.result.content?.find((item) => item.type === "text")?.text ?? "\u5DE5\u5177\u6267\u884C\u5931\u8D25" : "";
   const storageKey = toolName === "vasp_structure_scene" ? droppedStorageKey(block) : "";
   const otherStorageKey = ["vasp_convergence", "vasp_inspect_tasks", "vasp_inspect_task"].includes(toolName) ? droppedStorageKey(block, toolName) : "";
-  const [dropped, setDropped] = (0, import_react168.useState)(() => readDroppedStructures(storageKey));
-  const [otherDropped, setOtherDropped] = (0, import_react168.useState)(() => readDroppedRows(otherStorageKey));
-  const [dropFocus, setDropFocus] = (0, import_react168.useState)({ key: "", nonce: 0 });
-  const [dropActive, setDropActive] = (0, import_react168.useState)(false);
-  const [dropRejected, setDropRejected] = (0, import_react168.useState)(false);
-  const [dropBusy, setDropBusy] = (0, import_react168.useState)(false);
-  const [dropError, setDropError] = (0, import_react168.useState)("");
-  (0, import_react168.useEffect)(() => {
+  const [dropped, setDropped] = (0, import_react169.useState)(() => readDroppedStructures(storageKey));
+  const [otherDropped, setOtherDropped] = (0, import_react169.useState)(() => readDroppedRows(otherStorageKey));
+  const [dropFocus, setDropFocus] = (0, import_react169.useState)({ key: "", nonce: 0 });
+  const [dropActive, setDropActive] = (0, import_react169.useState)(false);
+  const [dropRejected, setDropRejected] = (0, import_react169.useState)(false);
+  const [dropBusy, setDropBusy] = (0, import_react169.useState)(false);
+  const [dropError, setDropError] = (0, import_react169.useState)("");
+  (0, import_react169.useEffect)(() => {
     if (storageKey) setDropped(readDroppedStructures(storageKey));
   }, [storageKey]);
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     if (otherStorageKey) setOtherDropped(readDroppedRows(otherStorageKey));
   }, [otherStorageKey]);
   if (toolName === "vasp_say") {
@@ -102396,7 +102581,7 @@ function VaspToolRow({ block, toolName }) {
   };
   const exceptionalCount = toolName === "vasp_inspect_task" ? Number(value.status?.code === "ERROR_DETECTED" || value.inputCheck?.code === "FAIL") : (toolName === "vasp_scan" ? value.tasks : value.results)?.filter((row) => row.error || row.status_record?.code === "ERROR_DETECTED" || row.status?.code === "ERROR_DETECTED" || row.input_check?.code === "FAIL")?.length ?? 0;
   const withExceptions = (label) => `${label}${exceptionalCount ? ` \xB7 ${exceptionalCount} \u5F02\u5E38` : ""}`;
-  const compactSummary = toolName === "vasp_scan" ? withExceptions(`${value.tasks?.length ?? 0} \u4E2A\u4EFB\u52A1`) : toolName === "vasp_discover_inputs" ? `${value.sources?.files?.length ?? 0} \u4E2A\u7ED3\u6784\u6E90 \xB7 ${value.templates?.length ?? 0} \u4E2A\u6A21\u677F` : toolName === "vasp_inspect_task" ? withExceptions("1 \u4E2A\u4EFB\u52A1") : toolName === "vasp_inspect_tasks" || toolName === "vasp_check_inputs" ? withExceptions(`${visualRows.length || value.results?.length || 0} \u4E2A\u4EFB\u52A1`) : toolName === "vasp_convergence" ? withExceptions(`${visualRows.length + otherDropped.length} \u6761\u66F2\u7EBF`) : toolName === "vasp_structure_scene" ? withExceptions(`${visualRows.length + dropped.length} \u4E2A\u7ED3\u6784`) : "";
+  const compactSummary = toolName === "vasp_collect_results" ? `${value.summary?.included ?? 0} \u4E2A\u4EFB\u52A1` : toolName === "vasp_scan" ? withExceptions(`${value.tasks?.length ?? 0} \u4E2A\u4EFB\u52A1`) : toolName === "vasp_discover_inputs" ? `${value.sources?.files?.length ?? 0} \u4E2A\u7ED3\u6784\u6E90 \xB7 ${value.templates?.length ?? 0} \u4E2A\u6A21\u677F` : toolName === "vasp_inspect_task" ? withExceptions("1 \u4E2A\u4EFB\u52A1") : toolName === "vasp_inspect_tasks" || toolName === "vasp_check_inputs" ? withExceptions(`${visualRows.length || value.results?.length || 0} \u4E2A\u4EFB\u52A1`) : toolName === "vasp_convergence" ? withExceptions(`${visualRows.length + otherDropped.length} \u6761\u66F2\u7EBF`) : toolName === "vasp_structure_scene" ? withExceptions(`${visualRows.length + dropped.length} \u4E2A\u7ED3\u6784`) : "";
   return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
     "div",
     {
@@ -102430,7 +102615,7 @@ function VaspToolRow({ block, toolName }) {
         /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-tree-head", children: [
           /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("button", { type: "button", className: "vfp-card-toggle", "aria-expanded": !collapsed, onClick: () => setCardCollapsed(!collapsed), children: [
             /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { "aria-hidden": "true", children: collapsed ? "\u25B8" : "\u25BE" }),
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: titles[toolName] })
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: toolName === "vasp_collect_results" ? (value.query?.calculationType ?? args.calculationType) === "FREQUENCY_ZPE" ? "\u67E5\u770B\u9891\u7387\u4E0E ZPE" : "\u67E5\u770B\u5F1B\u8C6B\u6570\u636E" : titles[toolName] })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-tree-muted", children: settled ? error ? "\u5931\u8D25" : collapsed && compactSummary ? `\u5B8C\u6210 \xB7 ${compactSummary}` : "\u5B8C\u6210" : "\u5904\u7406\u4E2D" })
         ] }),
@@ -102446,7 +102631,7 @@ function VaspToolRow({ block, toolName }) {
           dropBusy && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-tree-muted", children: "\u6B63\u5728\u8BFB\u53D6\u4EFB\u52A1\u2026" }),
           dropError && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: dropError }),
           settled && (error ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: error }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
-            toolName === "vasp_scan" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(ScanOverview, { value, rootPath }) : toolName === "vasp_discover_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(InputDiscovery, { value, rootPath, args }) : toolName === "vasp_inspect_tasks" || toolName === "vasp_inspect_task" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(StatusInspection, { value: { ...value, results: [...toolName === "vasp_inspect_task" ? [{ relPath, status: value.status, inputCheck: value.inputCheck, outputFiles: value.outputFiles }] : visualRows, ...otherDropped] }, rootPath }) : toolName === "vasp_check_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(InputChecks, { value, rootPath, args }) : toolName === "vasp_convergence" || toolName === "vasp_structure_scene" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+            toolName === "vasp_collect_results" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(CollectedResults, { value, rootPath }) : toolName === "vasp_scan" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(ScanOverview, { value, rootPath }) : toolName === "vasp_discover_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(InputDiscovery, { value, rootPath, args }) : toolName === "vasp_inspect_tasks" || toolName === "vasp_inspect_task" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(StatusInspection, { value: { ...value, results: [...toolName === "vasp_inspect_task" ? [{ relPath, status: value.status, inputCheck: value.inputCheck, outputFiles: value.outputFiles }] : visualRows, ...otherDropped] }, rootPath }) : toolName === "vasp_check_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(InputChecks, { value, rootPath, args }) : toolName === "vasp_convergence" || toolName === "vasp_structure_scene" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
               /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", children: toolName === "vasp_convergence" && otherDropped.length ? `${visualRows.length} \u4E2A\u539F\u59CB\u4EFB\u52A1 \xB7 ${otherDropped.length} \u4E2A\u62D6\u5165\u4EFB\u52A1` : summary }),
               (visualRows.length > 0 || dropped.length > 0 || otherDropped.length > 0) && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(ResultTabs, { rows: toolName === "vasp_structure_scene" ? [...visualRows, ...dropped] : [...visualRows, ...otherDropped], kind: toolName === "vasp_convergence" ? "convergence" : "structure", rootPath, focus: dropFocus, orderStorageKey: droppedStorageKey(block, `${toolName}-tab-order`) })
             ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-result-summary", children: summary || "\u65E0\u7ED3\u679C" }),
@@ -102603,7 +102788,7 @@ var CSS = [
   `[${PANEL_ATTR}] .ant-btn,[${PANEL_ATTR}] .ant-input,[${PANEL_ATTR}] .ant-input-affix-wrapper input,[${PANEL_ATTR}] .ant-select-selection-item,[${PANEL_ATTR}] .ant-select-selection-placeholder,[${PANEL_ATTR}] .ant-tabs-tab,[${PANEL_ATTR}] .ant-tag{font-size:15px!important}`,
   `[${PANEL_ATTR}] .ant-btn-sm{min-height:28px}`,
   // Build tasks sit directly in the conversation. Details live in the dock.
-  "[data-dsh-vaspflow-tool]{margin:12px 0;color:var(--dsw-alias-label-primary,#1f2329);font-size:13px;--vfp-tree-folder-bg:rgba(79,143,210,.08);--vfp-tree-leaf-bg:rgba(38,151,102,.09)}",
+  "[data-dsh-vaspflow-tool]{container-type:inline-size;margin:12px 0;color:var(--dsw-alias-label-primary,#1f2329);font-size:13px;--vfp-tree-folder-bg:rgba(79,143,210,.08);--vfp-tree-leaf-bg:rgba(38,151,102,.09)}",
   "body[data-ds-dark-theme] [data-dsh-vaspflow-tool]{--vfp-tree-folder-bg:rgba(120,185,241,.09);--vfp-tree-leaf-bg:rgba(94,204,155,.11)}",
   '[data-dsh-vaspflow-tool]:not([data-dsh-vaspflow-tool="vasp_say"]):not([data-dsh-vaspflow-tool="vasp_done"]){border-left:3px solid #4f8fd2;padding:12px 14px 14px;background:rgba(79,143,210,.035)}',
   "[data-dsh-vaspflow-tool] .vfp-tree-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 0 4px;margin-bottom:4px}",
@@ -102614,6 +102799,28 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-card-toggle:focus-visible{outline:2px solid #4f8fd2;outline-offset:3px}",
   "[data-dsh-vaspflow-tool] [hidden]{display:none!important}",
   "[data-dsh-vaspflow-tool] .vfp-tree-muted{color:var(--dsw-alias-label-secondary,#65746b)}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-scope{color:var(--dsw-alias-label-secondary,#65746b);font-size:12px;overflow-wrap:anywhere;padding:2px 0 8px}",
+  "[data-dsh-vaspflow-tool] .vfp-collect .vfp-path-tree{max-height:420px}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-item{display:flex;align-items:center;gap:8px;box-sizing:border-box;width:100%;min-width:0;min-height:34px;margin:3px 0;padding:4px 8px;border:0;border-radius:4px;background:var(--vfp-tree-leaf-bg);color:inherit;text-align:left;font:inherit;font-variant-numeric:tabular-nums;cursor:pointer}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-item:hover{background:rgba(38,151,102,.17)}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-item:focus-visible{outline:2px solid #4f8fd2;outline-offset:1px}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-name{min-width:65px;max-width:28%;flex:1 1 100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-item b,[data-dsh-vaspflow-tool] .vfp-collect-item>span:not(.vfp-collect-name):not(.vfp-collect-track){font-size:12px;white-space:nowrap}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-energy{flex:none;width:120px;text-align:right}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-force{flex:none;width:90px;text-align:right}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-steps{flex:none;width:48px;text-align:right}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-track{position:relative;min-width:28px;flex:2 1 100px;height:15px;background:linear-gradient(#58738c,#58738c) center/100% 1px no-repeat}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-track[data-range]::before,[data-dsh-vaspflow-tool] .vfp-collect-track[data-range]::after{position:absolute;z-index:3;top:-18px;padding:1px 3px;background:#e8f2fb;color:#4b6078;font-size:11px;white-space:nowrap;opacity:0;pointer-events:none}",
+  "body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-collect-track[data-range]::before,body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-collect-track[data-range]::after{background:#1b2a42;color:#bdd3ea}",
+  '[data-dsh-vaspflow-tool] .vfp-collect-track[data-range]::before{content:attr(data-min) " eV";left:0}',
+  '[data-dsh-vaspflow-tool] .vfp-collect-track[data-range]::after{content:attr(data-max) " eV";right:0}',
+  "[data-dsh-vaspflow-tool] .vfp-collect-item:hover .vfp-collect-track[data-range]::before,[data-dsh-vaspflow-tool] .vfp-collect-item:hover .vfp-collect-track[data-range]::after,[data-dsh-vaspflow-tool] .vfp-collect-item:focus-visible .vfp-collect-track[data-range]::before,[data-dsh-vaspflow-tool] .vfp-collect-item:focus-visible .vfp-collect-track[data-range]::after{opacity:1}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-track i{position:absolute;top:50%;width:9px;height:9px;transform:translate(-50%,-50%);border-radius:50%;background:#50bd91}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-track i[data-imaginary]{background:#ed8587}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-excluded{padding:5px 0;font-size:12px;color:var(--dsw-alias-label-secondary,#65746b)}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-excluded summary{cursor:pointer}",
+  "[data-dsh-vaspflow-tool] .vfp-collect-excluded>div{padding:3px 10px}",
+  "@container (max-width:520px){[data-dsh-vaspflow-tool] .vfp-collect-item{flex-wrap:wrap}[data-dsh-vaspflow-tool] .vfp-collect-name{flex-basis:100%}[data-dsh-vaspflow-tool] .vfp-collect-track{flex-basis:40%}}",
   "[data-dsh-vaspflow-tool] .vfp-tree-group{display:flex;align-items:center;gap:7px;padding:7px 0 3px;font-weight:600}",
   "[data-dsh-vaspflow-tool] .vfp-tree-toggle{border:0;background:none;color:inherit;cursor:pointer;font:inherit;padding:0 3px;width:18px}",
   "[data-dsh-vaspflow-tool] .vfp-tree-task{display:flex;align-items:center;gap:8px;min-height:30px;margin:3px 0;padding:2px 8px;border-radius:4px;background:var(--vfp-tree-leaf-bg)}",
@@ -102655,7 +102862,7 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-result-summary{padding:8px 0;line-height:1.5}",
   "[data-dsh-vaspflow-tool] .vfp-result-summary[data-error]{color:#c44136}",
   "[data-dsh-vaspflow-tool] .vfp-result-rows{display:grid;gap:3px}",
-  '[data-dsh-vaspflow-tool="vasp_inspect_tasks"] .vfp-result-rows{max-height:320px;overflow:auto}',
+  '[data-dsh-vaspflow-tool="vasp_inspect_tasks"] .vfp-result-rows{max-height:none;overflow:visible}',
   "[data-dsh-vaspflow-tool] .vfp-result-row{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;min-width:0;min-height:30px;padding:4px 8px;border:0;border-radius:4px;background:var(--vfp-tree-leaf-bg);color:inherit;text-align:left;font:inherit;cursor:pointer}",
   "[data-dsh-vaspflow-tool] .vfp-result-row:disabled{cursor:default}",
   '[data-dsh-vaspflow-tool] .vfp-result-row[draggable="true"], [data-dsh-vaspflow-tool] .vfp-inspection-item>summary[draggable="true"], [data-dsh-vaspflow-tool] .vfp-visual-tree-leaf[draggable="true"], [data-dsh-vaspflow-tool] .vfp-tree-task[draggable="true"]{cursor:grab}',
@@ -102684,6 +102891,10 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-pie-legend i{width:8px;height:8px;border-radius:1px}",
   "[data-dsh-vaspflow-tool] .vfp-pie-legend-row strong{text-align:right}",
   "[data-dsh-vaspflow-tool] .vfp-pie-legend-row small{text-align:right;color:var(--dsw-alias-label-secondary,#65746b)}",
+  "[data-dsh-vaspflow-tool] .vfp-tree-shell{position:relative}",
+  "[data-dsh-vaspflow-tool] .vfp-tree-breadcrumb{position:absolute;z-index:4;top:0;left:0;right:0;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 9px;border-left:2px solid #3279bf;background:#e8f2fb;color:#2367a7;font-size:12px;font-weight:600;pointer-events:none;box-shadow:0 1px 3px rgba(17,36,57,.12)}",
+  "body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-breadcrumb{border-left-color:#78b9f1;background:#1b2a42;color:#a9d6ff;box-shadow:0 1px 3px rgba(0,0,0,.3)}",
+  "[data-dsh-vaspflow-tool] .vfp-tree-breadcrumb[hidden]{display:none}",
   "[data-dsh-vaspflow-tool] .vfp-path-tree{padding:4px 0;max-height:320px;overflow-y:auto;overflow-x:hidden}",
   "[data-dsh-vaspflow-tool] .vfp-build-tree{max-height:420px}",
   "[data-dsh-vaspflow-tool] .vfp-tree-group>span:first-of-type{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
@@ -102769,7 +102980,7 @@ var CSS = [
   "[data-dsh-vaspflow-tool] .vfp-template-group>summary .vfp-tree-muted{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
   "[data-dsh-vaspflow-tool] .vfp-discovery-foot{font-size:11px;line-height:1.45;padding:10px 0}",
   "[data-dsh-vaspflow-tool] .vfp-inspection-list{max-height:420px;overflow-y:auto;overflow-x:hidden}",
-  "[data-dsh-vaspflow-tool] .vfp-inspection-list .vfp-path-tree{max-height:none;overflow:visible}",
+  "[data-dsh-vaspflow-tool] .vfp-inspection-list .vfp-path-tree{max-height:320px;overflow-y:auto}",
   "[data-dsh-vaspflow-tool] .vfp-inspection-list .vfp-path-folder{border:0}",
   "[data-dsh-vaspflow-tool] .vfp-inspection-list .vfp-inspection-item{border-top:0}",
   "[data-dsh-vaspflow-tool] .vfp-inspection-list .vfp-inspection-item>summary{display:flex;align-items:center;gap:9px;min-width:0;min-height:30px;margin:3px 0;padding:4px 8px;border-radius:4px;background:var(--vfp-tree-leaf-bg);cursor:pointer;list-style:none}",
@@ -102973,6 +103184,15 @@ function saveBuildOutcome(planId, outcome) {
   }
   buildOutcomeListeners.forEach((listener) => listener());
 }
+function clearBuildOutcome(planId) {
+  if (!planId) return;
+  buildOutcomes.delete(planId);
+  try {
+    sessionStorage.removeItem(`dsh-vaspflow:build-outcome:${planId}`);
+  } catch {
+  }
+  buildOutcomeListeners.forEach((listener) => listener());
+}
 function parseToolArgs(block) {
   const raw = block?.kind === "tool-result" ? block.call?.argsRaw : block?.argsRaw;
   if (typeof raw !== "string") return {};
@@ -103006,10 +103226,10 @@ function buildTaskTree(tasks) {
 function BuildInputsToolRow({ block }) {
   const { collapsed, setCardCollapsed } = useToolCardCollapse(block, "vasp_build_inputs");
   const { buildDryRun, buildModeError } = usePanelStore();
-  const args = import_react169.default.useMemo(() => parseToolArgs(block), [block]);
+  const args = import_react170.default.useMemo(() => parseToolArgs(block), [block]);
   const settled = block?.kind === "tool-result";
-  const originalPreview = import_react169.default.useMemo(() => parseBuildResult(block), [block]);
-  const [revision, setRevision] = import_react169.default.useState(() => {
+  const originalPreview = import_react170.default.useMemo(() => parseBuildResult(block), [block]);
+  const [revision, setRevision] = import_react170.default.useState(() => {
     if (!originalPreview.planId) return null;
     try {
       const saved2 = sessionStorage.getItem(`dsh-vaspflow:build-repreview:${originalPreview.planId}`);
@@ -103019,7 +103239,7 @@ function BuildInputsToolRow({ block }) {
     }
   });
   const historyKey = originalPreview.planId ? `dsh-vaspflow:build-history:${originalPreview.planId}` : "";
-  const [history, setHistory] = import_react169.default.useState(() => {
+  const [history, setHistory] = import_react170.default.useState(() => {
     try {
       const saved2 = JSON.parse(sessionStorage.getItem(historyKey) || "[]");
       return Array.isArray(saved2) ? saved2 : [];
@@ -103027,7 +103247,7 @@ function BuildInputsToolRow({ block }) {
       return [];
     }
   });
-  const historyRef = import_react169.default.useRef(history);
+  const historyRef = import_react170.default.useRef(history);
   const recordAction = (text) => {
     const next2 = [...historyRef.current, { at: Date.now(), text }].slice(-20);
     historyRef.current = next2;
@@ -103039,25 +103259,27 @@ function BuildInputsToolRow({ block }) {
   };
   const tasks = revision?.tasks ?? (Array.isArray(args.tasks) ? args.tasks : []);
   const preview = revision?.preview ?? originalPreview;
-  const [selectedState, setSelected] = import_react169.default.useState(() => new Set(tasks.map((_, index2) => index2)));
-  const [focused, setFocused] = import_react169.default.useState(null);
-  const [openDirectory, setOpenDirectory] = import_react169.default.useState("");
-  const [rootOpen, setRootOpen] = import_react169.default.useState(true);
-  const [phaseState, setPhase] = import_react169.default.useState("preview");
-  const [writeRowsState, setWriteRows] = import_react169.default.useState({});
-  const [messageState, setMessage] = import_react169.default.useState("");
-  const [requestErrorState, setRequestError] = import_react169.default.useState(false);
-  const [dropBusy, setDropBusy] = import_react169.default.useState(null);
-  const [dropActive, setDropActive] = import_react169.default.useState(null);
-  const [cancelBusy, setCancelBusy] = import_react169.default.useState(false);
-  const saved = import_react169.default.useSyncExternalStore(subscribeBuildOutcomes, () => readBuildOutcome(preview.planId), () => null);
+  const [selectedState, setSelected] = import_react170.default.useState(() => new Set(tasks.map((_, index2) => index2)));
+  const [focused, setFocused] = import_react170.default.useState(null);
+  const [openDirectory, setOpenDirectory] = import_react170.default.useState("");
+  const [rootOpen, setRootOpen] = import_react170.default.useState(true);
+  const buildTreeRef = import_react170.default.useRef(null);
+  const buildScrollPath = useTreeScrollPath(buildTreeRef, `${rootOpen}:${openDirectory}:${tasks.length}`);
+  const [phaseState, setPhase] = import_react170.default.useState("preview");
+  const [writeRowsState, setWriteRows] = import_react170.default.useState({});
+  const [messageState, setMessage] = import_react170.default.useState("");
+  const [requestErrorState, setRequestError] = import_react170.default.useState(false);
+  const [dropBusy, setDropBusy] = import_react170.default.useState(null);
+  const [dropActive, setDropActive] = import_react170.default.useState(null);
+  const [cancelBusy, setCancelBusy] = import_react170.default.useState(false);
+  const saved = import_react170.default.useSyncExternalStore(subscribeBuildOutcomes, () => readBuildOutcome(preview.planId), () => null);
   const selected = saved ? new Set(saved.selectedIndices) : selectedState;
   const phase = saved?.phase ?? phaseState;
   const writeRows = saved?.writeRows ?? writeRowsState;
   const message = messageState || saved?.message || "";
   const requestError = messageState ? requestErrorState : saved?.requestError ?? requestErrorState;
   const directMode = buildDryRun === false;
-  const submitLock = import_react169.default.useRef(false);
+  const submitLock = import_react170.default.useRef(false);
   const isPreview = preview.dryRun !== false;
   const taskTree = buildTaskTree(tasks);
   const canConfirm = settled && isPreview && !!preview.planId && !preview.error && !buildModeError && phase === "preview" && dropBusy === null && !cancelBusy;
@@ -103070,6 +103292,66 @@ function BuildInputsToolRow({ block }) {
     const after = preview.results?.[index2]?.sources ?? {};
     return [.../* @__PURE__ */ new Set([...Object.keys(before), ...Object.keys(after)])].filter((file) => before[file] !== after[file]).map((file) => ({ dir: task.dir, file, before: before[file], after: after[file] }));
   });
+  const fetchPlanStatus = async () => {
+    const response = await fetch(`/plugins/dsh-vaspflow/build-inputs/plan?planId=${encodeURIComponent(originalPreview.planId ?? "")}`, { cache: "no-store" });
+    const plan = await response.json();
+    if (!response.ok) throw new Error(plan.error || "\u65E0\u6CD5\u8BFB\u53D6\u6784\u5EFA\u8BA1\u5212\u72B6\u6001");
+    return plan;
+  };
+  const applyPlanStatus = (plan) => {
+    if (plan.state === "pending") {
+      const current = { tasks: plan.tasks, preview: { ...plan.preview, planId: plan.planId, revision: plan.revision, projectRoot: plan.projectRoot } };
+      setRevision((old) => (old?.preview.revision ?? originalPreview.revision ?? 0) > plan.revision ? old : current);
+      clearBuildOutcome(plan.planId);
+      setPhase("preview");
+      setMessage("");
+      setRequestError(false);
+    } else if (plan.state === "confirmed" && plan.result) {
+      const indices = plan.selectedIndices ?? [];
+      const rows = Object.fromEntries(indices.map((index2, position3) => [index2, plan.result.results?.[position3] ?? {}]));
+      const nextMessage = `\u5DF2\u5199\u5165 ${plan.result.wroteCount ?? 0}/${indices.length} \u4E2A\u4EFB\u52A1${plan.result.errorCount ? `\uFF0C${plan.result.errorCount} \u4E2A\u4EFB\u52A1\u5931\u8D25` : ""}`;
+      saveBuildOutcome(plan.planId, { phase: "done", selectedIndices: indices, writeRows: rows, message: nextMessage, requestError: false });
+      setPhase("done");
+      setMessage(nextMessage);
+      panelStore.setBuildDryRun(plan.result.dryRunMode !== false);
+    } else if (plan.state === "cancelled") {
+      saveBuildOutcome(plan.planId, { phase: "cancelled", selectedIndices, writeRows: {}, message: "\u9884\u89C8\u5DF2\u53D6\u6D88\uFF0C\u672A\u5199\u5165\u6587\u4EF6", requestError: false });
+      setPhase("cancelled");
+      setMessage("\u9884\u89C8\u5DF2\u53D6\u6D88\uFF0C\u672A\u5199\u5165\u6587\u4EF6");
+    } else if (plan.state === "repreviewing" || plan.state === "confirming" || plan.state === "writing") {
+      setPhase("building");
+      setMessage(plan.state === "repreviewing" ? "\u6B63\u5728\u66F4\u65B0\u9884\u89C8\u2026" : plan.state === "confirming" ? "\u6B63\u5728\u6838\u5BF9\u9884\u89C8\u2026" : "\u6B63\u5728\u5199\u5165\u4EFB\u52A1\u2026");
+    } else {
+      const nextMessage = plan.state === "uncertain" ? "\u5199\u5165\u72B6\u6001\u4E0D\u786E\u5B9A\uFF1B\u8BF7\u6838\u5BF9\u76EE\u6807\u76EE\u5F55\uFF0C\u4E0D\u8981\u91CD\u590D\u786E\u8BA4" : "\u9884\u89C8\u5DF2\u5931\u6548\uFF0C\u8BF7\u91CD\u65B0\u9884\u89C8";
+      saveBuildOutcome(plan.planId, { phase: "unavailable", selectedIndices, writeRows: {}, message: nextMessage, requestError: true });
+      setPhase("unavailable");
+      setMessage(nextMessage);
+      setRequestError(true);
+    }
+  };
+  import_react170.default.useEffect(() => {
+    if (!settled || !originalPreview.planId || originalPreview.dryRun === false) return;
+    let active = true;
+    let timer;
+    const refresh = async () => {
+      try {
+        const plan = await fetchPlanStatus();
+        if (!active) return;
+        applyPlanStatus(plan);
+        if (plan.state === "repreviewing" || plan.state === "confirming" || plan.state === "writing") timer = setTimeout(refresh, 1500);
+      } catch (error) {
+        if (!active) return;
+        const nextMessage = error instanceof Error ? error.message : String(error);
+        saveBuildOutcome(originalPreview.planId, { phase: "unavailable", selectedIndices: [], writeRows: {}, message: nextMessage, requestError: true });
+        setMessage(nextMessage);
+      }
+    };
+    void refresh();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [settled, originalPreview.planId]);
   const replaceSource = async (event, index2) => {
     event.preventDefault();
     event.stopPropagation();
@@ -103084,7 +103366,7 @@ function BuildInputsToolRow({ block }) {
       const response = await fetch("/plugins/dsh-vaspflow/build-inputs/repreview", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ planId: preview.planId, taskIndex: index2, sourceKind: item.kind === "file" ? "structure" : "template", rootPath: item.rootPath, relPath: item.relPath, file: item.file })
+        body: JSON.stringify({ planId: preview.planId, revision: preview.revision ?? 1, taskIndex: index2, sourceKind: item.kind === "file" ? "structure" : "template", rootPath: item.rootPath, relPath: item.relPath, file: item.file })
       });
       const result = await response.json();
       if (!response.ok || !result.tasks) throw new Error(result.error || "\u9884\u89C8\u66F4\u65B0\u5931\u8D25");
@@ -103127,7 +103409,7 @@ function BuildInputsToolRow({ block }) {
       const response = await fetch("/plugins/dsh-vaspflow/build-inputs/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ planId: preview.planId, selectedIndices, enableDirect })
+        body: JSON.stringify({ planId: preview.planId, revision: preview.revision ?? 1, selectedIndices, enableDirect })
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "\u6784\u5EFA\u5931\u8D25");
@@ -103141,11 +103423,23 @@ function BuildInputsToolRow({ block }) {
       recordAction(nextMessage);
       if (focused !== null) showTask(focused, rows[focused], selected.has(focused) ? "done" : "preview");
     } catch (error) {
-      const nextMessage = error instanceof Error ? error.message : String(error);
-      saveBuildOutcome(preview.planId, { phase: "unavailable", selectedIndices, writeRows: {}, message: nextMessage, requestError: true });
-      setPhase("unavailable");
-      setRequestError(true);
-      setMessage(nextMessage);
+      try {
+        let plan = await fetchPlanStatus();
+        applyPlanStatus(plan);
+        for (let attempt = 0; attempt < 12 && (plan.state === "confirming" || plan.state === "writing"); attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          plan = await fetchPlanStatus();
+          applyPlanStatus(plan);
+        }
+      } catch {
+        const nextMessage = error instanceof Error ? error.message : String(error);
+        saveBuildOutcome(preview.planId, { phase: "unavailable", selectedIndices, writeRows: {}, message: `${nextMessage}\uFF1B\u5199\u5165\u72B6\u6001\u5F85\u6838\u67E5`, requestError: true });
+        setPhase("unavailable");
+        setRequestError(true);
+        setMessage(`${nextMessage}\uFF1B\u5199\u5165\u72B6\u6001\u5F85\u6838\u67E5`);
+      }
+    } finally {
+      submitLock.current = false;
     }
   };
   const cancelPreview = async () => {
@@ -103158,7 +103452,7 @@ function BuildInputsToolRow({ block }) {
       const response = await fetch("/plugins/dsh-vaspflow/build-inputs/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ planId: preview.planId, cancel: true })
+        body: JSON.stringify({ planId: preview.planId, revision: preview.revision ?? 1, cancel: true })
       });
       const result = await response.json();
       if (!response.ok || !result.cancelled) throw new Error(result.error || "\u53D6\u6D88\u9884\u89C8\u5931\u8D25");
@@ -103238,13 +103532,22 @@ function BuildInputsToolRow({ block }) {
   };
   const renderNode = (node2) => {
     const children = [...node2.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true }));
-    if (!children.length) return node2.taskIndices.map((index2) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-path-leaf", children: renderTaskRow(index2, node2.name) }, `${node2.path}-${index2}`));
+    if (!children.length) return node2.taskIndices.map((index2) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": node2.path.split("/").slice(0, -1).join("/"), children: renderTaskRow(index2, node2.name) }, `${node2.path}-${index2}`));
     const isOpen = openDirectory === node2.path || openDirectory.startsWith(`${node2.path}/`);
     return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-folder vfp-path-folder", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-group", title: node2.path, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-group", title: node2.path, "data-vfp-tree-path": node2.path, children: [
         /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", className: "vfp-tree-toggle", "aria-label": `${isOpen ? "\u6536\u8D77" : "\u5C55\u5F00"} ${node2.path}`, "aria-expanded": isOpen, onClick: (event) => {
-          setOpenDirectory(isOpen ? node2.path.split("/").slice(0, -1).join("/") : node2.path);
-          if (!isOpen) scrollExpandedTreeRow(event.currentTarget.parentElement);
+          if (isOpen) setOpenDirectory(node2.path.split("/").slice(0, -1).join("/"));
+          else {
+            let current = node2;
+            while (!current.taskIndices.length && current.children.size === 1) {
+              const child = [...current.children.values()][0];
+              if (!child.children.size) break;
+              current = child;
+            }
+            setOpenDirectory(current.path);
+            scrollExpandedTreeRow(event.currentTarget.parentElement);
+          }
         }, children: isOpen ? "\u25BE" : "\u25B8" }),
         canConfirm && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("input", { type: "checkbox", "aria-label": `\u9009\u62E9 ${node2.path} \u4E0B\u5168\u90E8\u4EFB\u52A1`, checked: node2.indices.every((index2) => selected.has(index2)), ref: (input) => {
           if (input) input.indeterminate = node2.indices.some((index2) => selected.has(index2)) && !node2.indices.every((index2) => selected.has(index2));
@@ -103257,7 +103560,7 @@ function BuildInputsToolRow({ block }) {
         /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-tree-muted", children: node2.indices.length })
       ] }),
       isOpen && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-path-children", children: [
-        node2.taskIndices.map((index2) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-path-leaf", children: renderTaskRow(index2, "\u672C\u76EE\u5F55") }, `${node2.path}-${index2}`)),
+        node2.taskIndices.map((index2) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": node2.path, children: renderTaskRow(index2, "\u672C\u76EE\u5F55") }, `${node2.path}-${index2}`)),
         children.map(renderNode)
       ] })
     ] }, node2.path);
@@ -103319,18 +103622,30 @@ function BuildInputsToolRow({ block }) {
           action.text
         ] }, `${action.at}-${index2}`))
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-build-tree vfp-path-tree", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("details", { className: "vfp-path-root vfp-path-folder", open: rootOpen, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("summary", { onClick: (event) => {
-          event.preventDefault();
-          if (rootOpen) setOpenDirectory("");
-          else scrollExpandedTreeRow(event.currentTarget);
-          setRootOpen(!rootOpen);
-        }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "\u6839\u76EE\u5F55" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("small", { children: tasks.length })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-path-children", children: [...taskTree.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true })).map(renderNode) })
-      ] }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-shell", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-breadcrumb", hidden: !buildScrollPath, title: buildScrollPath, children: buildScrollPath }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { ref: buildTreeRef, className: "vfp-build-tree vfp-path-tree", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("details", { className: "vfp-path-root vfp-path-folder", open: rootOpen, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("summary", { onClick: (event) => {
+            event.preventDefault();
+            if (rootOpen) setOpenDirectory("");
+            else {
+              let current = taskTree;
+              while (!current.taskIndices.length && current.children.size === 1) {
+                const child = [...current.children.values()][0];
+                if (!child.children.size) break;
+                current = child;
+              }
+              setOpenDirectory(current.path);
+              scrollExpandedTreeRow(event.currentTarget);
+            }
+            setRootOpen(!rootOpen);
+          }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "\u6839\u76EE\u5F55" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("small", { children: tasks.length })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-path-children", children: [...taskTree.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true })).map(renderNode) })
+        ] }) })
+      ] }),
       tasks.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", children: "\u6CA1\u6709\u6784\u5EFA\u4EFB\u52A1" }),
       isPreview && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-tree-actions", children: [
         /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { children: [
@@ -103359,12 +103674,15 @@ function BuildInputsToolRow({ block }) {
       preview.error && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: preview.error }),
       buildModeError && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: buildModeError }),
       settled && isPreview && !preview.planId && !preview.error && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", children: "\u6B64\u9884\u89C8\u7F3A\u5C11\u786E\u8BA4\u51ED\u636E\uFF0C\u8BF7\u5728\u5BF9\u8BDD\u4E2D\u91CD\u65B0\u8FD0\u884C\u9884\u89C8\u3002" }),
-      message && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": requestError ? "" : void 0, children: message })
+      message && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-tree-message", "data-error": requestError ? "" : void 0, children: message }),
+      phase === "unavailable" && preview.planId && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("button", { type: "button", onClick: () => {
+        void fetchPlanStatus().then(applyPlanStatus).catch((error) => setMessage(error instanceof Error ? error.message : String(error)));
+      }, children: "\u6838\u5BF9\u8BA1\u5212\u72B6\u6001" })
     ] })
   ] });
 }
 function PanelRoot(props) {
-  const dark = (0, import_react169.useSyncExternalStore)(subscribeDarkTheme, getDarkTheme, getDarkTheme);
+  const dark = (0, import_react170.useSyncExternalStore)(subscribeDarkTheme, getDarkTheme, getDarkTheme);
   const api = panelLayoutApi.current;
   return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
     config_provider_default,
@@ -103398,7 +103716,7 @@ function apply(ctx) {
       name: "tool.call.toolview",
       key: "vasp_build_inputs"
     }, BuildInputsToolRow));
-    for (const toolName of ["vasp_scan", "vasp_inspect_task", "vasp_inspect_tasks", "vasp_convergence", "vasp_structure_scene", "vasp_discover_inputs", "vasp_check_inputs", "vasp_say", "vasp_done"]) {
+    for (const toolName of ["vasp_scan", "vasp_inspect_task", "vasp_inspect_tasks", "vasp_convergence", "vasp_collect_results", "vasp_structure_scene", "vasp_discover_inputs", "vasp_check_inputs", "vasp_say", "vasp_done"]) {
       ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
         name: "tool.call.toolview",
         key: toolName

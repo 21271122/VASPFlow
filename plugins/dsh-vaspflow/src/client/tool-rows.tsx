@@ -6,13 +6,14 @@ import { panelStore } from './store';
 import ConvergenceChart from './ConvergenceChart';
 import StructureViewer from './StructureViewer';
 import { readStructureDrag, startStructureDrag, STRUCTURE_DRAG_TYPE } from './structure-drag';
-import { scrollExpandedTreeRow } from './tree-scroll';
+import { scrollExpandedTreeRow, useTreeScrollPath } from './tree-scroll';
 
 const titles: Record<string, string> = {
   vasp_scan: '扫描计算目录',
   vasp_inspect_task: '查看计算状态',
   vasp_inspect_tasks: '查看计算状态',
   vasp_convergence: '查看收敛曲线',
+  vasp_collect_results: '查看计算数据',
   vasp_structure_scene: '查看原子结构',
   vasp_discover_inputs: '寻找构建材料',
   vasp_check_inputs: '校验 VASP 输入',
@@ -104,6 +105,8 @@ type PathNode<T> = { name: string; count: number; children: Map<string, PathNode
 function PathTree<T>({ items, pathOf, renderLeaf, revealPath }: { items: T[]; pathOf: (item: T) => string; renderLeaf: (item: T, name: string) => React.ReactNode; revealPath?: string }) {
   const [openPath, setOpenPath] = useState<string[]>([]);
   const [rootOpen, setRootOpen] = useState(true);
+  const treeRef = useRef<HTMLDivElement>(null);
+  const scrollPath = useTreeScrollPath(treeRef, `${rootOpen}:${openPath.join('/')}:${items.length}`);
   useEffect(() => {
     if (!revealPath) return;
     setOpenPath(revealPath.split(/[\\/]+/).filter(Boolean).slice(0, -1));
@@ -124,17 +127,48 @@ function PathTree<T>({ items, pathOf, renderLeaf, revealPath }: { items: T[]; pa
   const renderNode = (node: PathNode<T>, parentPath: string[] = []): React.ReactNode => {
     const path = [...parentPath, node.name];
     const children = [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-    if (!children.length) return node.item && <div className="vfp-path-leaf" key={node.name}>{renderLeaf(node.item, node.name)}</div>;
+    if (!children.length) return node.item && <div className="vfp-path-leaf" data-vfp-tree-parent={parentPath.join('/')} key={node.name}>{renderLeaf(node.item, node.name)}</div>;
     const isOpen = path.every((part, index) => openPath[index] === part);
-    return <details className="vfp-path-folder" key={node.name} open={isOpen}><summary title={node.name} onClick={(event) => { event.preventDefault(); setOpenPath(isOpen ? parentPath : path); if (!isOpen) scrollExpandedTreeRow(event.currentTarget); }}><span>{node.name}</span><small>{node.count}</small></summary><div className="vfp-path-children">
-      {node.item && <div className="vfp-path-leaf">{renderLeaf(node.item, '本目录')}</div>}
+    return <details className="vfp-path-folder" key={node.name} open={isOpen}><summary title={node.name} data-vfp-tree-path={path.join('/')} onClick={(event) => {
+      event.preventDefault();
+      if (isOpen) setOpenPath(parentPath);
+      else {
+        const next = [...path];
+        let current = node;
+        while (!current.item && current.children.size === 1) {
+          const child = [...current.children.values()][0];
+          if (!child.children.size) break;
+          next.push(child.name);
+          current = child;
+        }
+        setOpenPath(next);
+        scrollExpandedTreeRow(event.currentTarget);
+      }
+    }}><span>{node.name}</span><small>{node.count}</small></summary><div className="vfp-path-children">
+      {node.item && <div className="vfp-path-leaf" data-vfp-tree-parent={path.join('/')}>{renderLeaf(node.item, '本目录')}</div>}
       {children.map((child) => renderNode(child, path))}
     </div></details>;
   };
-  return <div className="vfp-path-tree"><details className="vfp-path-root vfp-path-folder" open={rootOpen}>
-    <summary onClick={(event) => { event.preventDefault(); if (rootOpen) setOpenPath([]); else scrollExpandedTreeRow(event.currentTarget); setRootOpen(!rootOpen); }}><span>根目录</span><small>{items.length}</small></summary>
+  return <div className="vfp-tree-shell"><div className="vfp-tree-breadcrumb" aria-live="off" hidden={!scrollPath} title={scrollPath}>{scrollPath}</div><div ref={treeRef} className="vfp-path-tree"><details className="vfp-path-root vfp-path-folder" open={rootOpen}>
+    <summary onClick={(event) => {
+      event.preventDefault();
+      if (rootOpen) setOpenPath([]);
+      else {
+        const next: string[] = [];
+        let current = root;
+        while (!current.item && current.children.size === 1) {
+          const child = [...current.children.values()][0];
+          if (!child.children.size) break;
+          next.push(child.name);
+          current = child;
+        }
+        setOpenPath(next);
+        scrollExpandedTreeRow(event.currentTarget);
+      }
+      setRootOpen(!rootOpen);
+    }}><span>根目录</span><small>{items.length}</small></summary>
     <div className="vfp-path-children">{[...root.children.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map((node) => renderNode(node))}</div>
-  </details></div>;
+  </details></div></div>;
 }
 
 function SourcePreview({ rootPath, filePath, onClose }: { rootPath: string; filePath: string; onClose: () => void }) {
@@ -412,11 +446,13 @@ function InputChecks({ value, args, rootPath }: { value: any; args: any; rootPat
     || typeof row.incar !== 'object' || !row.incar
     || /MISSING|UNREADABLE/.test(String(row.kpoints))
     || /PARSE_ERROR|COUNT_MISMATCH|FLAG_MISSING/.test(String(row.sd));
-  const statusOf = (row: any) => row.error || row.input_check?.code === 'FAIL' || basicFailure(row) ? 'FAIL'
-    : row.input_check?.code === 'WARN' || row.warnings?.length ? 'WARN'
+  const statusOf = (row: any) => row.error || basicFailure(row) ? 'FILE_FAIL'
+    : row.input_check?.code === 'FAIL' ? 'RULE_FAIL'
+      : row.input_check?.code === 'WARN' || row.warnings?.length ? 'WARN'
       : row.input_check?.code === 'PASS' ? 'PASS' : 'NOT_REQUESTED';
   const categories = [
-    ['PASS', '通过', '#279d69'], ['WARN', '注意', '#d9aa52'], ['FAIL', '失败', '#d55750'], ['NOT_REQUESTED', '未套规则', '#9a91a8'],
+    ['PASS', '规则通过', '#279d69'], ['WARN', '注意', '#d9aa52'], ['RULE_FAIL', '规则未过', '#d55750'],
+    ['FILE_FAIL', '文件异常', '#a8414a'], ['NOT_REQUESTED', '未套规则', '#9a91a8'],
   ] as const;
   const counts = categories.map(([code, label, color]) => ({ code, label, color, count: results.filter((row: any) => statusOf(row) === code).length }));
   const checkedRows = results.map((row: any, index: number) => ({
@@ -440,7 +476,7 @@ function InputChecks({ value, args, rootPath }: { value: any; args: any; rootPat
         ['KPOINTS', row.kpoints === '-' || row.kpoints === '?' || /MISSING|UNREADABLE/.test(String(row.kpoints)) ? 'bad' : 'ok'],
         ['规则', profileId ? row.input_check?.code === 'PASS' ? 'ok' : row.input_check?.code === 'WARN' ? 'warn' : 'bad' : 'skip'],
       ];
-      return <details className="vfp-inspection-item" key={`${row.resolved}-${index}`}><summary title={`${row.resolved} · 可拖到其他工具卡片`} draggable={!!row.resolved && relativePath(rootPath, row.resolved) !== row.resolved} onDragStart={(event) => startStructureDrag(event.dataTransfer, { kind: 'task', rootPath, relPath: checkedRows[index].path })}><strong>{name}</strong><span className="vfp-state-chip" data-status={state}>{state === 'PASS' ? '通过' : state === 'WARN' ? '注意' : state === 'FAIL' ? '失败' : '已解析'}</span>{state !== 'PASS' && <small>{row.error || row.input_check?.evidence?.[0]?.message || row.warnings?.[0] || ''}</small>}<span className="vfp-check-matrix">{checks.map(([label, code]) => <span key={label} data-check={code}><i />{label}</span>)}</span></summary>
+      return <details className="vfp-inspection-item" key={`${row.resolved}-${index}`}><summary title={`${row.resolved} · 可拖到其他工具卡片`} draggable={!!row.resolved && relativePath(rootPath, row.resolved) !== row.resolved} onDragStart={(event) => startStructureDrag(event.dataTransfer, { kind: 'task', rootPath, relPath: checkedRows[index].path })}><strong>{name}</strong><span className="vfp-state-chip" data-status={state === 'FILE_FAIL' || state === 'RULE_FAIL' ? 'FAIL' : state}>{state === 'PASS' ? '规则通过' : state === 'WARN' ? '注意' : state === 'RULE_FAIL' ? '规则未过' : state === 'FILE_FAIL' ? '文件异常' : '已解析'}</span>{state !== 'PASS' && <small>{row.error || row.input_check?.evidence?.[0]?.message || row.warnings?.[0] || ''}</small>}<span className="vfp-check-matrix">{checks.map(([label, code]) => <span key={label} data-check={code}><i />{label}</span>)}</span></summary>
         <div className="vfp-inspection-detail">
           {fields.map(([label, text]) => <div key={label}><b>{label}</b><span>{String(text ?? '未读取')}</span></div>)}
           <div><b>INCAR 参数</b><span>{typeof row.incar === 'object' && row.incar ? Object.entries(row.incar).map(([key, val]) => `${key}=${val}`).join(' · ') || '未提取到关键参数' : String(row.incar ?? '未读取')}</span></div>
@@ -449,6 +485,50 @@ function InputChecks({ value, args, rootPath }: { value: any; args: any; rootPat
         </div></details>;
     }} /></div>
     {value.consistency?.uniform === false && <div className="vfp-discovery-foot vfp-tree-muted">发现 {value.consistency.groups?.length ?? 0} 种输入模式，请核对目录间差异。</div>}
+  </div>;
+}
+
+function CollectedResults({ value, rootPath }: { value: any; rootPath: string }) {
+  const rows: any[] = Array.isArray(value.rows) ? value.rows : [];
+  const excluded: any[] = Array.isArray(value.excluded) ? value.excluded : [];
+  const frequency = value.query?.calculationType === 'FREQUENCY_ZPE';
+  const metrics: string[] = value.query?.metrics ?? [];
+  const parentOf = (row: any) => row.relPath.split(/[\\/]+/).slice(0, -1).join('/').toLowerCase();
+  const parents = [...new Set(rows.map(parentOf))];
+  const energyScales = new Map(parents.map((parent) => {
+    const members = rows.filter((row) => parentOf(row) === parent);
+    const energies = members.map((row) => row.values?.last_ionic_free_energy?.value).filter((energy) => typeof energy === 'number' && Number.isFinite(energy));
+    const low = energies.length ? Math.min(...energies) : 0;
+    const high = energies.length ? Math.max(...energies) : 0;
+    const padding = high > low ? (high - low) * .04 : .002;
+    return [parent, { hasEnergy: energies.length > 0, axisMin: low - padding, axisMax: high + padding }] as const;
+  }));
+  const compositions = [...new Set(rows.map((row) => row.composition || '组成未知'))];
+  const frequencyScales = new Map(compositions.map((composition) => {
+    const members = rows.filter((row) => (row.composition || '组成未知') === composition);
+    const modes = members.flatMap((row) => Array.isArray(row.values?.frequencies?.value) ? row.values.frequencies.value : []);
+    return [composition, { frequencyMin: Math.min(-100, ...modes.map((mode: any) => mode.frequencyCm1)), frequencyMax: Math.max(1000, ...modes.map((mode: any) => mode.frequencyCm1)) }] as const;
+  }));
+  const number = (item: any, digits: number) => item?.status === 'ok' && typeof item.value === 'number' ? item.value.toFixed(digits) : '—';
+  return <div className="vfp-collect">
+    <div className="vfp-scan-path"><code>{rootPath}</code> · {frequency ? '频率与 ZPE' : '弛豫'} · {rows.length} 个任务{excluded.length ? ` · ${excluded.length} 个排除` : ''}</div>
+    <div className="vfp-collect-scope">{(value.query?.scope?.subtrees ?? []).map((item: any) => `${item.relPath} ↓${item.maxDepth} 层`).concat((value.query?.scope?.taskPaths ?? []).map((item: string) => `精确 ${item}`)).join(' · ')}{frequency && value.query?.conditions?.temperatureK ? ` · ${value.query.conditions.temperatureK} K` : !frequency && metrics.includes('last_ionic_free_energy') ? ' · 末步 F / eV（同一父目录共用能量轴）' : ''}</div>
+    {rows.length > 0 && <PathTree items={rows} pathOf={(row) => row.relPath} renderLeaf={(row, name) => {
+          const composition = row.composition || '组成未知';
+          const { hasEnergy, axisMin, axisMax } = energyScales.get(parentOf(row))!;
+          const { frequencyMin, frequencyMax } = frequencyScales.get(composition)!;
+          const vals = row.values ?? {};
+          const energy = vals.last_ionic_free_energy;
+          const pos = energy?.status === 'ok' ? (energy.value - axisMin) / (axisMax - axisMin) * 100 : 50;
+          const modes = vals.frequencies?.value;
+          return <button type="button" className="vfp-collect-item" title={`${row.relPath} · 在右侧查看任务详情`} onClick={() => { void openTask(rootPath, row.relPath, 'status'); }}>
+            <span className="vfp-collect-name" title={row.relPath}>{name}</span>
+            {frequency ? <><span className="vfp-collect-track" aria-label={`频率分布 ${frequencyMin.toFixed(0)} 至 ${frequencyMax.toFixed(0)} cm⁻¹`}>{Array.isArray(modes) && modes.slice(0, 120).map((mode: any, index: number) => <i key={index} data-imaginary={mode.kind === 'imaginary' ? '' : undefined} style={{ left: `${Math.max(3, Math.min(97, (mode.frequencyCm1 - frequencyMin) / (frequencyMax - frequencyMin) * 100))}%` }} title={`${mode.frequencyCm1.toFixed(1)} cm⁻¹`} />)}</span>{metrics.includes('frequencies') && <b>{Array.isArray(modes) ? `${modes.length} 模式` : '—'}</b>}{metrics.includes('zpe') && <b>ZPE {number(vals.zpe, 4)} eV</b>}{metrics.includes('vibrational_entropy') && <b>Sᵥᵢᵦ {number(vals.vibrational_entropy, 6)} eV/K</b>}{metrics.includes('vibrational_free_energy') && <b>Fᵥᵢᵦ {number(vals.vibrational_free_energy, 4)} eV</b>}</>
+              : <>{metrics.includes('last_ionic_free_energy') && <><span className="vfp-collect-track" data-range={hasEnergy ? '' : undefined} data-min={axisMin.toFixed(3)} data-max={axisMax.toFixed(3)} aria-label={hasEnergy ? `末步自由能轴：${axisMin.toFixed(3)} 至 ${axisMax.toFixed(3)} eV` : '暂无能量数据'}>{energy?.status === 'ok' && <i style={{ left: `${pos}%` }} />}</span><b className="vfp-collect-energy">{number(energy, 6)} eV</b></>}{metrics.includes('last_max_force') && <span className="vfp-collect-force">力 {number(vals.last_max_force, 3)}</span>}{metrics.includes('ionic_steps') && <span className="vfp-collect-steps">{number(vals.ionic_steps, 0)} 步</span>}</>}
+          </button>;
+        }} />}
+    {!rows.length && <div className="vfp-result-summary">范围内没有该类别任务</div>}
+    {excluded.length > 0 && <details className="vfp-collect-excluded"><summary>未纳入 {excluded.length}</summary>{excluded.map((item, index) => <div key={index}>{item.relPath} · {item.reason}</div>)}</details>}
   </div>;
 }
 
@@ -559,7 +639,8 @@ export function VaspToolRow({ block, toolName }: { block: any; toolName: string 
   const exceptionalCount = toolName === 'vasp_inspect_task' ? Number(value.status?.code === 'ERROR_DETECTED' || value.inputCheck?.code === 'FAIL')
     : (toolName === 'vasp_scan' ? value.tasks : value.results)?.filter((row: any) => row.error || row.status_record?.code === 'ERROR_DETECTED' || row.status?.code === 'ERROR_DETECTED' || row.input_check?.code === 'FAIL')?.length ?? 0;
   const withExceptions = (label: string) => `${label}${exceptionalCount ? ` · ${exceptionalCount} 异常` : ''}`;
-  const compactSummary = toolName === 'vasp_scan' ? withExceptions(`${value.tasks?.length ?? 0} 个任务`)
+  const compactSummary = toolName === 'vasp_collect_results' ? `${value.summary?.included ?? 0} 个任务`
+    : toolName === 'vasp_scan' ? withExceptions(`${value.tasks?.length ?? 0} 个任务`)
     : toolName === 'vasp_discover_inputs' ? `${value.sources?.files?.length ?? 0} 个结构源 · ${value.templates?.length ?? 0} 个模板`
       : toolName === 'vasp_inspect_task' ? withExceptions('1 个任务')
         : toolName === 'vasp_inspect_tasks' || toolName === 'vasp_check_inputs' ? withExceptions(`${visualRows.length || value.results?.length || 0} 个任务`)
@@ -572,14 +653,15 @@ export function VaspToolRow({ block, toolName }: { block: any; toolName: string 
       if (event.clientX <= bounds.left || event.clientX >= bounds.right || event.clientY <= bounds.top || event.clientY >= bounds.bottom) { setDropActive(false); setDropRejected(false); }
     }}
     onDrop={(event) => { setDropRejected(false); void handleDrop(event); }}>
-    <div className="vfp-tree-head"><button type="button" className="vfp-card-toggle" aria-expanded={!collapsed} onClick={() => setCardCollapsed(!collapsed)}><span aria-hidden="true">{collapsed ? '▸' : '▾'}</span><strong>{titles[toolName]}</strong></button><span className="vfp-tree-muted">{settled ? error ? '失败' : collapsed && compactSummary ? `完成 · ${compactSummary}` : '完成' : '处理中'}</span></div>
+    <div className="vfp-tree-head"><button type="button" className="vfp-card-toggle" aria-expanded={!collapsed} onClick={() => setCardCollapsed(!collapsed)}><span aria-hidden="true">{collapsed ? '▸' : '▾'}</span><strong>{toolName === 'vasp_collect_results' ? (value.query?.calculationType ?? args.calculationType) === 'FREQUENCY_ZPE' ? '查看频率与 ZPE' : '查看弛豫数据' : titles[toolName]}</strong></button><span className="vfp-tree-muted">{settled ? error ? '失败' : collapsed && compactSummary ? `完成 · ${compactSummary}` : '完成' : '处理中'}</span></div>
     {dropActive && <div className="vfp-structure-drop-hint">松开以{toolName === 'vasp_structure_scene' ? '添加结构文件标签页（任务会添加直属结构文件）' : toolName === 'vasp_convergence' ? '添加 1 个任务曲线标签页' : '补充 1 条任务状态记录'}</div>}
     {dropRejected && <div className="vfp-structure-drop-hint" data-rejected="">此卡片{toolName === 'vasp_structure_scene' ? '只接受结构文件或任务' : '只接受任务'}</div>}
     <div hidden={collapsed}>
     {dropBusy && <div className="vfp-tree-muted">正在读取任务…</div>}
     {dropError && <div className="vfp-result-summary" data-error="">{dropError}</div>}
     {settled && (error ? <div className="vfp-result-summary" data-error="">{error}</div> : <>
-      {toolName === 'vasp_scan' ? <ScanOverview value={value} rootPath={rootPath} />
+      {toolName === 'vasp_collect_results' ? <CollectedResults value={value} rootPath={rootPath} />
+      : toolName === 'vasp_scan' ? <ScanOverview value={value} rootPath={rootPath} />
         : toolName === 'vasp_discover_inputs' ? <InputDiscovery value={value} rootPath={rootPath} args={args} />
           : toolName === 'vasp_inspect_tasks' || toolName === 'vasp_inspect_task' ? <StatusInspection value={{ ...value, results: [...(toolName === 'vasp_inspect_task' ? [{ relPath, status: value.status, inputCheck: value.inputCheck, outputFiles: value.outputFiles }] : visualRows), ...otherDropped] }} rootPath={rootPath} />
             : toolName === 'vasp_check_inputs' ? <InputChecks value={value} rootPath={rootPath} args={args} />

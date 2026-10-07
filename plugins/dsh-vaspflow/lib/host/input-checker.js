@@ -304,7 +304,9 @@ export function buildInputCheck(row, profileId) {
   if (!profileId) {
     return {
       code: 'NOT_REQUESTED', label: '未指定检查规则', profileId: '', profileVersion: '',
-      checkedFiles: [], uncheckedItems: ['未指定模板或任务类型检查规则'], evidence: [], observedAt: new Date().toISOString(),
+      checkedFiles: ['POSCAR', 'POTCAR', 'INCAR', 'KPOINTS'],
+      uncheckedItems: ['任务类型规则', '提交脚本、资源设置与科学合理性'],
+      evidence: [], observedAt: new Date().toISOString(),
     };
   }
   const profile = INPUT_CHECK_PROFILES[profileId];

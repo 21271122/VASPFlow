@@ -1,0 +1,20 @@
+/* ---------------------------------------------------------------------------
+ * cards-dark.css —— 由 cards.css 机械派生：把 `body[data-ds-dark-theme]` 选择器
+ * 前缀替换成 `.vfp-dark`。声明、数值、层级结构一字未改。
+ *
+ * 为什么需要它：插件把暗色主题挂在 <body> 上，而视频需要在同一帧里同时存在
+ * 明暗两套卡片。视频用 `.vfp-dark` 这个等价作用域来复现同一组覆盖规则。
+ * ------------------------------------------------------------------------- */
+.vfp-dark [data-vasp-structure-mount]{background:#16181f!important;border-color:#30343f!important}
+.vfp-dark [data-dsh-vaspflow-tool]{--vfp-tree-folder-bg:rgba(120,185,241,.09);--vfp-tree-leaf-bg:rgba(94,204,155,.11)}
+.vfp-dark [data-dsh-vaspflow-tool] .vfp-tree-head strong{color:#78b9f1}
+.vfp-dark [data-dsh-vaspflow-tool] .vfp-collect-track[data-range]::before,.vfp-dark [data-dsh-vaspflow-tool] .vfp-collect-track[data-range]::after{background:#1b2a42;color:#bdd3ea}
+.vfp-dark [data-dsh-vaspflow-tool] .vfp-tree-task[data-selected]{background:rgba(94,204,155,.22)}
+.vfp-dark .vfp-structure-toolbar .vfp-structure-action{color:#78b9f1;background:rgba(112,185,241,.1)}
+.vfp-dark [data-dsh-vaspflow-tool] .vfp-tree-breadcrumb{border-left-color:#78b9f1;background:#1b2a42;color:#a9d6ff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.vfp-dark [data-dsh-vaspflow-tool] .vfp-inline-tree .vfp-visual-tree-leaf[data-user-added]{color:#f4c65d}
+.vfp-dark [data-dsh-vaspflow-tool] .vfp-visual-tabs button[data-user-added]{color:#f4c65d}
+.vfp-dark [data-dsh-vaspflow-tool] .vfp-visual-tabs button[data-user-added][aria-selected="true"]{color:#f4c65d;border-color:#f4c65d}
+.vfp-dark [data-dsh-vaspflow-tool] .vfp-structure-drop-hint{color:#f4c65d}
+.vfp-dark [data-dsh-vaspflow-tool] .vfp-structure-drop-hint[data-rejected]{color:#ff7875}
+.vfp-dark [data-dsh-vaspflow-tool] .vfp-source-flow>div strong{color:#78b9f1}

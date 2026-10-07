@@ -39,7 +39,7 @@ export interface TaskStatusRecord {
 }
 
 export interface InputCheck {
-  code: 'NOT_REQUESTED' | 'NOT_CHECKED' | 'PASS' | 'WARN' | 'FAIL';
+  code: 'NOT_REQUESTED' | 'NOT_CHECKED' | 'STALE' | 'PASS' | 'WARN' | 'FAIL';
   label: string;
   profileId: string;
   profileVersion: string;

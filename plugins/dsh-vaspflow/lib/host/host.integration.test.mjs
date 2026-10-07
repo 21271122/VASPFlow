@@ -99,6 +99,9 @@ async function callStreamRoute(matchFn, url) {
 }
 
 const SAMPLE_ROOT = mkdtempSync(join(tmpdir(), 'vfp-integration-'));
+const ORIGINAL_DSH_HOME = process.env.DSH_HOME;
+const TEST_DSH_HOME = mkdtempSync(join(tmpdir(), 'vfp-integration-home-'));
+process.env.DSH_HOME = TEST_DSH_HOME;
 const SAMPLE_TASK = join(SAMPLE_ROOT, '1-NO3-Cu111');
 mkdirSync(SAMPLE_TASK);
 const SAMPLE_POSCAR = 'sample\n1\n3 0 0\n0 3 0\n0 0 10\nH\n1\nDirect\n0 0 0\n';
@@ -109,7 +112,12 @@ writeFileSync(join(SAMPLE_TASK, 'KPOINTS'), 'Gamma\n0\nGamma\n1 1 1\n0 0 0\n');
 writeFileSync(join(SAMPLE_TASK, 'POTCAR'), 'TITEL = PAW_PBE H 1.0\n');
 writeFileSync(join(SAMPLE_TASK, 'OSZICAR'), '  1 F= -1\n  2 F= -2\n  3 F= -3\n');
 writeFileSync(join(SAMPLE_TASK, 'OUTCAR'), 'reached required accuracy\nGeneral timing and accounting\n');
-after(() => rmSync(SAMPLE_ROOT, { recursive: true, force: true }));
+after(() => {
+  if (ORIGINAL_DSH_HOME === undefined) delete process.env.DSH_HOME;
+  else process.env.DSH_HOME = ORIGINAL_DSH_HOME;
+  rmSync(SAMPLE_ROOT, { recursive: true, force: true });
+  rmSync(TEST_DSH_HOME, { recursive: true, force: true });
+});
 
 test('apply registers routes globally and VASP tools only through the preset service', () => {
   const { ctx, routes, registered, services } = makeFakeCtx();
@@ -128,7 +136,7 @@ test('apply registers routes globally and VASP tools only through the preset ser
   const toolNames = registered.map((t) => t.name);
   assert.deepEqual(toolNames.sort(), [
     'vasp_build_inputs', 'vasp_check_inputs',
-    'vasp_convergence', 'vasp_discover_inputs', 'vasp_done', 'vasp_inspect_tasks',
+    'vasp_collect_results', 'vasp_convergence', 'vasp_discover_inputs', 'vasp_done', 'vasp_inspect_tasks',
     'vasp_say', 'vasp_scan', 'vasp_structure_scene',
   ].sort());
 });
@@ -155,21 +163,24 @@ test('build preview confirmation writes selected tasks and user can switch direc
     assert.ok(preview.planId);
     assert.equal(builder.output.presentationMeta({}, preview).planId, preview.planId);
     assert.equal(existsSync(join(root, 'confirmed-two')), false);
-    const result = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, selectedIndices: [1] });
+    const result = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: preview.revision, selectedIndices: [1] });
     assert.equal(result.status, 200, JSON.stringify(result.body));
     assert.equal(result.body.wroteCount, 1);
     assert.equal(existsSync(join(root, 'confirmed-one')), false);
     assert.equal(existsSync(join(root, 'confirmed-two', 'POSCAR')), true);
-    const again = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, selectedIndices: [0] });
-    assert.equal(again.status, 404);
+    const retry = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: preview.revision, selectedIndices: [1] });
+    assert.equal(retry.status, 200);
+    assert.deepEqual(retry.body, result.body);
+    const again = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: preview.revision, selectedIndices: [0] });
+    assert.equal(again.status, 409);
     const secondPreview = await builder.execute({ projectRoot: root, tasks: [task('cancelled')] }, {});
-    const cancelled = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: secondPreview.planId, cancel: true });
+    const cancelled = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: secondPreview.planId, revision: secondPreview.revision, cancel: true });
     assert.equal(cancelled.body.cancelled, true);
     const afterCancel = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: secondPreview.planId, selectedIndices: [0] });
-    assert.equal(afterCancel.status, 404);
+    assert.equal(afterCancel.status, 409);
     assert.equal(existsSync(join(root, 'cancelled')), false);
     const thirdPreview = await builder.execute({ projectRoot: root, tasks: [task('enable-direct')] }, {});
-    const enabled = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: thirdPreview.planId, selectedIndices: [0], enableDirect: true });
+    const enabled = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: thirdPreview.planId, revision: thirdPreview.revision, selectedIndices: [0], enableDirect: true });
     assert.equal(enabled.status, 200, JSON.stringify(enabled.body));
     assert.equal(enabled.body.dryRunMode, false);
     const direct = await builder.execute({ projectRoot: root, tasks: [task('direct-build')], dryRun: true }, {});
@@ -199,21 +210,24 @@ test('dragged sources re-preview one build task and confirmation writes the revi
     services.get('vaspflowTools').register(ctx);
     const builder = registered.find((tool) => tool.name === 'vasp_build_inputs');
     const preview = await builder.execute({ projectRoot: root, tasks: [{ dir: 'revised', poscarSrc: 'POSCAR', incarSrc: 'INCAR', sources: { incar: 'INCAR', kpoints: 'KPOINTS', potcar: 'POTCAR' }, sdPolicy: 'keep' }] }, {});
-    const source = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, taskIndex: 0, sourceKind: 'structure', rootPath: root, relPath: '.', file: 'ALT.vasp' });
+    const source = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, revision: preview.revision, taskIndex: 0, sourceKind: 'structure', rootPath: root, relPath: '.', file: 'ALT.vasp' });
     assert.equal(source.status, 200, JSON.stringify(source.body));
     assert.equal(source.body.tasks[0].poscarSrc, join(root, 'ALT.vasp'));
-    const template = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, taskIndex: 0, sourceKind: 'template', rootPath: root, relPath: 'template-b' });
+    const template = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, revision: source.body.revision, taskIndex: 0, sourceKind: 'template', rootPath: root, relPath: 'template-b' });
     assert.equal(template.status, 200, JSON.stringify(template.body));
     assert.equal(template.body.tasks[0].incarSrc, undefined);
     assert.equal(template.body.tasks[0].sources.incar, undefined);
     assert.equal(template.body.wroteCount, 0);
     assert.equal(existsSync(join(root, 'revised')), false);
-    const result = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, selectedIndices: [0] });
+    const oldRevision = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: preview.revision, selectedIndices: [0] });
+    assert.equal(oldRevision.status, 409);
+    assert.equal(existsSync(join(root, 'revised')), false);
+    const result = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: template.body.revision, selectedIndices: [0] });
     assert.equal(result.status, 200, JSON.stringify(result.body));
     assert.match(readFileSync(join(root, 'revised', 'POSCAR'), 'utf8'), /alternate/);
     assert.match(readFileSync(join(root, 'revised', 'INCAR'), 'utf8'), /new-template/);
     const stale = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, taskIndex: 0, sourceKind: 'template', rootPath: root, relPath: 'template-b' });
-    assert.equal(stale.status, 404);
+    assert.equal(stale.status, 409);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -237,7 +251,7 @@ test('a confirmed preview is visible to the next model turn and after host resta
     const revised = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, taskIndex: 0, sourceKind: 'structure', rootPath: root, relPath: '.', file: 'ALT.vasp' });
     assert.equal(revised.status, 200);
     assert.match((await assembled()).contexts[0].text, /ALT\.vasp/);
-    const response = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, selectedIndices: [0] });
+    const response = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: revised.body.revision, selectedIndices: [0] });
     assert.equal(response.status, 200);
     assert.match((await assembled()).contexts[0].text, /用户已在界面确认，写入 1\/1/);
     assert.match((await assembled()).contexts[0].text, /ALT\.vasp/);
@@ -245,6 +259,89 @@ test('a confirmed preview is visible to the next model turn and after host resta
     apply(restarted.ctx, {});
     const context = await restarted.hooks.get('system-prompt/assemble')({}, { agent: { session: { header: { id: sessionId } } } }, async () => ({ tools: [{ name: 'vasp_build_inputs' }], contexts: [] }));
     assert.match(context.contexts[0].text, /用户已在界面确认，写入 1\/1/);
+  } finally {
+    if (oldHome === undefined) delete process.env.DSH_HOME;
+    else process.env.DSH_HOME = oldHome;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a pending build survives restart and confirmation can be retried without another write', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-persistent-plan-'));
+  const oldHome = process.env.DSH_HOME;
+  process.env.DSH_HOME = join(root, 'dsh-home');
+  try {
+    for (const name of ['POSCAR', 'INCAR', 'KPOINTS', 'POTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(root, name));
+    const first = makeFakeCtx();
+    apply(first.ctx, {});
+    first.services.get('vaspflowTools').register(first.ctx);
+    const builder = first.registered.find((item) => item.name === 'vasp_build_inputs');
+    const preview = await builder.execute({ projectRoot: root, tasks: [{ dir: 'survives', poscarSrc: 'POSCAR', incarSrc: 'INCAR', kpointsSrc: 'KPOINTS', potcarSrc: 'POTCAR', sdPolicy: 'keep' }] }, {});
+    const restarted = makeFakeCtx();
+    apply(restarted.ctx, {});
+    const status = await callRoute(restarted.match, `/plugins/dsh-vaspflow/build-inputs/plan?planId=${preview.planId}`);
+    assert.equal(status.body.state, 'pending');
+    assert.equal(status.body.revision, 1);
+    const confirmed = await callRoute(restarted.match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: 1, selectedIndices: [0] });
+    assert.equal(confirmed.status, 200, JSON.stringify(confirmed.body));
+    const target = join(root, 'survives', 'INCAR');
+    writeFileSync(target, 'marker after confirmation\n');
+    const restartedAgain = makeFakeCtx();
+    apply(restartedAgain.ctx, {});
+    const retry = await callRoute(restartedAgain.match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: 1, selectedIndices: [0] });
+    assert.equal(retry.status, 200);
+    assert.deepEqual(retry.body, confirmed.body);
+    assert.equal(readFileSync(target, 'utf8'), 'marker after confirmation\n');
+  } finally {
+    if (oldHome === undefined) delete process.env.DSH_HOME;
+    else process.env.DSH_HOME = oldHome;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a source changed after preview invalidates confirmation before writing', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-source-changed-'));
+  try {
+    for (const name of ['POSCAR', 'INCAR', 'KPOINTS', 'POTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(root, name));
+    const { ctx, match, registered, services } = makeFakeCtx();
+    apply(ctx, {});
+    services.get('vaspflowTools').register(ctx);
+    const builder = registered.find((item) => item.name === 'vasp_build_inputs');
+    const preview = await builder.execute({ projectRoot: root, tasks: [{ dir: 'should-not-write', poscarSrc: 'POSCAR', incarSrc: 'INCAR', kpointsSrc: 'KPOINTS', potcarSrc: 'POTCAR', sdPolicy: 'keep' }] }, {});
+    writeFileSync(join(root, 'INCAR'), 'SYSTEM = changed after preview\nIBRION = 2\nNSW = 20\n');
+    const result = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: preview.revision, selectedIndices: [0] });
+    assert.equal(result.status, 409);
+    assert.match(result.body.error, /来源.*变化/);
+    assert.equal(existsSync(join(root, 'should-not-write')), false);
+    const status = await callRoute(match, `/plugins/dsh-vaspflow/build-inputs/plan?planId=${preview.planId}`);
+    assert.equal(status.body.state, 'invalidated');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an interrupted write is reported as uncertain and cannot be confirmed again', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-interrupted-write-'));
+  const oldHome = process.env.DSH_HOME;
+  process.env.DSH_HOME = join(root, 'dsh-home');
+  try {
+    for (const name of ['POSCAR', 'INCAR', 'KPOINTS', 'POTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(root, name));
+    const first = makeFakeCtx();
+    apply(first.ctx, {});
+    first.services.get('vaspflowTools').register(first.ctx);
+    const builder = first.registered.find((item) => item.name === 'vasp_build_inputs');
+    const preview = await builder.execute({ projectRoot: root, tasks: [{ dir: 'interrupted', poscarSrc: 'POSCAR', incarSrc: 'INCAR', kpointsSrc: 'KPOINTS', potcarSrc: 'POTCAR', sdPolicy: 'keep' }] }, {});
+    const planFile = join(process.env.DSH_HOME, 'vaspflow', 'build-plans.json');
+    const plans = JSON.parse(readFileSync(planFile, 'utf8'));
+    plans[preview.planId].state = 'writing';
+    writeFileSync(planFile, JSON.stringify(plans));
+    const restarted = makeFakeCtx();
+    apply(restarted.ctx, {});
+    const status = await callRoute(restarted.match, `/plugins/dsh-vaspflow/build-inputs/plan?planId=${preview.planId}`);
+    assert.equal(status.body.state, 'uncertain');
+    const retry = await callRoute(restarted.match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: 1, selectedIndices: [0] });
+    assert.equal(retry.status, 409);
+    assert.equal(existsSync(join(root, 'interrupted')), false);
   } finally {
     if (oldHome === undefined) delete process.env.DSH_HOME;
     else process.env.DSH_HOME = oldHome;
@@ -313,6 +410,7 @@ test('agent input checks link after scanning a parent root and then a nested roo
     }, {});
     assert.equal(checked.linked_count, 1);
     assert.deepEqual(checked.unlinked_dirs, []);
+    assert.match(checkInputs.output.render({}, checked)[0].text, /\[规则通过\]/);
 
     const tasks = await callRoute(match, `/plugins/dsh-vaspflow/tasks/${scanNested.body.project_id}`);
     assert.equal(tasks.body[0].input_check.code, 'PASS');
@@ -320,6 +418,10 @@ test('agent input checks link after scanning a parent root and then a nested roo
     const parentTasks = await callRoute(match, `/plugins/dsh-vaspflow/tasks/${scanParent.body.project_id}`);
     assert.equal(parentTasks.body[0].input_check.code, 'PASS');
     assert.equal(parentTasks.body[0].input_check.profileId, 'structure-optimization');
+    const rawOnly = await checkInputs.execute({ projectRoot: nestedRoot, dirs: ['8-_NH2OH'] }, {});
+    assert.equal(rawOnly.results[0].input_check.code, 'NOT_REQUESTED');
+    assert.deepEqual(rawOnly.results[0].input_check.checkedFiles, ['POSCAR', 'POTCAR', 'INCAR', 'KPOINTS']);
+    assert.match(checkInputs.output.render({}, rawOnly)[0].text, /\[已解析·未套规则\]/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -439,7 +541,7 @@ test('VASP preset bridge registers the host service only in its own scope', () =
   };
   vaspPresetTools.apply(presetCtx);
 
-  assert.equal(registered.length, 9);
+  assert.equal(registered.length, 10);
   for (const tool of registered) {
     assert.equal(Object.hasOwn(tool.parameters ?? {}, 'taskId'), false, `${tool.name} must not expose taskId`);
   }

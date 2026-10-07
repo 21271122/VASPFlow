@@ -777,6 +777,7 @@ function compactInputCheckLabel(code?: string): string {
   if (code === 'PASS') return '通过';
   if (code === 'WARN') return '注意';
   if (code === 'FAIL') return '未通过';
+  if (code === 'STALE') return '已过期';
   return '未检查';
 }
 
@@ -784,6 +785,7 @@ function inputTagColor(code?: string): string {
   if (code === 'PASS') return 'green';
   if (code === 'WARN') return 'gold';
   if (code === 'FAIL') return 'red';
+  if (code === 'STALE') return 'orange';
   return 'default';
 }
 

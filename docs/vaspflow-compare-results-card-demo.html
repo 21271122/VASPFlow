@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VASPFlow · 逐任务计算数据 Demo</title>
+  <style>
+    :root{color-scheme:dark;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;--bg:#11182b;--panel:#172139;--ink:#eaf0f8;--muted:#a6b3c6;--line:#34415d;--blue:#78b9f1;--green:#50bd91;--yellow:#f0be65;--red:#ed8587}
+    *{box-sizing:border-box}
+    body{margin:0;color:var(--ink);background:radial-gradient(circle at 85% 8%,#202f49 0,transparent 38%),var(--bg);font-size:14px;line-height:1.5}
+    button{font:inherit;cursor:pointer}
+    button:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+    .frame{max-width:1120px;margin:auto;padding:24px 24px 80px}
+    .top{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--line);padding-bottom:18px}
+    .top strong{color:var(--blue);font-size:18px}
+    .top small,.caption{color:var(--muted)}
+    .top a{color:var(--blue);font-size:12px}
+    .chat{max-width:950px;margin:30px auto}
+    .bubble{max-width:84%;width:max-content;margin:0 0 20px auto;padding:10px 15px;border-radius:17px 17px 4px 17px;background:#202b47}
+    .caption{font-size:12px;margin:0 0 9px}
+    .tool{margin-bottom:20px;border-left:3px solid #68a9e4;background:rgba(21,29,50,.86);padding:13px 18px 20px 20px}
+    .head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;border-bottom:1px solid var(--line);padding-bottom:10px}
+    .head button{border:0;padding:0;color:var(--blue);background:none;font-weight:700;font-size:15px;text-align:left}
+    .head button span{display:inline-block;width:16px}
+    .head small,.scope{color:var(--muted);font-size:12px}
+    .body[hidden]{display:none}
+    .scope{padding:10px 0 11px;overflow-wrap:anywhere}
+    .scope code{color:#cbdced;font:12px Consolas,monospace}
+    .section-title{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px;margin:3px 0 9px}
+    .section-title b{font-size:13px}
+    .section-title small{color:var(--muted);font-size:11px}
+    .plot-shell{position:relative}
+    .breadcrumb{position:absolute;z-index:5;top:0;left:0;right:0;padding:5px 9px;border-left:2px solid var(--blue);background:#202c45;color:var(--blue);font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+    .breadcrumb[hidden]{display:none}
+    .plot-viewport{max-height:365px;overflow:auto;border:1px solid var(--line);scrollbar-color:#4b6381 transparent}
+    .plot-content{min-width:0}
+    .group-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:8px 11px;background:#202b43;border-top:1px solid var(--line)}
+    .group-head:first-child{border-top:0}
+    .group-head strong{color:var(--blue)}
+    .group-head small{color:var(--muted);font:11px Consolas,monospace}
+    .column-head,.result-row,.axis-row{display:grid;align-items:center;gap:10px;padding:5px 11px}
+    .energy-grid{grid-template-columns:minmax(90px,1.1fr) minmax(80px,2fr) minmax(95px,auto) minmax(70px,auto) minmax(30px,auto)}
+    .frequency-grid{grid-template-columns:minmax(90px,1.1fr) minmax(80px,2fr) repeat(4,minmax(52px,auto))}
+    @media(max-width:760px){.column-head,.result-row,.axis-row{gap:5px;padding-left:5px;padding-right:5px}.frequency-grid{min-width:440px}.energy-grid{min-width:400px}}
+    .column-head{position:sticky;top:0;z-index:2;min-height:28px;background:#24334d;color:var(--muted);font-size:11px}
+    .axis-row{min-height:24px;color:var(--muted);font:11px Consolas,monospace}
+    .axis{display:flex;justify-content:space-between}
+    .folder{margin-left:13px}
+    .folder>summary{list-style:none;cursor:pointer;min-height:28px;padding:4px 11px;background:#1e3047;color:var(--blue);font-weight:600}
+    .folder>summary::-webkit-details-marker{display:none}
+    .folder>summary::before{content:"▸";display:inline-block;width:16px;color:#9cb2c5}
+    .folder[open]>summary::before{content:"▾"}
+    .children{margin-left:12px;border-left:1px solid #35536a}
+    .leaf{margin-left:14px;position:relative}
+    .leaf::before{content:"";position:absolute;left:-14px;top:18px;width:13px;border-top:1px solid #35536a}
+    .result-row{width:100%;min-height:36px;border:0;border-top:1px solid #29394f;background:rgba(41,103,91,.09);color:inherit;text-align:left;font-size:12px}
+    .result-row:hover{background:rgba(69,158,131,.16)}
+    .path{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d7e8ed;font-family:Consolas,monospace}
+    .measure{font-variant-numeric:tabular-nums;white-space:nowrap}
+    .measure.missing,.note{color:var(--yellow)}
+    .track{position:relative;height:18px;background:linear-gradient(to right,transparent 0,transparent 49.8%,rgba(114,146,176,.14) 50%,transparent 50.2%),linear-gradient(to right,#283b54,#283b54) center/100% 2px no-repeat}
+    .track.energy::before,.track.energy::after{position:absolute;z-index:3;top:-19px;padding:1px 4px;background:#24334d;color:#c7d7e7;font:11px Consolas,monospace;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s}
+    .track.energy::before{content:attr(data-min) ' eV';left:0}
+    .track.energy::after{content:attr(data-max) ' eV';right:0}
+    .result-row:hover .track.energy::before,.result-row:hover .track.energy::after,.track.energy:focus-visible::before,.track.energy:focus-visible::after{opacity:1}
+    .dot{position:absolute;top:50%;width:11px;height:11px;transform:translate(-50%,-50%);border-radius:50%;background:var(--green);box-shadow:0 0 0 2px #15283a}
+    .dot.imag{background:var(--red)}
+    .track.frequency .dot{width:9px;height:9px}
+    .legend{display:flex;gap:13px;margin-top:9px;color:var(--muted);font-size:11px}
+    .legend i{display:inline-block;width:8px;height:8px;margin-right:5px;border-radius:50%;background:var(--green)}
+    .legend .imag{background:var(--red)}
+    .excluded{margin-top:8px;color:var(--yellow);font-size:11px}
+    .task-dock{position:fixed;z-index:10;top:0;right:0;width:min(360px,100vw);height:100vh;padding:24px;background:#1a263d;border-left:1px solid var(--line);box-shadow:-16px 0 40px #080e1a99}
+    .task-dock[hidden]{display:none}
+    .task-dock strong{display:block;color:var(--blue);margin-bottom:20px}
+    .task-dock code{display:block;overflow-wrap:anywhere;color:var(--ink);margin-bottom:18px}
+    .task-dock .dock-close{float:right;border:1px solid var(--line);background:none;color:var(--ink);padding:3px 9px}
+    @media(max-width:650px){.frame{padding:16px 11px 40px}.tool{padding:11px 11px 16px 13px}}
+  </style>
+</head>
+<body>
+  <main class="frame">
+    <header class="top"><strong>VASPFlow</strong><div><small>统一目录选择 · 逐任务图表 · 虚拟数据</small> · <a href="vaspflow-compare-results-design.md">工具输入与输出设计</a></div></header>
+    <section class="chat" aria-label="示例对话">
+      <div class="bubble">查看 1-NO3 下两层内的弛豫，并补上 2-NO 的指定任务；频率计算也按对应范围查看。</div>
+      <p class="caption">调用 1 · 父目录批量 + 精确任务，交叉命中只保留一条</p>
+      <article class="tool" data-card="relax">
+        <div class="head"><button type="button" class="collapse" aria-expanded="true"><span>▾</span>查看弛豫数据</button><small>11 个任务</small></div>
+        <div class="body">
+      <div class="scope"><code>D:\Projects\VASPFlow\test</code> · <code>1-NO3</code> 向下 3 层 + 精确任务 <code>1-NO3/relax</code>、<code>2-NO/workflow/relax</code>、<code>2-NO/workflow/relax-alt</code></div>
+          <div class="section-title"><b title="末离子步 OSZICAR F=；不同组成的总能量不可直接比较">末步自由能 F · 逐任务点图</b><small>同一父目录共用能量轴 · 点击任务查看右侧详情</small></div>
+          <div class="plot-shell"><div class="breadcrumb" hidden></div><div class="plot-viewport"><div class="plot-content" id="relax-plot"></div></div></div>
+        </div>
+      </article>
+      <p class="caption">调用 2 · 另一种计算类别与温度，生成独立卡片</p>
+      <article class="tool" data-card="frequency">
+        <div class="head"><button type="button" class="collapse" aria-expanded="true"><span>▾</span>查看频率与 ZPE</button><small>3 个任务 · 1 个指定路径未找到</small></div>
+        <div class="body">
+          <div class="scope"><code>D:\Projects\VASPFlow\test</code> · <code>1-NO3</code> 向下 2 层 + 精确任务 <code>2-NO/ZPE</code>、<code>8-NO-scan/ZPE</code> · 298.15 K</div>
+          <div class="section-title"><b>逐任务频率谱</b><small>cm⁻¹ · 右侧为派生热力学项</small></div>
+          <div class="plot-shell"><div class="breadcrumb" hidden></div><div class="plot-viewport"><div class="plot-content" id="frequency-plot"></div></div></div>
+          <div class="legend"><span><i></i>实频</span><span><i class="imag"></i>虚频</span><span>虚频任务暂不给 ZPE、S<sub>vib</sub> 与 F<sub>vib</sub></span></div>
+          <div class="excluded">未找到：8-NO-scan/ZPE</div>
+        </div>
+      </article>
+    </section>
+  </main>
+  <aside class="task-dock" id="task-dock" hidden aria-label="任务详情"><button type="button" class="dock-close">关闭</button><strong>任务详情</strong><code data-role="path"></code><div data-role="values"></div></aside>
+  <script>
+    const relax = [
+      {path:'1-NO3/relax',formula:'Bi54NO3',energy:-242.03065,force:0.018,steps:16},
+      ...Array.from({length:8},(_,i)=>({path:'1-NO3/series/dz/opt-'+String(i+1).padStart(2,'0'),formula:'Bi54NO3',energy:-242.05+i*0.0062,force:i===5?null:0.012+i*0.004,steps:14+i*3})),
+      {path:'2-NO/workflow/relax',formula:'Bi54NO',energy:-230.14182,force:0.026,steps:18},
+      {path:'2-NO/workflow/relax-alt',formula:'Bi54NO',energy:-230.13661,force:0.019,steps:21}
+    ];
+    const frequency = [
+      {path:'1-NO3/ZPE',modes:[132,218,354,587,1190,1712],zpe:0.2599,entropy:0.1024,freeEnergy:0.2294},
+      {path:'1-NO3/series/ZPE-retry',modes:[128,231,362,601,1205,1695],zpe:0.2618,entropy:0.1011,freeEnergy:0.2317},
+      {path:'2-NO/ZPE',modes:[-54,271,412,665,1315,1830],zpe:null,entropy:null,freeEnergy:null}
+    ];
+    const esc = (value) => String(value).replace(/[&<>"']/g,(char)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const fmt = (value,digits,unit) => value==null ? '<span class="measure missing">—</span>' : '<span class="measure">'+Number(value).toFixed(digits)+' '+unit+'</span>';
+    function treeOf(rows) {
+      const root={name:'',path:'',children:new Map(),item:null};
+      rows.forEach((row)=>{
+        const parts=row.path.split('/');
+        let node=root;
+        parts.forEach((name,index)=>{
+          if(!node.children.has(name))node.children.set(name,{name,path:parts.slice(0,index+1).join('/'),children:new Map(),item:null});
+          node=node.children.get(name);
+        });
+        node.item=row;
+      });
+      return root;
+    }
+    function treeHtml(node,leafHtml) {
+      const children=[...node.children.values()].sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+      if(!children.length)return node.item?'<div class="leaf" data-tree-parent="'+esc(node.path.split('/').slice(0,-1).join('/'))+'">'+leafHtml(node.item,node.name)+'</div>':'';
+      return '<details class="folder"><summary data-tree-path="'+esc(node.path)+'">'+esc(node.name)+'</summary><div class="children">'+(node.item?'<div class="leaf" data-tree-parent="'+esc(node.path)+'">'+leafHtml(node.item,'本目录')+'</div>':'')+children.map((child)=>treeHtml(child,leafHtml)).join('')+'</div></details>';
+    }
+    function energyLeaf(row,name,low,high) {
+      const pos=(row.energy-low)/(high-low)*100;
+      return '<button type="button" class="result-row energy-grid" data-task-path="'+esc(row.path)+'" title="在右侧查看 '+esc(row.path)+'"><span class="path">'+esc(name)+'</span><span class="track energy" aria-label="能量轴 '+low.toFixed(3)+' 至 '+high.toFixed(3)+' eV" data-min="'+low.toFixed(3)+'" data-max="'+high.toFixed(3)+'"><i class="dot" style="left:'+pos+'%" title="'+row.energy.toFixed(6)+' eV"></i></span>'+fmt(row.energy,6,'eV')+fmt(row.force,3,'eV/Å')+'<span class="measure">'+row.steps+'</span></button>';
+    }
+    function frequencyLeaf(row,name) {
+      const dots=row.modes.map((value,index)=>'<i class="dot '+(value<0?'imag':'')+'" style="left:'+((value+100)/2100*100)+'%" title="#'+(index+1)+' '+(value<0?'虚频 ':'')+Math.abs(value)+' cm⁻¹"></i>').join('');
+      return '<button type="button" class="result-row frequency-grid" data-task-path="'+esc(row.path)+'" title="在右侧查看 '+esc(row.path)+'"><span class="path">'+esc(name)+'</span><span class="track frequency">'+dots+'</span><span class="measure">'+row.modes.length+' 模</span>'+fmt(row.zpe,4,'eV')+fmt(row.entropy,4,'meV/K')+fmt(row.freeEnergy,4,'eV')+'</button>';
+    }
+    function renderRelax() {
+      const parentOf=(row)=>row.path.split('/').slice(0,-1).join('/');
+      const parents=[...new Set(relax.map(parentOf))];
+      const axes=new Map(parents.map((parent)=>{
+        const rows=relax.filter((row)=>parentOf(row)===parent);
+        const values=rows.map((row)=>row.energy);
+        return [parent,{low:Math.min(...values)-0.002,high:Math.max(...values)+0.002}];
+      }));
+      const tree=treeOf(relax);
+      document.getElementById('relax-plot').innerHTML='<div class="column-head energy-grid"><span>任务目录</span><span>能量轴 · 同父目录</span><span>末步 F</span><span>最大力</span><span>步数</span></div><details class="folder" open><summary data-tree-path="">根目录 · '+relax.length+' 个任务</summary><div class="children">'+[...tree.children.values()].map((node)=>treeHtml(node,(row,name)=>{const axis=axes.get(parentOf(row));return energyLeaf(row,name,axis.low,axis.high)})).join('')+'</div></details>';
+    }
+    function renderFrequency() {
+      const tree=treeOf(frequency);
+      document.getElementById('frequency-plot').innerHTML='<div class="column-head frequency-grid"><span>任务目录</span><span>模式位置</span><span>模式数</span><span title="零点能；有虚频时不自动给确定值">ZPE</span><span title="298.15 K 的振动熵，不是总熵">S<sub>vib</sub></span><span title="298.15 K 的振动自由能项，不是完整 Gibbs 自由能">F<sub>vib</sub></span></div><div class="axis-row frequency-grid"><span></span><span class="axis"><span>-100</span><span>0</span><span>1000</span><span>2000</span></span><span></span><span></span><span>meV/K</span><span>eV</span></div>'+[...tree.children.values()].map((node)=>treeHtml(node,frequencyLeaf)).join('');
+    }
+    function updateBreadcrumb(shell) {
+      const view=shell.querySelector('.plot-viewport');
+      const label=shell.querySelector('.breadcrumb');
+      const top=view.getBoundingClientRect().top+1+(label.hidden?0:label.getBoundingClientRect().height);
+      const entries=[...view.querySelectorAll('[data-tree-path],[data-tree-parent]')];
+      const visible=(entry)=>{
+        let folder=entry.parentElement.closest('details.folder');
+        if(entry.dataset.treePath!==undefined&&folder===entry.parentElement)folder=folder.parentElement.closest('details.folder');
+        for(;folder;folder=folder.parentElement.closest('details.folder'))if(!folder.open)return false;
+        return true;
+      };
+      const current=entries.find((entry)=>visible(entry)&&entry.getBoundingClientRect().height>0&&entry.getBoundingClientRect().bottom>top);
+      const full=current?.dataset.treeParent??current?.dataset.treePath??'';
+      const parts=full.split('/').filter(Boolean);
+      if(current?.dataset.treePath!==undefined&&(!current.parentElement.open||current.getBoundingClientRect().top>=top))parts.pop();
+      const off=[];
+      parts.forEach((part,index)=>{
+        const path=parts.slice(0,index+1).join('/');
+        const heading=entries.find((entry)=>entry.dataset.treePath===path);
+        if(heading?.parentElement.open&&heading.getBoundingClientRect().top<top)off.push(part);
+      });
+      label.textContent=off.join('/');
+      label.hidden=!off.length;
+      if(off.length&&!label.dataset.visible){label.dataset.visible='1';requestAnimationFrame(()=>updateBreadcrumb(shell));}
+      if(!off.length)delete label.dataset.visible;
+    }
+    function openDemoTask(path) {
+      const row=relax.find((item)=>item.path===path)??frequency.find((item)=>item.path===path);
+      if(!row)return;
+      const dock=document.getElementById('task-dock');
+      dock.querySelector('[data-role="path"]').textContent=row.path;
+      dock.querySelector('[data-role="values"]').textContent='energy' in row
+        ? row.formula+' · 末步 F：'+row.energy.toFixed(6)+' eV · 最大力：'+(row.force==null?'—':row.force.toFixed(3)+' eV/Å')+' · '+row.steps+' 离子步'
+        : row.modes.length+' 个模式 · ZPE：'+(row.zpe==null?'—':row.zpe.toFixed(4)+' eV');
+      dock.hidden=false;
+    }
+    renderRelax();
+    renderFrequency();
+    document.querySelector('.dock-close').addEventListener('click',()=>{document.getElementById('task-dock').hidden=true;});
+    document.querySelectorAll('.tool').forEach((card)=>{
+      const shell=card.querySelector('.plot-shell');
+      const view=shell.querySelector('.plot-viewport');
+      view.addEventListener('scroll',()=>updateBreadcrumb(shell),{passive:true});
+      view.addEventListener('click',(event)=>{
+        const taskRow=event.target.closest('.result-row[data-task-path]');
+        if(taskRow){openDemoTask(taskRow.dataset.taskPath);return;}
+        const summary=event.target.closest('summary[data-tree-path]');
+        if(!summary)return;
+        event.preventDefault();
+        let folder=summary.parentElement;
+        const opening=!folder.open;
+        folder.open=opening;
+        if(opening){
+          while(true){
+            const content=folder.querySelector(':scope > .children');
+            const directTasks=content.querySelectorAll(':scope > .leaf').length;
+            const directFolders=content.querySelectorAll(':scope > .folder');
+            if(directTasks||directFolders.length!==1)break;
+            folder=directFolders[0];
+            folder.open=true;
+          }
+        }else folder.querySelectorAll('details.folder').forEach((child)=>{child.open=false;});
+        requestAnimationFrame(()=>updateBreadcrumb(shell));
+      });
+      const button=card.querySelector('.collapse');
+      button.addEventListener('click',()=>{
+        const body=card.querySelector('.body');
+        body.hidden=!body.hidden;
+        button.setAttribute('aria-expanded',String(!body.hidden));
+        button.querySelector('span').textContent=body.hidden?'▸':'▾';
+      });
+      updateBreadcrumb(shell);
+    });
+  </script>
+</body>
+</html>
