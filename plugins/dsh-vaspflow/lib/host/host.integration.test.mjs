@@ -7,7 +7,7 @@ import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { apply } from '../index.js';
 import * as vaspPresetTools from '../../preset/vasp/tools/vaspflow-tools.mjs';
 
@@ -561,6 +561,55 @@ test('path-based convergence and structure tools work without a task id or prior
   assert.equal(structureResult.error, '');
   assert.equal(structureResult.results[0].rel_path, '1-NO3-Cu111');
   assert.ok(structureResult.results[0].atoms.length > 0);
+});
+
+test('structure tool reads NEB images and standalone files without local task inputs', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-neb-scene-'));
+  const outside = mkdtempSync(join(tmpdir(), 'vfp-outside-scene-'));
+  try {
+    const image = join(root, 'neb', '02');
+    mkdirSync(image, { recursive: true });
+    mkdirSync(join(root, 'sources'));
+    for (const name of ['INCAR', 'KPOINTS', 'POTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(root, 'neb', name));
+    for (const name of ['POSCAR', 'CONTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(image, name));
+    copyFileSync(join(SAMPLE_TASK, 'POSCAR'), join(root, 'sources', 'sample.vasp'));
+    copyFileSync(join(SAMPLE_TASK, 'POSCAR'), join(outside, 'POSCAR'));
+    const { ctx, services, registered } = makeFakeCtx();
+    apply(ctx, {});
+    services.get('vaspflowTools').register(ctx);
+    const structure = registered.find((tool) => tool.name === 'vasp_structure_scene');
+    const result = await structure.execute({ rootPath: root, structures: [
+      { relPath: 'neb/02', file: 'POSCAR' }, { relPath: 'neb/02' },
+      { relPath: 'sources', file: 'sample.vasp' }, { relPath: 'neb/02', file: 'missing.vasp' },
+      { relPath: relative(root, outside), file: 'POSCAR' }, { relPath: 'neb/02', file: relative(image, join(outside, 'POSCAR')) },
+    ] }, {});
+    assert.equal(result.error, '');
+    for (const row of result.results.slice(0, 3)) {
+      assert.equal(row.error, '');
+      assert.ok(row.atoms.length > 0);
+    }
+    assert.match(result.results[3].error, /未找到结构文件/);
+    assert.match(result.results[4].error, /结构目录必须位于项目根目录内/);
+    assert.match(result.results[5].error, /结构文件必须位于项目根目录内/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('structure tool accepts 20 references and rejects 21', async () => {
+  const { ctx, services, registered } = makeFakeCtx();
+  apply(ctx, {});
+  services.get('vaspflowTools').register(ctx);
+  const tool = registered.find((tool) => tool.name === 'vasp_structure_scene');
+  const structures = Array.from({ length: 20 }, () => ({ relPath: '1-NO3-Cu111', file: 'POSCAR' }));
+  const result = await tool.execute({ rootPath: SAMPLE_ROOT, structures }, {});
+  assert.equal(result.error, '');
+  assert.equal(result.results.length, 20);
+  assert.ok(result.results.every((row) => !row.error && row.atoms.length > 0));
+  const overflow = await tool.execute({ rootPath: SAMPLE_ROOT, structures: [...structures, structures[0]] }, {});
+  assert.match(overflow.error, /1–20/);
+  assert.equal(overflow.results.length, 0);
 });
 
 test('convergence and structure tools return separate cross-task result panes', async () => {

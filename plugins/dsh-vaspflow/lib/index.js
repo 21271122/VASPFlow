@@ -43,7 +43,7 @@ import { srcInspect } from './host/src-inspect.js';
 import { scanTemplates } from './host/scan-templates.js';
 import { fileURLToPath } from 'node:url';
 import { join as joinPath, basename, dirname, resolve as resolvePath, relative as relativePath, isAbsolute, sep } from 'node:path';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, realpathSync } from 'node:fs';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -486,12 +486,12 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
 
   ctx.tools.register(defineTool({
     name: 'vasp_structure_scene',
-    description: '读取 1–12 个结构文件并直接在对话中显示 3D 场景；可跨任务比较，每个结构独立标签页。',
+    description: '读取 1–20 个结构文件并直接在对话中显示 3D 场景；支持 NEB image 目录和独立结构文件，无需目录内存在完整 VASP 输入；每个结构独立标签页。',
     parameters: {
       rootPath: { type: 'string', required: true, description: '项目根目录绝对路径。' },
       structures: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
-        relPath: { type: 'string', required: true }, file: { type: 'string', description: '结构文件名，默认 CONTCAR。' },
-      } }, description: '1–12 个结构引用，可来自不同任务，也可比较同一任务不同文件。' },
+        relPath: { type: 'string', required: true, description: '相对项目根目录的结构所在目录，可为 NEB image 或普通目录。' }, file: { type: 'string', description: '结构文件名，默认 CONTCAR。' },
+      } }, description: '1–20 个结构引用，可来自不同任务，也可比较同一任务不同文件。' },
     },
     output: {
       schema: {
@@ -515,16 +515,25 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
       const rootError = directoryError(args.rootPath);
       if (rootError) return { root_path: args.rootPath, results: [], error: rootError };
       const structures = args.structures ?? [];
-      if (structures.length < 1 || structures.length > 12) return { root_path: args.rootPath, results: [], error: '请提供 1–12 个结构' };
+      if (structures.length < 1 || structures.length > 20) return { root_path: args.rootPath, results: [], error: '请提供 1–20 个结构' };
       const results = structures.map(({ relPath, file = 'CONTCAR' }) => {
-        const info = taskAtPath(args.rootPath, relPath);
-        if (!info) return { rel_path: relPath, file, error: '未找到 VASP 任务' };
-        const filePath = resolveTaskFile(info, file);
-        if (!filePath) return { rel_path: info.rel_path, file, error: '未找到结构文件' };
         try {
+          const root = resolvePath(args.rootPath);
+          const directory = resolvePath(root, String(relPath ?? '.').replace(/\\/g, '/'));
+          const relative = relativePath(root, directory);
+          if (isAbsolute(relative) || relative === '..' || relative.startsWith(`..${sep}`)) {
+            return { rel_path: relPath, file, error: '结构目录必须位于项目根目录内' };
+          }
+          const info = { root_path: root, rel_path: normalizeRelPath(relative) };
+          const filePath = resolveTaskFile(info, file);
+          if (!filePath) return { rel_path: info.rel_path, file, error: '未找到结构文件' };
+          const realRelative = relativePath(realpathSync(root), realpathSync(filePath));
+          if (isAbsolute(realRelative) || realRelative === '..' || realRelative.startsWith(`..${sep}`)) {
+            return { rel_path: info.rel_path, file, error: '结构文件必须位于项目根目录内' };
+          }
           return { ...getStructureScene(filePath, { includeConnectivity: true, bondAlgorithm: 'minimum-distance' }), rel_path: info.rel_path, file, error: '' };
         } catch (caught) {
-          return { rel_path: info.rel_path, file, error: `结构解析失败：${String(caught)}` };
+          return { rel_path: relPath, file, error: `结构解析失败：${String(caught)}` };
         }
       });
       return { root_path: args.rootPath, results, error: '' };

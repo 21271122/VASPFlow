@@ -104,3 +104,29 @@ test('preset middleware retries through the LLM service once', async () => {
   assert.equal(requests, 1);
   assert.deepEqual(seen, [call('vasp_scan'), finish]);
 });
+
+test('provider errors and cancellations preserve the failure and discard partial content', async () => {
+  for (const kind of ['error', 'aborted']) {
+    const failed = { type: 'finish', reason: { kind, failure: {
+      code: kind === 'error' ? 'INVALID_CREDENTIAL' : 'ABORTED',
+      message: kind === 'error' ? 'Authentication failed' : 'Request cancelled',
+      details: { status: 401 },
+    } } };
+    const seen = [];
+    let retries = 0;
+    for await (const chunk of gateStream(options, stream([
+      { type: 'text-delta', index: 0, text: 'partial response' }, call('vasp_scan', 1), failed,
+    ]), () => { retries++; return stream([]); })) seen.push(chunk);
+    assert.deepEqual(seen, [failed]);
+    assert.equal(seen[0], failed);
+    assert.equal(retries, 0);
+  }
+});
+
+test('a provider failure during protocol recovery is also passed to DSH unchanged', async () => {
+  const invalid = [{ type: 'text-delta', index: 0, text: '正文' }, { type: 'finish', reason: { kind: 'stop' } }];
+  const failed = { type: 'finish', reason: { kind: 'error', failure: { code: 'NETWORK_ERROR', message: 'Connection failed' } } };
+  const seen = [];
+  for await (const chunk of gateStream(options, stream(invalid), () => stream([call('vasp_scan'), failed]))) seen.push(chunk);
+  assert.deepEqual(seen, [failed]);
+});

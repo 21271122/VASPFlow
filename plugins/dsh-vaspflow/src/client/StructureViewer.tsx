@@ -3,7 +3,7 @@
  * (three.js direct, no react-three-fiber): orthographic camera, atom spheres,
  * bonds, unit cell, orbit/pan/zoom, camera memory, structure file tabs.
  */
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Spin, Empty, Tabs, Tooltip, Button, Popover, Radio, Select, Slider, Switch } from 'antd';
@@ -175,6 +175,7 @@ const StructureViewer: React.FC<{ taskId?: number; rootPath?: string; relPath?: 
   const [structure, setStructure] = useState<ViewerStructure | null>(() => inlineScene ? structureSceneToViewerStructure(inlineScene) : null);
   const [loading, setLoading] = useState(!inlineScene);
   const [error, setError] = useState<string | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
   const [showBonds, setShowBonds] = useState(true);
   const [showCell, setShowCell] = useState(true);
   const [displayStyle, setDisplayStyle] = useState<'ball-stick' | 'space-fill'>('ball-stick');
@@ -197,10 +198,11 @@ const StructureViewer: React.FC<{ taskId?: number; rootPath?: string; relPath?: 
   const orientRef = useRef<((axis: 0 | 1 | 2) => void) | null>(null);
 
   // --- three.js scene lifecycle -------------------------------------------
-  useEffect(() => {
+  useLayoutEffect(() => {
     const mount = mountRef.current;
-    if (!mount) return;
+    if (!mount || !active) return;
     setWheelActive(false);
+    setRenderError(null);
 
     const scene = new THREE.Scene();
     // Opaque theme-adaptive background so the panel is dark in dark mode even
@@ -214,7 +216,20 @@ const StructureViewer: React.FC<{ taskId?: number; rootPath?: string; relPath?: 
     camera.zoom = 1;
     camera.updateProjectionMatrix();
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    } catch {
+      setRenderError('无法创建 3D 视图，请点击复位重试');
+      return;
+    }
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      setRenderError('3D 图形上下文已中断，请点击复位重试');
+    };
+    const onContextRestored = () => setRenderError(null);
+    renderer.domElement.addEventListener('webglcontextlost', onContextLost);
+    renderer.domElement.addEventListener('webglcontextrestored', onContextRestored);
     renderer.setClearColor(scene.background as THREE.Color, 1);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(mount.clientWidth, mount.clientHeight);
@@ -487,15 +502,15 @@ const StructureViewer: React.FC<{ taskId?: number; rootPath?: string; relPath?: 
       link.click();
     };
 
+    let animationFrame = 0;
     const animate = () => {
       if (disposed) return;
-      if (activeRef.current) {
+      if (activeRef.current && !renderer.getContext().isContextLost()) {
         controls.update();
         renderer.render(scene, camera);
       }
-      requestAnimationFrame(animate);
+      animationFrame = requestAnimationFrame(animate);
     };
-    animate();
 
     const onResize = () => {
       const w = mount.clientWidth || 300;
@@ -568,9 +583,11 @@ const StructureViewer: React.FC<{ taskId?: number; rootPath?: string; relPath?: 
       rebuild(visibleStruct);
       if (!restored) fitView(visibleStruct);
     }
+    animate();
 
     return () => {
       disposed = true;
+      cancelAnimationFrame(animationFrame);
       themeObserver.disconnect();
       resizeObserver.disconnect();
       controls.removeEventListener('start', markTouched);
@@ -588,11 +605,14 @@ const StructureViewer: React.FC<{ taskId?: number; rootPath?: string; relPath?: 
       orientRef.current = null;
       clearObjects();
       scene.remove(structureGroup);
+      renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
+      renderer.domElement.removeEventListener('webglcontextrestored', onContextRestored);
       renderer.dispose();
+      renderer.forceContextLoss();
       mount.removeChild(renderer.domElement);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskId, activeFile, structure, sceneNonce]);
+  }, [taskId, activeFile, structure, sceneNonce, active]);
 
   useEffect(() => { applySettingsRef.current?.(); }, [showBonds, showCell, showPeriodicImages, atomScale, bondScale, displayStyle, backgroundMode]);
   useEffect(() => { applySettingsRef.current?.(true); }, [repeat]);
@@ -792,9 +812,9 @@ const StructureViewer: React.FC<{ taskId?: number; rootPath?: string; relPath?: 
         {loading && (
           <Spin style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 20 }} />
         )}
-        {!loading && error && (
+        {!loading && (error || renderError) && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Empty description={error} />
+            <Empty description={error || renderError} />
           </div>
         )}
       </div>

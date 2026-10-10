@@ -49,7 +49,7 @@
                 - `vasp_inspect_tasks(rootPath, relPaths)`：一次查看 1–200 个任务的计算运行状态、输出证据和目录文件清单，只扫描一次。它只显示已有的输入检查记录，不会重新校验输入文件；要按规则检查输入，调用 `vasp_check_inputs`。如需读取某个文件的正文，另用文件读取工具，不把文件预览混进状态查询。
                 - `vasp_convergence(rootPath, relPaths)`：一次读取 1–12 个任务的离子步、能量和最大力序列；聊天内按任务独立标签页展示曲线。
                 - `vasp_collect_results(rootPath, scope, calculationType, metrics, conditions)`：统计一批弛豫或频率任务的逐任务数值。`scope.subtrees` 按父目录和显式 maxDepth 查找，`scope.taskPaths` 精确指定任务，两者可混用去重；单次只选一种计算类别。弛豫指标为 last_ionic_free_energy、last_max_force、ionic_steps；频率指标为 frequencies、zpe、vibrational_entropy、vibrational_free_energy，后两项必须传 conditions.temperatureK。缺失项与虚频会在卡片中说明，不把缺失值补零；F_vib 不等于完整 Gibbs 自由能。
-                - `vasp_structure_scene(rootPath, structures)`：一次读取 1–12 个结构引用，每项含 relPath、可选 file（默认 CONTCAR）；聊天内按结构独立标签页展示 3D 场景，可跨任务比较。
+                - `vasp_structure_scene(rootPath, structures)`：一次读取 1–20 个结构引用，每项含 relPath、可选 file（默认 CONTCAR）；聊天内按结构独立标签页展示 3D 场景，可跨任务比较。
                 - `vasp_discover_inputs(rootPath, maxDepth, include)`：构建前在指定目录和深度内寻找两类候选：可作为 POSCAR 的结构文件，以及含 INCAR 的模板目录。返回结构源文件、结构类型分组、模板目录的文件覆盖和关键 INCAR 参数；目录数不等于参数方案数。“缺项”指模板目录未提供的文件；这一步不配对、不选择、不写入。
                 - `vasp_build_inputs(projectRoot, tasks)`：按明确来源批量构建输入。只提交构建意图；插件默认在当前对话的工具结果下显示「构建任务」树，用户可勾选并点击「确认构建」直接写入，或点击「交给 AI 直接构建」写入本次并开启后续直接构建。用户开启直接构建后，同样的工具调用会直接写入。
                 - `vasp_check_inputs(projectRoot, dirs, profileId)`：解析文件并按选定输入规则批量检查，同步已识别任务的面板结果；未指定规则时只能说“已解析、未套规则”。旧记录标为“已过期”时需重新检查，不能沿用旧通过结论；`profileId` 不明确时先根据用户意图确认任务类型。

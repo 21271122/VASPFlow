@@ -65,16 +65,20 @@ function isJsonObject(raw) {
 export async function* gateStream(options, stream, retry) {
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
+  const terminal = chunks.findLast((chunk) => chunk.type === 'finish');
+  // Provider failures belong to DSH's error/retry handling. Discard partial
+  // content, but preserve the original failure code and diagnostic details.
+  if (terminal?.reason.kind === 'error' || terminal?.reason.kind === 'aborted') {
+    yield terminal;
+    return;
+  }
   try {
     validateCandidate(options, chunks);
   } catch (error) {
     const finish = chunks.findLast((chunk) => chunk.type === 'finish')?.reason;
     if (!retry || options.signal?.aborted || (finish?.kind !== 'stop' && finish?.kind !== 'tool-calls')) throw error;
     const retryOptions = { ...options, system: `${options.system ?? ''}\n\n${RECOVERY_INSTRUCTION}`, [RECOVERY]: true };
-    const retried = [];
-    for await (const chunk of retry(retryOptions)) retried.push(chunk);
-    validateCandidate(retryOptions, retried);
-    yield* retried;
+    yield* gateStream(retryOptions, retry(retryOptions));
     return;
   }
   yield* chunks;

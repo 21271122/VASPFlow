@@ -99735,6 +99735,7 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
   const [structure, setStructure] = (0, import_react166.useState)(() => inlineScene ? structureSceneToViewerStructure(inlineScene) : null);
   const [loading, setLoading] = (0, import_react166.useState)(!inlineScene);
   const [error, setError] = (0, import_react166.useState)(null);
+  const [renderError, setRenderError] = (0, import_react166.useState)(null);
   const [showBonds, setShowBonds] = (0, import_react166.useState)(true);
   const [showCell, setShowCell] = (0, import_react166.useState)(true);
   const [displayStyle, setDisplayStyle] = (0, import_react166.useState)("ball-stick");
@@ -99755,10 +99756,11 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
   const applySettingsRef = (0, import_react166.useRef)(null);
   const exportImageRef = (0, import_react166.useRef)(null);
   const orientRef = (0, import_react166.useRef)(null);
-  (0, import_react166.useEffect)(() => {
+  (0, import_react166.useLayoutEffect)(() => {
     const mount = mountRef.current;
-    if (!mount) return;
+    if (!mount || !active) return;
     setWheelActive(false);
+    setRenderError(null);
     const scene = new Scene();
     scene.background = new Color3(sceneBackgroundColor(settingsRef.current.backgroundMode));
     const WORLD_HALF = 20;
@@ -99766,7 +99768,20 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
     camera.position.set(0, 0, 100);
     camera.zoom = 1;
     camera.updateProjectionMatrix();
-    const renderer = new WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    let renderer;
+    try {
+      renderer = new WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    } catch {
+      setRenderError("\u65E0\u6CD5\u521B\u5EFA 3D \u89C6\u56FE\uFF0C\u8BF7\u70B9\u51FB\u590D\u4F4D\u91CD\u8BD5");
+      return;
+    }
+    const onContextLost = (event) => {
+      event.preventDefault();
+      setRenderError("3D \u56FE\u5F62\u4E0A\u4E0B\u6587\u5DF2\u4E2D\u65AD\uFF0C\u8BF7\u70B9\u51FB\u590D\u4F4D\u91CD\u8BD5");
+    };
+    const onContextRestored = () => setRenderError(null);
+    renderer.domElement.addEventListener("webglcontextlost", onContextLost);
+    renderer.domElement.addEventListener("webglcontextrestored", onContextRestored);
     renderer.setClearColor(scene.background, 1);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(mount.clientWidth, mount.clientHeight);
@@ -100013,15 +100028,15 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
       link.download = `${(activeFile || inlineLabel || "structure").split(/[\\/]/).at(-1)}.png`;
       link.click();
     };
+    let animationFrame = 0;
     const animate = () => {
       if (disposed) return;
-      if (activeRef.current) {
+      if (activeRef.current && !renderer.getContext().isContextLost()) {
         controls.update();
         renderer.render(scene, camera);
       }
-      requestAnimationFrame(animate);
+      animationFrame = requestAnimationFrame(animate);
     };
-    animate();
     const onResize2 = () => {
       const w = mount.clientWidth || 300;
       const h = mount.clientHeight || 300;
@@ -100078,8 +100093,10 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
       rebuild(visibleStruct);
       if (!restored) fitView(visibleStruct);
     }
+    animate();
     return () => {
       disposed = true;
+      cancelAnimationFrame(animationFrame);
       themeObserver.disconnect();
       resizeObserver2.disconnect();
       controls.removeEventListener("start", markTouched);
@@ -100097,10 +100114,13 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
       orientRef.current = null;
       clearObjects();
       scene.remove(structureGroup);
+      renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
+      renderer.domElement.removeEventListener("webglcontextrestored", onContextRestored);
       renderer.dispose();
+      renderer.forceContextLoss();
       mount.removeChild(renderer.domElement);
     };
-  }, [taskId, activeFile, structure, sceneNonce]);
+  }, [taskId, activeFile, structure, sceneNonce, active]);
   (0, import_react166.useEffect)(() => {
     applySettingsRef.current?.();
   }, [showBonds, showCell, showPeriodicImages, atomScale, bondScale, displayStyle, backgroundMode]);
@@ -100345,7 +100365,7 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
         },
         children: [
           loading && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(spin_default, { style: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 20 } }),
-          !loading && error && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(empty_default2, { description: error }) })
+          !loading && (error || renderError) && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(empty_default2, { description: error || renderError }) })
         ]
       },
       sceneNonce
