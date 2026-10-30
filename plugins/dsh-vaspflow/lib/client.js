@@ -59582,7 +59582,7 @@ function markDifferences(left, right) {
 var PREVIEW_LINES = 140;
 function FilePane({ step, role, path: path3, displayPath, state, changed, soft }) {
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", "data-loading": !state ? "" : void 0, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-side-head", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-step", children: step }),
@@ -100978,6 +100978,7 @@ function BuildPreviewDetail({ detail }) {
   }));
   const [hoverSlot, setHoverSlot] = (0, import_react169.useState)(null);
   const [pinnedSlot, setPinnedSlot] = (0, import_react169.useState)(null);
+  const [placement, setPlacement] = (0, import_react169.useState)("left");
   const hoverTimer = (0, import_react169.useRef)(null);
   const cancelHoverClose = (0, import_react169.useCallback)(() => {
     if (hoverTimer.current !== null) {
@@ -100993,6 +100994,16 @@ function BuildPreviewDetail({ detail }) {
     }, 200);
   }, [cancelHoverClose]);
   (0, import_react169.useEffect)(() => () => cancelHoverClose(), [cancelHoverClose]);
+  const openCard = (0, import_react169.useCallback)((slotKey, row) => {
+    const rect = row?.getBoundingClientRect();
+    if (rect) {
+      const roomBelow = window.innerHeight - rect.top;
+      const roomAbove = rect.bottom;
+      setPlacement(roomBelow >= 540 ? "leftTop" : roomAbove >= 540 ? "leftBottom" : "left");
+    }
+    cancelHoverClose();
+    setHoverSlot(slotKey);
+  }, [cancelHoverClose]);
   (0, import_react169.useEffect)(() => {
     setHoverSlot(null);
     setPinnedSlot(null);
@@ -101065,15 +101076,14 @@ function BuildPreviewDetail({ detail }) {
             trigger: [],
             open,
             destroyTooltipOnHide: true,
-            placement: "leftTop",
-            align: { offset: [0, -6] },
+            placement,
+            align: { offset: [0, -6], overflow: { adjustX: true, adjustY: true } },
             overlayClassName: "vfp-cmp-popover",
             content: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
               "div",
               {
                 onMouseEnter: () => {
                   cancelHoverClose();
-                  setHoverSlot(slot.key);
                 },
                 onMouseLeave: scheduleHoverClose,
                 children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
@@ -101098,12 +101108,12 @@ function BuildPreviewDetail({ detail }) {
                 "data-vfp-source-row": slot.key,
                 "data-pinned": pinnedSlot === slot.key ? "" : void 0,
                 title: slot.path || slot.rel || "\u672A\u63D0\u4F9B",
-                onMouseEnter: () => {
-                  cancelHoverClose();
-                  setHoverSlot(slot.key);
-                },
+                onMouseEnter: (event) => openCard(slot.key, event.currentTarget),
                 onMouseLeave: scheduleHoverClose,
-                onClick: () => setPinnedSlot((current) => current === slot.key ? null : slot.key),
+                onClick: (event) => {
+                  openCard(slot.key, event.currentTarget);
+                  setPinnedSlot((current) => current === slot.key ? null : slot.key);
+                },
                 children: [
                   /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-name", children: slot.label }),
                   /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-badge", "data-origin": slot.origin, children: originLabel(slot.origin) }),
@@ -102094,7 +102104,7 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 /* Hover drill-down: the two candidate files side by side, then where the
    adopted file lives. */
 .vfp-cmp-popover .ant-popover-inner { padding:12px 14px; max-height:calc(100vh - 32px); overflow:hidden; }
-.vfp-cmp { display:grid; gap:10px; width:clamp(360px,46vw,560px); max-height:min(74vh,640px); overflow:auto; font-size:12px; }
+.vfp-cmp { display:grid; gap:10px; width:clamp(360px,46vw,560px); max-height:min(66vh,540px); overflow:auto; font-size:12px; }
 .vfp-cmp-head { display:flex; align-items:baseline; gap:8px; }
 .vfp-cmp-head strong { font-size:13px; }
 .vfp-cmp-origin { color:var(--vfp-muted); }
@@ -102102,6 +102112,8 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-cmp-same { margin-left:auto; color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
 .vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:6px; overflow:hidden; background:var(--vfp-surface); }
+/* Reserve the loaded height while reading, so the card is positioned once, at its real size. */
+.vfp-cmp-side[data-loading] { min-height:214px; }
 .vfp-cmp-side>header { display:grid; gap:2px; padding:5px 8px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
 .vfp-cmp-side-head { display:flex; align-items:baseline; gap:6px; }
 .vfp-cmp-step { flex:none; padding:0 5px; border-radius:3px; background:var(--vfp-surface); border:1px solid var(--vfp-line); color:var(--vfp-text); font-size:11px; line-height:16px; }

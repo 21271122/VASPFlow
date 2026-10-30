@@ -142,7 +142,7 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 /* Hover drill-down: the two candidate files side by side, then where the
    adopted file lives. */
 .vfp-cmp-popover .ant-popover-inner { padding:12px 14px; max-height:calc(100vh - 32px); overflow:hidden; }
-.vfp-cmp { display:grid; gap:10px; width:clamp(360px,46vw,560px); max-height:min(74vh,640px); overflow:auto; font-size:12px; }
+.vfp-cmp { display:grid; gap:10px; width:clamp(360px,46vw,560px); max-height:min(66vh,540px); overflow:auto; font-size:12px; }
 .vfp-cmp-head { display:flex; align-items:baseline; gap:8px; }
 .vfp-cmp-head strong { font-size:13px; }
 .vfp-cmp-origin { color:var(--vfp-muted); }
@@ -150,6 +150,8 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-cmp-same { margin-left:auto; color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
 .vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:6px; overflow:hidden; background:var(--vfp-surface); }
+/* Reserve the loaded height while reading, so the card is positioned once, at its real size. */
+.vfp-cmp-side[data-loading] { min-height:214px; }
 .vfp-cmp-side>header { display:grid; gap:2px; padding:5px 8px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
 .vfp-cmp-side-head { display:flex; align-items:baseline; gap:6px; }
 .vfp-cmp-step { flex:none; padding:0 5px; border-radius:3px; background:var(--vfp-surface); border:1px solid var(--vfp-line); color:var(--vfp-text); font-size:11px; line-height:16px; }

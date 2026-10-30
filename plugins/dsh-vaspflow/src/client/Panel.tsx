@@ -104,6 +104,8 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
   /** Hover previews; a click pins the card so it survives the pointer leaving. */
   const [hoverSlot, setHoverSlot] = useState<string | null>(null);
   const [pinnedSlot, setPinnedSlot] = useState<string | null>(null);
+  /** Opens toward whichever side of the row has room, so the card never runs off screen. */
+  const [placement, setPlacement] = useState<'leftTop' | 'leftBottom' | 'left'>('left');
   /** Small grace period so moving from the row into the card does not close it. */
   const hoverTimer = useRef<number | null>(null);
   const cancelHoverClose = useCallback(() => {
@@ -120,6 +122,16 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
     }, 200);
   }, [cancelHoverClose]);
   useEffect(() => () => cancelHoverClose(), [cancelHoverClose]);
+  const openCard = useCallback((slotKey: string, row: HTMLElement | null) => {
+    const rect = row?.getBoundingClientRect();
+    if (rect) {
+      const roomBelow = window.innerHeight - rect.top;
+      const roomAbove = rect.bottom;
+      setPlacement(roomBelow >= 540 ? 'leftTop' : roomAbove >= 540 ? 'leftBottom' : 'left');
+    }
+    cancelHoverClose();
+    setHoverSlot(slotKey);
+  }, [cancelHoverClose]);
   useEffect(() => { setHoverSlot(null); setPinnedSlot(null); }, [task.dir]);
   useEffect(() => {
     if (!pinnedSlot) return;
@@ -175,11 +187,11 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
               trigger={[]}
               open={open}
               destroyTooltipOnHide
-              placement="leftTop"
-              align={{ offset: [0, -6] }}
+              placement={placement}
+              align={{ offset: [0, -6], overflow: { adjustX: true, adjustY: true } }}
               overlayClassName="vfp-cmp-popover"
               content={<div
-                onMouseEnter={() => { cancelHoverClose(); setHoverSlot(slot.key); }}
+                onMouseEnter={() => { cancelHoverClose(); }}
                 onMouseLeave={scheduleHoverClose}
               >
                 <SourceCompare
@@ -199,9 +211,12 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
                 data-vfp-source-row={slot.key}
                 data-pinned={pinnedSlot === slot.key ? '' : undefined}
                 title={slot.path || slot.rel || '未提供'}
-                onMouseEnter={() => { cancelHoverClose(); setHoverSlot(slot.key); }}
+                onMouseEnter={(event) => openCard(slot.key, event.currentTarget)}
                 onMouseLeave={scheduleHoverClose}
-                onClick={() => setPinnedSlot((current) => (current === slot.key ? null : slot.key))}
+                onClick={(event) => {
+                  openCard(slot.key, event.currentTarget);
+                  setPinnedSlot((current) => (current === slot.key ? null : slot.key));
+                }}
               >
                 <span className="vfp-inherit-name">{slot.label}</span>
                 <span className="vfp-inherit-badge" data-origin={slot.origin}>{originLabel(slot.origin)}</span>

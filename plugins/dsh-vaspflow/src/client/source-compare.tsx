@@ -113,7 +113,7 @@ function FilePane({ step, role, path, displayPath, state, changed, soft }: {
 }) {
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
   return (
-    <section className="vfp-cmp-side">
+    <section className="vfp-cmp-side" data-loading={!state ? '' : undefined}>
       <header>
         <div className="vfp-cmp-side-head">
           <span className="vfp-cmp-step">{step}</span>
