@@ -59537,6 +59537,40 @@ async function readProjectFile(projectRoot, absolutePath) {
   pending.set(key, job);
   return job;
 }
+var INCAR_TAG_RE = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.+?)\s*(?:[#!].*)?$/;
+function applyIncarOverrides(incarText, overrides) {
+  const entries = Object.entries(overrides ?? {});
+  if (!entries.length) return incarText;
+  const escape2 = (value) => value.replace(/[.*+?^()|[\]\\]/g, "\\$&");
+  const lines = incarText.split(/\r?\n/).map((line2) => {
+    const segments = line2.split(";");
+    let touched = false;
+    for (let i = 0; i < segments.length; i += 1) {
+      for (const [key, value] of entries) {
+        const pattern6 = new RegExp("^\\s*" + escape2(key) + "\\s*=\\s*[^\\r\\n]*");
+        if (pattern6.test(segments[i])) {
+          segments[i] = segments[i].replace(pattern6, () => `${key} = ${String(value)}`);
+          touched = true;
+        }
+      }
+    }
+    return touched ? segments.join(";") : line2;
+  });
+  let out = lines.join("\n");
+  const declared = /* @__PURE__ */ new Set();
+  for (const raw of out.split(/\r?\n/)) {
+    for (const segment of raw.split(";")) {
+      const match2 = INCAR_TAG_RE.exec(segment);
+      if (match2) declared.add(match2[1]);
+    }
+  }
+  for (const [key, value] of entries) {
+    if (!declared.has(key)) out += `
+${key} = ${String(value)}
+`;
+  }
+  return out;
+}
 function markDifferences(left, right) {
   const n = left.length;
   const m = right.length;
@@ -59580,23 +59614,16 @@ function shortPath(projectRoot, absolutePath) {
   const prefix2 = dirs.length <= 2 ? dirs.join("/") : `\u2026/${dirs.slice(-2).join("/")}`;
   return `${prefix2}/${name}`;
 }
-function FilePane({ step, path: path3, dirLabel, state, changed }) {
-  const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", "data-side": step === "\u5C06\u5199\u5165" ? "write" : "reference", "data-loading": !state ? "" : void 0, children: [
+function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", "data-side": step === "\u5C06\u5199\u5165" ? "write" : "read", "data-loading": !lines && !error ? "" : void 0, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-step", children: step }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "vfp-cmp-dir", title: path3, children: dirLabel })
     ] }),
-    !state ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : state.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", "data-error": "", title: state.error, children: state.error }) : shown.length === 0 || shown.length === 1 && shown[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { children: shown.map((line2, index2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[index2] ? "" : void 0, children: [
+    error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", "data-error": "", title: error, children: error }) : !lines ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : lines.length === 0 || lines.length === 1 && lines[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { children: lines.slice(0, PREVIEW_LINES).map((line2, index2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[index2] ? "" : void 0, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { children: index2 + 1 }),
       line2 || " "
-    ] }, index2)) }),
-    state && !state.error && (state.lines.length > PREVIEW_LINES || state.truncated) && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-more", children: [
-      "\u5DF2\u622A\u65AD\u9884\u89C8\uFF1A\u5171 ",
-      state.lines.length,
-      " \u884C",
-      state.truncated ? "\uFF08\u6587\u4EF6\u66F4\u5927\uFF09" : ""
-    ] })
+    ] }, index2)) })
   ] });
 }
 function buildAddressTree(projectName, projectRoot, absolutePath) {
@@ -59620,54 +59647,43 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, adopted, templatePath, diskPath }) {
-  const [adoptedState, setAdoptedState] = import_react129.default.useState();
-  const [reference, setReference] = import_react129.default.useState(null);
+function SourceCompare({ projectRoot, projectName, slotLabel, source, incarOverrides, note: note2 }) {
+  const [state, setState] = import_react129.default.useState();
   import_react129.default.useEffect(() => {
     let cancelled = false;
-    void readProjectFile(projectRoot, adopted.path).then((value) => {
-      if (!cancelled) setAdoptedState(value);
+    setState(void 0);
+    void readProjectFile(projectRoot, source.path).then((value) => {
+      if (!cancelled) setState(value);
     });
-    const choose = async () => {
-      if (templatePath && templatePath.toLowerCase() !== adopted.path.toLowerCase()) {
-        const template = await readProjectFile(projectRoot, templatePath);
-        if (!cancelled && !template.error) {
-          setReference({ label: "\u6A21\u677F\u7248\u672C", path: templatePath, state: template });
-          return;
-        }
-      }
-      const disk = await readProjectFile(projectRoot, diskPath);
-      if (cancelled) return;
-      setReference(disk.error ? { label: "", path: "", state: disk } : { label: "\u76EE\u5F55\u73B0\u6709", path: diskPath, state: disk });
-    };
-    void choose();
     return () => {
       cancelled = true;
     };
-  }, [projectRoot, adopted.path, templatePath, diskPath]);
-  const referenceState = reference?.state;
-  const usable = Boolean(reference && reference.path && referenceState && !referenceState.error);
+  }, [projectRoot, source.path]);
+  const overrideCount = Object.keys(incarOverrides ?? {}).length;
+  const written = import_react129.default.useMemo(() => {
+    if (!state || state.error) return void 0;
+    if (!overrideCount) return state.lines;
+    const text = applyIncarOverrides(state.text, incarOverrides).replace(/\r\n?/g, "\n");
+    const lines = text.split("\n");
+    if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+    return lines;
+  }, [state, incarOverrides, overrideCount]);
   const marks = import_react129.default.useMemo(
-    () => adoptedState && usable && referenceState && !adoptedState.error ? markDifferences(referenceState.lines.slice(0, PREVIEW_LINES), adoptedState.lines.slice(0, PREVIEW_LINES)) : void 0,
-    [adoptedState, referenceState, usable]
+    () => state && !state.error && written ? markDifferences(state.lines.slice(0, PREVIEW_LINES), written.slice(0, PREVIEW_LINES)) : void 0,
+    [state, written]
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
   const delta = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : void 0;
   const addressTree = import_react129.default.useMemo(
-    () => buildAddressTree(projectName, projectRoot, adopted.path),
-    [projectName, projectRoot, adopted.path]
+    () => buildAddressTree(projectName, projectRoot, source.path),
+    [projectName, projectRoot, source.path]
   );
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: slotLabel }),
-      adoptedState && reference && (usable ? same ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-same", children: [
-        "\u4E0E",
-        reference.label,
-        "\u76F8\u540C"
-      ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
-        "\u4E0E",
-        reference.label,
-        "\u4E0D\u540C",
+      note2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
+      state?.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
+        "\u4E0E\u6765\u6E90\u4E0D\u540C",
         delta && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("em", { className: "vfp-cmp-delta", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
             "+",
@@ -59678,16 +59694,22 @@ function SourceCompare({ projectRoot, projectName, slotLabel, adopted, templateP
             delta.removed
           ] })
         ] })
-      ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u65E0\u53EF\u5BF9\u6BD4\u6587\u4EF6\uFF0C\u5C06\u65B0\u5EFA" }))
+      ] })),
+      overrideCount > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-note", children: [
+        "\u53C2\u6570\u8986\u76D6 ",
+        overrideCount,
+        " \u9879"
+      ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", "data-single": usable ? void 0 : "", children: [
-      usable && reference && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         FilePane,
         {
-          step: reference.label,
-          path: reference.path,
-          dirLabel: shortPath(projectRoot, reference.path),
-          state: referenceState,
+          step: "\u53C2\u8003\u6765\u6E90",
+          path: source.path,
+          dirLabel: shortPath(projectRoot, source.path),
+          lines: state?.lines,
+          error: state?.error,
           changed: marks?.left
         }
       ),
@@ -59695,9 +59717,9 @@ function SourceCompare({ projectRoot, projectName, slotLabel, adopted, templateP
         FilePane,
         {
           step: "\u5C06\u5199\u5165",
-          path: adopted.path,
-          dirLabel: shortPath(projectRoot, adopted.path),
-          state: adoptedState,
+          path: source.path,
+          dirLabel: shortPath(projectRoot, source.path),
+          lines: written,
           changed: marks?.right
         }
       )
@@ -101107,11 +101129,6 @@ function BuildPreviewDetail({ detail }) {
           slot.key
         );
         if (!slot.path) return row;
-        const destination = slot.key === "submit" ? basenameOf(task.submitSrc) : slot.key;
-        const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || ".")}/${destination}`);
-        const templateRoot = task.template ? /^[A-Za-z]:[\\/]/.test(task.template) ? toPosix(task.template).replace(/\//g, "\\") : absoluteTaskPath(projectRoot, toPosix(task.template)) : "";
-        const templateCandidate = slot.origin === "explicit" && slot.fromTemplate && templateRoot ? `${templateRoot}\\${destination}` : void 0;
-        const templateCopy = templateCandidate && templateCandidate.toLowerCase() !== slot.path.toLowerCase() ? templateCandidate : void 0;
         const open = hoverSlot === slot.key || pinnedSlot === slot.key;
         return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           popover_default,
@@ -101135,9 +101152,9 @@ function BuildPreviewDetail({ detail }) {
                     projectRoot,
                     projectName: basenameOf(projectRoot) || "\u9879\u76EE",
                     slotLabel: slot.label,
-                    adopted: { path: slot.path },
-                    templatePath: templateCopy,
-                    diskPath: diskCopy
+                    source: { path: slot.path },
+                    incarOverrides: slot.key === "INCAR" ? task.incarOverrides : void 0,
+                    note: slot.key === "POSCAR" && result?.sd ? `SD \u5C06\u6539\u5199\u4E3A ${result.sd}` : void 0
                   }
                 )
               }

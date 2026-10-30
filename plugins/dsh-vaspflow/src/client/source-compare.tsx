@@ -1,13 +1,11 @@
 /**
  * dsh-vaspflow client: source drill-down for the build inheritance ledger.
  *
- * The build flow is check → confirm → write, so the card has to be useful
- * *before* anything exists on disk. It therefore compares what will be written
- * against whatever is available to compare with:
- *
- *   override row        → 模板版本 (the file this task deviates from)
- *   inherit row         → 目录现有 (only when the task directory already has one)
- *   nothing to compare  → one full-width pane, marked 将新建
+ * Every row resolves to one source file. What lands in the task directory is
+ * that file — plus, for INCAR, the task's parameter overrides applied exactly
+ * the way the host applies them before writing. The card therefore always shows
+ * 参考来源 (the file on disk) next to 将写入 (that file after overrides): the
+ * difference a person checks before confirming the build.
  *
  * File contents come from the existing task routes: open-by-path registers any
  * existing directory, then file-content reads one file inside it. Results are
@@ -57,6 +55,45 @@ async function readProjectFile(projectRoot: string, absolutePath: string): Promi
   })();
   pending.set(key, job);
   return job;
+}
+
+const INCAR_TAG_RE = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.+?)\s*(?:[#!].*)?$/;
+
+/**
+ * Mirror of the host's applyIncarOverrides: replace tags in place (semicolon
+ * aware) and append tags the file does not declare yet. Kept in step with
+ * lib/host/input-builder.js so the preview matches what gets written.
+ */
+export function applyIncarOverrides(incarText: string, overrides?: Record<string, unknown>): string {
+  const entries = Object.entries(overrides ?? {});
+  if (!entries.length) return incarText;
+  const escape = (value: string) => value.replace(/[.*+?^()|[\]\\]/g, '\\$&');
+  const lines = incarText.split(/\r?\n/).map((line) => {
+    const segments = line.split(';');
+    let touched = false;
+    for (let i = 0; i < segments.length; i += 1) {
+      for (const [key, value] of entries) {
+        const pattern = new RegExp('^\\s*' + escape(key) + '\\s*=\\s*[^\\r\\n]*');
+        if (pattern.test(segments[i])) {
+          segments[i] = segments[i].replace(pattern, () => `${key} = ${String(value)}`);
+          touched = true;
+        }
+      }
+    }
+    return touched ? segments.join(';') : line;
+  });
+  let out = lines.join('\n');
+  const declared = new Set<string>();
+  for (const raw of out.split(/\r?\n/)) {
+    for (const segment of raw.split(';')) {
+      const match = INCAR_TAG_RE.exec(segment);
+      if (match) declared.add(match[1]);
+    }
+  }
+  for (const [key, value] of entries) {
+    if (!declared.has(key)) out += `\n${key} = ${String(value)}\n`;
+  }
+  return out;
 }
 
 /** Which lines of each side have no counterpart on the other side. */
@@ -109,40 +146,37 @@ function shortPath(projectRoot: string, absolutePath: string): string {
   return `${prefix}/${name}`;
 }
 
-function FilePane({ step, path, dirLabel, state, changed }: {
+function FilePane({ step, path, dirLabel, lines, changed, error }: {
   step: string;
   path: string;
   dirLabel: string;
-  state?: FileState;
+  lines?: string[];
   changed?: boolean[];
+  error?: string;
 }) {
-  const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
   return (
-    <section className="vfp-cmp-side" data-side={step === '将写入' ? 'write' : 'reference'} data-loading={!state ? '' : undefined}>
+    <section className="vfp-cmp-side" data-side={step === '将写入' ? 'write' : 'read'} data-loading={!lines && !error ? '' : undefined}>
       <header>
         <span className="vfp-cmp-step">{step}</span>
         <code className="vfp-cmp-dir" title={path}>{dirLabel}</code>
       </header>
-      {!state ? <div className="vfp-cmp-empty">读取中…</div>
-        : state.error ? <div className="vfp-cmp-empty" data-error="" title={state.error}>{state.error}</div>
-          : shown.length === 0 || (shown.length === 1 && shown[0] === '') ? <div className="vfp-cmp-empty">空文件</div>
+      {error ? <div className="vfp-cmp-empty" data-error="" title={error}>{error}</div>
+        : !lines ? <div className="vfp-cmp-empty">读取中…</div>
+          : lines.length === 0 || (lines.length === 1 && lines[0] === '') ? <div className="vfp-cmp-empty">空文件</div>
             : <pre>
-              {shown.map((line, index) => (
+              {lines.slice(0, PREVIEW_LINES).map((line, index) => (
                 <span key={index} className="vfp-cmp-line" data-changed={changed?.[index] ? '' : undefined}>
                   <i>{index + 1}</i>{line || ' '}
                 </span>
               ))}
             </pre>}
-      {state && !state.error && (state.lines.length > PREVIEW_LINES || state.truncated) && (
-        <div className="vfp-cmp-more">已截断预览：共 {state.lines.length} 行{state.truncated ? '（文件更大）' : ''}</div>
-      )}
     </section>
   );
 }
 
 type PathNode = { title: React.ReactNode; key: string; icon?: React.ReactNode; children?: PathNode[] };
 
-/** Where the written file comes from: project → directories → file. */
+/** Where the source file lives: project → directories → file. */
 function buildAddressTree(projectName: string, projectRoot: string, absolutePath: string): PathNode[] {
   const parts = toPosix(projectRelative(projectRoot, absolutePath)).split('/').filter(Boolean);
   const file = parts.at(-1) ?? '';
@@ -171,69 +205,60 @@ export type SourceCompareProps = {
   projectRoot: string;
   projectName: string;
   slotLabel: string;
-  /** The file the build will write into the task directory. */
-  adopted: { path: string };
-  /** Template copy, when this task overrides it. */
-  templatePath?: string;
-  /** What already sits in the task directory, if anything. */
-  diskPath: string;
+  /** The file the build copies from. */
+  source: { path: string };
+  /** INCAR parameter overrides the build applies after copying. */
+  incarOverrides?: Record<string, unknown>;
+  /** Extra transformation the host applies to what it writes (e.g. SD flags). */
+  note?: string;
 };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, adopted, templatePath, diskPath }: SourceCompareProps) {
-  const [adoptedState, setAdoptedState] = React.useState<FileState>();
-  const [reference, setReference] = React.useState<{ label: string; path: string; state?: FileState } | null>(null);
-
+export function SourceCompare({ projectRoot, projectName, slotLabel, source, incarOverrides, note }: SourceCompareProps) {
+  const [state, setState] = React.useState<FileState>();
   React.useEffect(() => {
     let cancelled = false;
-    void readProjectFile(projectRoot, adopted.path).then((value) => { if (!cancelled) setAdoptedState(value); });
-
-    // Pick the most useful thing to compare against, before anything is written:
-    // the template this task deviates from, otherwise whatever is on disk.
-    const choose = async () => {
-      if (templatePath && templatePath.toLowerCase() !== adopted.path.toLowerCase()) {
-        const template = await readProjectFile(projectRoot, templatePath);
-        if (!cancelled && !template.error) { setReference({ label: '模板版本', path: templatePath, state: template }); return; }
-      }
-      const disk = await readProjectFile(projectRoot, diskPath);
-      if (cancelled) return;
-      setReference(disk.error ? { label: '', path: '', state: disk } : { label: '目录现有', path: diskPath, state: disk });
-    };
-    void choose();
+    setState(undefined);
+    void readProjectFile(projectRoot, source.path).then((value) => { if (!cancelled) setState(value); });
     return () => { cancelled = true; };
-  }, [projectRoot, adopted.path, templatePath, diskPath]);
+  }, [projectRoot, source.path]);
 
-  const referenceState = reference?.state;
-  const usable = Boolean(reference && reference.path && referenceState && !referenceState.error);
+  const overrideCount = Object.keys(incarOverrides ?? {}).length;
+  const written = React.useMemo(() => {
+    if (!state || state.error) return undefined;
+    if (!overrideCount) return state.lines;
+    const text = applyIncarOverrides(state.text, incarOverrides).replace(/\r\n?/g, '\n');
+    const lines = text.split('\n');
+    if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+    return lines;
+  }, [state, incarOverrides, overrideCount]);
   const marks = React.useMemo(
-    () => (adoptedState && usable && referenceState && !adoptedState.error
-      ? markDifferences(referenceState.lines.slice(0, PREVIEW_LINES), adoptedState.lines.slice(0, PREVIEW_LINES))
-      : undefined),
-    [adoptedState, referenceState, usable],
+    () => (state && !state.error && written ? markDifferences(state.lines.slice(0, PREVIEW_LINES), written.slice(0, PREVIEW_LINES)) : undefined),
+    [state, written],
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
   const delta = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : undefined;
   const addressTree = React.useMemo(
-    () => buildAddressTree(projectName, projectRoot, adopted.path),
-    [projectName, projectRoot, adopted.path],
+    () => buildAddressTree(projectName, projectRoot, source.path),
+    [projectName, projectRoot, source.path],
   );
 
   return (
     <div className="vfp-cmp vaspflow-task-popover">
       <div className="vfp-cmp-head">
         <strong>{slotLabel}</strong>
-        {adoptedState && reference && (usable
-          ? (same
-            ? <span className="vfp-cmp-same">与{reference.label}相同</span>
-            : <span className="vfp-cmp-diff">与{reference.label}不同{delta && <em className="vfp-cmp-delta"><b>+{delta.added}</b><b>−{delta.removed}</b></em>}</span>)
-          : <span className="vfp-cmp-note">无可对比文件，将新建</span>)}
+        {note ? <span className="vfp-cmp-note">{note}</span> : null}
+        {state?.error
+          ? <span className="vfp-cmp-note">来源不可读</span>
+          : marks && (same
+            ? <span className="vfp-cmp-same">与来源相同</span>
+            : <span className="vfp-cmp-diff">与来源不同{delta && <em className="vfp-cmp-delta"><b>+{delta.added}</b><b>−{delta.removed}</b></em>}</span>)}
+        {overrideCount > 0 && <span className="vfp-cmp-note">参数覆盖 {overrideCount} 项</span>}
       </div>
-      <div className="vfp-cmp-grid" data-single={usable ? undefined : ''}>
-        {usable && reference && (
-          <FilePane step={reference.label} path={reference.path} dirLabel={shortPath(projectRoot, reference.path)}
-            state={referenceState} changed={marks?.left} />
-        )}
-        <FilePane step="将写入" path={adopted.path} dirLabel={shortPath(projectRoot, adopted.path)}
-          state={adoptedState} changed={marks?.right} />
+      <div className="vfp-cmp-grid">
+        <FilePane step="参考来源" path={source.path} dirLabel={shortPath(projectRoot, source.path)}
+          lines={state?.lines} error={state?.error} changed={marks?.left} />
+        <FilePane step="将写入" path={source.path} dirLabel={shortPath(projectRoot, source.path)}
+          lines={written} changed={marks?.right} />
       </div>
       <div className="vfp-cmp-address">
         <div className="vfp-cmp-address-head">来源地址</div>

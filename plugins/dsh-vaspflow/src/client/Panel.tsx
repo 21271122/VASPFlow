@@ -171,22 +171,6 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
               {slot.shared > 1 ? <span className="vfp-inherit-share" title={`${slot.shared} 个任务使用同一来源`}>×{slot.shared}</span> : null}
             </li>;
             if (!slot.path) return row;
-            const destination = slot.key === 'submit' ? basenameOf(task.submitSrc) : slot.key;
-            const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || '.')}/${destination}`);
-            // Only a named file can deviate from the template, and only when it is
-            // not the template's own file: naming 'templates/relax/INCAR' directly
-            // would otherwise compare that file with itself.
-            const templateRoot = task.template
-              ? (/^[A-Za-z]:[\\/]/.test(task.template)
-                ? toPosix(task.template).replace(/\//g, '\\')
-                : absoluteTaskPath(projectRoot, toPosix(task.template)))
-              : '';
-            const templateCandidate = slot.origin === 'explicit' && slot.fromTemplate && templateRoot
-              ? `${templateRoot}\\${destination}`
-              : undefined;
-            const templateCopy = templateCandidate && templateCandidate.toLowerCase() !== slot.path.toLowerCase()
-              ? templateCandidate
-              : undefined;
             const open = hoverSlot === slot.key || pinnedSlot === slot.key;
             return <Popover
               key={slot.key}
@@ -204,9 +188,9 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
                   projectRoot={projectRoot}
                   projectName={basenameOf(projectRoot) || '项目'}
                   slotLabel={slot.label}
-                  adopted={{ path: slot.path }}
-                  templatePath={templateCopy}
-                  diskPath={diskCopy}
+                  source={{ path: slot.path }}
+                  incarOverrides={slot.key === 'INCAR' ? task.incarOverrides : undefined}
+                  note={slot.key === 'POSCAR' && result?.sd ? `SD 将改写为 ${result.sd}` : undefined}
                 />
               </div>}
             >
