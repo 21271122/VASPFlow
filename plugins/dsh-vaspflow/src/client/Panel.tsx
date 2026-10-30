@@ -104,8 +104,8 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
   /** Hover previews; a click pins the card so it survives the pointer leaving. */
   const [hoverSlot, setHoverSlot] = useState<string | null>(null);
   const [pinnedSlot, setPinnedSlot] = useState<string | null>(null);
-  /** Opens toward whichever side of the row has room, so the card never runs off screen. */
-  const [placement, setPlacement] = useState<'leftTop' | 'leftBottom' | 'left'>('left');
+  /** Vertical shift that keeps every card centred on the panel, so it never jumps between rows. */
+  const [alignOffset, setAlignOffset] = useState(0);
   /** Small grace period so moving from the row into the card does not close it. */
   const hoverTimer = useRef<number | null>(null);
   const cancelHoverClose = useCallback(() => {
@@ -122,16 +122,19 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
     }, 200);
   }, [cancelHoverClose]);
   useEffect(() => () => cancelHoverClose(), [cancelHoverClose]);
-  const openCard = useCallback((slotKey: string, row: HTMLElement | null) => {
+  /** Hover never steals focus from a pinned card. */
+  const openCard = useCallback((slotKey: string, row: HTMLElement | null, force = false) => {
+    if (!force && pinnedSlot && pinnedSlot !== slotKey) return;
     const rect = row?.getBoundingClientRect();
     if (rect) {
-      const roomBelow = window.innerHeight - rect.top;
-      const roomAbove = rect.bottom;
-      setPlacement(roomBelow >= 540 ? 'leftTop' : roomAbove >= 540 ? 'leftBottom' : 'left');
+      const panel = row?.closest('[data-dsh-vaspflow-panel]') as HTMLElement | null;
+      const panelRect = panel?.getBoundingClientRect();
+      const centerY = panelRect ? panelRect.top + panelRect.height / 2 : window.innerHeight / 2;
+      setAlignOffset(centerY - (rect.top + rect.height / 2));
     }
     cancelHoverClose();
     setHoverSlot(slotKey);
-  }, [cancelHoverClose]);
+  }, [cancelHoverClose, pinnedSlot]);
   useEffect(() => { setHoverSlot(null); setPinnedSlot(null); }, [task.dir]);
   useEffect(() => {
     if (!pinnedSlot) return;
@@ -172,23 +175,16 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
             </li>;
             if (!slot.path) return row;
             const destination = slot.key === 'submit' ? basenameOf(task.submitSrc) : slot.key;
-            const templateCopy = slot.fromTemplate && task.template
-              ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`)
-              : '';
             const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || '.')}/${destination}`);
-            const fromTemplate = slot.origin === 'override' && Boolean(templateCopy);
-            const baseSide = fromTemplate
-              ? { role: '模板', path: templateCopy }
-              : { role: '目录', path: diskCopy };
-            const adoptedSide = { role: slot.origin === 'inherit' ? '模板' : '本任务', path: slot.path };
+            const afterRole = slot.origin === 'inherit' ? '继承模板' : slot.origin === 'override' ? '本任务覆盖' : '本任务指定';
             const open = hoverSlot === slot.key || pinnedSlot === slot.key;
             return <Popover
               key={slot.key}
               trigger={[]}
               open={open}
               destroyTooltipOnHide
-              placement={placement}
-              align={{ offset: [0, -6], overflow: { adjustX: true, adjustY: true } }}
+              placement="left"
+              align={{ offset: [0, alignOffset], overflow: { adjustX: true, adjustY: true } }}
               overlayClassName="vfp-cmp-popover"
               content={<div
                 onMouseEnter={() => { cancelHoverClose(); }}
@@ -199,9 +195,8 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
                   projectName={basenameOf(projectRoot) || '项目'}
                   slotLabel={slot.label}
                   originText={originLabel(slot.origin)}
-                  base={baseSide}
-                  adopted={adoptedSide}
-                  sourcePath={slot.path}
+                  before={{ path: diskCopy }}
+                  after={{ role: afterRole, path: slot.path }}
                 />
               </div>}
             >
@@ -214,7 +209,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
                 onMouseEnter={(event) => openCard(slot.key, event.currentTarget)}
                 onMouseLeave={scheduleHoverClose}
                 onClick={(event) => {
-                  openCard(slot.key, event.currentTarget);
+                  openCard(slot.key, event.currentTarget, true);
                   setPinnedSlot((current) => (current === slot.key ? null : slot.key));
                 }}
               >

@@ -59506,9 +59506,6 @@ function originLabel(origin) {
 var import_react129 = __toESM(require("react"), 1);
 init_api();
 var import_jsx_runtime = require("react/jsx-runtime");
-function relativeDisplay(projectRoot, absolutePath) {
-  return toPosix(projectRelative(projectRoot, absolutePath));
-}
 var fileCache = /* @__PURE__ */ new Map();
 var pending = /* @__PURE__ */ new Map();
 async function readProjectFile(projectRoot, absolutePath) {
@@ -59578,17 +59575,23 @@ function markDifferences(left, right) {
   return { left: leftFlags, right: rightFlags };
 }
 var PREVIEW_LINES = 140;
-function FilePane({ step, role, path: path3, displayPath, state, changed, soft }) {
+function shortPath(projectRoot, absolutePath) {
+  const parts = toPosix(projectRelative(projectRoot, absolutePath)).split("/").filter(Boolean);
+  const name = parts.at(-1) ?? "";
+  const dirs = parts.slice(0, -1);
+  if (!dirs.length) return name;
+  const prefix2 = dirs.length <= 2 ? dirs.join("/") : `\u2026/${dirs.slice(-2).join("/")}`;
+  return `${prefix2}/${name}`;
+}
+function FilePane({ step, role, path: path3, dirLabel, state, changed, missing }) {
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", "data-side": step === "\u66FF\u6362\u540E" ? "after" : "before", "data-loading": !state ? "" : void 0, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", "data-side": step === "\u6784\u5EFA\u540E" ? "after" : "before", "data-loading": !state ? "" : void 0, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-side-head", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-step", children: step }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-role", children: role })
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { title: path3, children: displayPath || basenameOf(path3) })
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-step", children: step }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-role", children: role }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "vfp-cmp-dir", title: path3, children: dirLabel })
     ] }),
-    !state ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : state.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", "data-error": soft ? void 0 : "", title: state.error, children: soft ? "\u76EE\u5F55\u4E2D\u8FD8\u6CA1\u6709\u8FD9\u4E2A\u6587\u4EF6" : state.error }) : shown.length === 0 || shown.length === 1 && shown[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { children: shown.map((line2, index2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[index2] ? "" : void 0, children: [
+    !state ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : state.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", "data-error": missing ? void 0 : "", title: state.error, children: missing ?? state.error }) : shown.length === 0 || shown.length === 1 && shown[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { children: shown.map((line2, index2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[index2] ? "" : void 0, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { children: index2 + 1 }),
       line2 || " "
     ] }, index2)) }),
@@ -59621,39 +59624,62 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, originText, base, adopted, sourcePath }) {
-  const [baseState, setBaseState] = import_react129.default.useState();
-  const [adoptedState, setAdoptedState] = import_react129.default.useState();
+function SourceCompare({ projectRoot, projectName, slotLabel, originText, before, after }) {
+  const [beforeState, setBeforeState] = import_react129.default.useState();
+  const [afterState, setAfterState] = import_react129.default.useState();
   import_react129.default.useEffect(() => {
     let cancelled = false;
-    void readProjectFile(projectRoot, base.path).then((value) => {
-      if (!cancelled) setBaseState(value);
+    void readProjectFile(projectRoot, before.path).then((value) => {
+      if (!cancelled) setBeforeState(value);
     });
-    void readProjectFile(projectRoot, adopted.path).then((value) => {
-      if (!cancelled) setAdoptedState(value);
+    void readProjectFile(projectRoot, after.path).then((value) => {
+      if (!cancelled) setAfterState(value);
     });
     return () => {
       cancelled = true;
     };
-  }, [projectRoot, base.path, adopted.path]);
+  }, [projectRoot, before.path, after.path]);
   const marks = import_react129.default.useMemo(
-    () => baseState && adoptedState && !baseState.error && !adoptedState.error ? markDifferences(baseState.lines.slice(0, PREVIEW_LINES), adoptedState.lines.slice(0, PREVIEW_LINES)) : void 0,
-    [baseState, adoptedState]
+    () => beforeState && afterState && !beforeState.error && !afterState.error ? markDifferences(beforeState.lines.slice(0, PREVIEW_LINES), afterState.lines.slice(0, PREVIEW_LINES)) : void 0,
+    [beforeState, afterState]
   );
+  const isNew = Boolean(beforeState?.error);
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
+  const status = beforeState && afterState ? isNew ? "\u6784\u5EFA\u65F6\u65B0\u5EFA" : same ? "\u5185\u5BB9\u4E0D\u53D8" : "\u5185\u5BB9\u5C06\u53D8\u5316" : "";
   const addressTree = import_react129.default.useMemo(
-    () => buildAddressTree(projectName, projectRoot, sourcePath),
-    [projectName, projectRoot, sourcePath]
+    () => buildAddressTree(projectName, projectRoot, after.path),
+    [projectName, projectRoot, after.path]
   );
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: slotLabel }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-origin", children: originText }),
-      marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: "\u5185\u5BB9\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-diff", children: "\u6709\u5DEE\u5F02" }))
+      status ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: same ? "vfp-cmp-same" : "vfp-cmp-diff", children: status }) : null
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FilePane, { step: "\u66FF\u6362\u524D", role: base.role, path: base.path, displayPath: relativeDisplay(projectRoot, base.path), state: baseState, changed: marks?.left, soft: base.role !== "\u6A21\u677F" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FilePane, { step: "\u66FF\u6362\u540E", role: adopted.role, path: adopted.path, displayPath: relativeDisplay(projectRoot, adopted.path), state: adoptedState, changed: marks?.right })
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        FilePane,
+        {
+          step: "\u6784\u5EFA\u524D",
+          role: "\u76EE\u5F55\u73B0\u72B6",
+          path: before.path,
+          dirLabel: shortPath(projectRoot, before.path),
+          state: beforeState,
+          changed: marks?.left,
+          missing: "\u76EE\u5F55\u4E2D\u8FD8\u6CA1\u6709\u8FD9\u4E2A\u6587\u4EF6"
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        FilePane,
+        {
+          step: "\u6784\u5EFA\u540E",
+          role: after.role,
+          path: after.path,
+          dirLabel: shortPath(projectRoot, after.path),
+          state: afterState,
+          changed: marks?.right
+        }
+      )
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-address", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-address-head", children: "\u6765\u6E90\u5730\u5740" }),
@@ -100976,7 +101002,7 @@ function BuildPreviewDetail({ detail }) {
   }));
   const [hoverSlot, setHoverSlot] = (0, import_react169.useState)(null);
   const [pinnedSlot, setPinnedSlot] = (0, import_react169.useState)(null);
-  const [placement, setPlacement] = (0, import_react169.useState)("left");
+  const [alignOffset, setAlignOffset] = (0, import_react169.useState)(0);
   const hoverTimer = (0, import_react169.useRef)(null);
   const cancelHoverClose = (0, import_react169.useCallback)(() => {
     if (hoverTimer.current !== null) {
@@ -100992,16 +101018,18 @@ function BuildPreviewDetail({ detail }) {
     }, 200);
   }, [cancelHoverClose]);
   (0, import_react169.useEffect)(() => () => cancelHoverClose(), [cancelHoverClose]);
-  const openCard = (0, import_react169.useCallback)((slotKey, row) => {
+  const openCard = (0, import_react169.useCallback)((slotKey, row, force = false) => {
+    if (!force && pinnedSlot && pinnedSlot !== slotKey) return;
     const rect = row?.getBoundingClientRect();
     if (rect) {
-      const roomBelow = window.innerHeight - rect.top;
-      const roomAbove = rect.bottom;
-      setPlacement(roomBelow >= 540 ? "leftTop" : roomAbove >= 540 ? "leftBottom" : "left");
+      const panel = row?.closest("[data-dsh-vaspflow-panel]");
+      const panelRect = panel?.getBoundingClientRect();
+      const centerY = panelRect ? panelRect.top + panelRect.height / 2 : window.innerHeight / 2;
+      setAlignOffset(centerY - (rect.top + rect.height / 2));
     }
     cancelHoverClose();
     setHoverSlot(slotKey);
-  }, [cancelHoverClose]);
+  }, [cancelHoverClose, pinnedSlot]);
   (0, import_react169.useEffect)(() => {
     setHoverSlot(null);
     setPinnedSlot(null);
@@ -101062,11 +101090,8 @@ function BuildPreviewDetail({ detail }) {
         );
         if (!slot.path) return row;
         const destination = slot.key === "submit" ? basenameOf(task.submitSrc) : slot.key;
-        const templateCopy = slot.fromTemplate && task.template ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`) : "";
         const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || ".")}/${destination}`);
-        const fromTemplate = slot.origin === "override" && Boolean(templateCopy);
-        const baseSide = fromTemplate ? { role: "\u6A21\u677F", path: templateCopy } : { role: "\u76EE\u5F55", path: diskCopy };
-        const adoptedSide = { role: slot.origin === "inherit" ? "\u6A21\u677F" : "\u672C\u4EFB\u52A1", path: slot.path };
+        const afterRole = slot.origin === "inherit" ? "\u7EE7\u627F\u6A21\u677F" : slot.origin === "override" ? "\u672C\u4EFB\u52A1\u8986\u76D6" : "\u672C\u4EFB\u52A1\u6307\u5B9A";
         const open = hoverSlot === slot.key || pinnedSlot === slot.key;
         return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           popover_default,
@@ -101074,8 +101099,8 @@ function BuildPreviewDetail({ detail }) {
             trigger: [],
             open,
             destroyTooltipOnHide: true,
-            placement,
-            align: { offset: [0, -6], overflow: { adjustX: true, adjustY: true } },
+            placement: "left",
+            align: { offset: [0, alignOffset], overflow: { adjustX: true, adjustY: true } },
             overlayClassName: "vfp-cmp-popover",
             content: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
               "div",
@@ -101091,9 +101116,8 @@ function BuildPreviewDetail({ detail }) {
                     projectName: basenameOf(projectRoot) || "\u9879\u76EE",
                     slotLabel: slot.label,
                     originText: originLabel(slot.origin),
-                    base: baseSide,
-                    adopted: adoptedSide,
-                    sourcePath: slot.path
+                    before: { path: diskCopy },
+                    after: { role: afterRole, path: slot.path }
                   }
                 )
               }
@@ -101109,7 +101133,7 @@ function BuildPreviewDetail({ detail }) {
                 onMouseEnter: (event) => openCard(slot.key, event.currentTarget),
                 onMouseLeave: scheduleHoverClose,
                 onClick: (event) => {
-                  openCard(slot.key, event.currentTarget);
+                  openCard(slot.key, event.currentTarget, true);
                   setPinnedSlot((current) => current === slot.key ? null : slot.key);
                 },
                 children: [
@@ -102109,7 +102133,7 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-cmp-popover .ant-popover-arrow { display:none; }
 .vfp-cmp {
   display:grid; gap:12px; width:clamp(420px,46vw,560px); padding:13px 15px;
-  max-height:min(66vh,540px); overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; font-size:12px;
+  max-height:calc(100vh - 20px); overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; font-size:12px;
   scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.38) transparent;
 }
 .vfp-cmp::-webkit-scrollbar,
@@ -102140,12 +102164,11 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp-same { color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
 .vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; background:var(--vfp-surface); }
-.vfp-cmp-side>header { display:grid; gap:3px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
-.vfp-cmp-side-head { display:flex; align-items:center; gap:6px; }
+.vfp-cmp-side>header { display:flex; align-items:center; gap:6px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
 .vfp-cmp-step { flex:none; padding:0 5px; border:1px solid var(--vfp-line); border-radius:4px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }
 .vfp-cmp-side[data-side="after"] .vfp-cmp-step { color:var(--vfp-accent); border-color:rgba(57,107,215,.34); background:rgba(57,107,215,.08); }
 .vfp-cmp-role { flex:none; color:var(--vfp-muted); font-size:11px; }
-.vfp-cmp-side>header code { min-width:0; color:var(--vfp-text); font:11px/1.45 Consolas,"Cascadia Mono",monospace; overflow-wrap:anywhere; }
+.vfp-cmp-dir { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; color:var(--vfp-muted); font:10.5px/1.4 Consolas,"Cascadia Mono",monospace; }
 .vfp-cmp-side pre {
   margin:0; padding:6px 0; max-height:252px; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable;
   font:11px/1.55 Consolas,"Cascadia Mono",monospace;

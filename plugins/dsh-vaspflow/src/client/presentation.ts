@@ -149,7 +149,7 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-cmp-popover .ant-popover-arrow { display:none; }
 .vfp-cmp {
   display:grid; gap:12px; width:clamp(420px,46vw,560px); padding:13px 15px;
-  max-height:min(66vh,540px); overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; font-size:12px;
+  max-height:calc(100vh - 20px); overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; font-size:12px;
   scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.38) transparent;
 }
 .vfp-cmp::-webkit-scrollbar,
@@ -180,12 +180,11 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp-same { color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
 .vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; background:var(--vfp-surface); }
-.vfp-cmp-side>header { display:grid; gap:3px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
-.vfp-cmp-side-head { display:flex; align-items:center; gap:6px; }
+.vfp-cmp-side>header { display:flex; align-items:center; gap:6px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
 .vfp-cmp-step { flex:none; padding:0 5px; border:1px solid var(--vfp-line); border-radius:4px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }
 .vfp-cmp-side[data-side="after"] .vfp-cmp-step { color:var(--vfp-accent); border-color:rgba(57,107,215,.34); background:rgba(57,107,215,.08); }
 .vfp-cmp-role { flex:none; color:var(--vfp-muted); font-size:11px; }
-.vfp-cmp-side>header code { min-width:0; color:var(--vfp-text); font:11px/1.45 Consolas,"Cascadia Mono",monospace; overflow-wrap:anywhere; }
+.vfp-cmp-dir { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; color:var(--vfp-muted); font:10.5px/1.4 Consolas,"Cascadia Mono",monospace; }
 .vfp-cmp-side pre {
   margin:0; padding:6px 0; max-height:252px; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable;
   font:11px/1.55 Consolas,"Cascadia Mono",monospace;

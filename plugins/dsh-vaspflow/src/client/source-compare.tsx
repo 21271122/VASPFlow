@@ -1,10 +1,11 @@
 /**
  * dsh-vaspflow client: source drill-down for the build inheritance ledger.
  *
- * Hovering a "本任务来源" row opens a card that shows two things:
- *   1. what the build replaces (the template copy, or whatever already sits in
- *      the task directory) next to the file that will actually be used;
- *   2. where that source file physically lives, as a directory tree.
+ * Opens on a "本任务来源" row and answers two questions about the file that
+ * build will write:
+ *   1. what is on disk right now (构建前) versus what will be written (构建后),
+ *      line-numbered with the differing lines marked;
+ *   2. where the written file comes from, as a directory tree (来源地址).
  *
  * File contents come from the existing task routes: open-by-path registers any
  * existing directory, then file-content reads one file inside it. Results are
@@ -16,12 +17,8 @@ import { FileTextOutlined, FolderOutlined } from '@ant-design/icons';
 import { fetchFileContent, openTaskByPath } from './api';
 import { basenameOf, projectRelative, toPosix } from './inheritance';
 
-type FileState = { text: string; lines: string[]; error?: string; truncated?: boolean; relPath?: string };
+type FileState = { text: string; lines: string[]; error?: string; truncated?: boolean };
 
-/** Project-relative display path; the absolute path stays in the tooltip. */
-function relativeDisplay(projectRoot: string, absolutePath: string): string {
-  return toPosix(projectRelative(projectRoot, absolutePath));
-}
 const fileCache = new Map<string, FileState>();
 const pending = new Map<string, Promise<FileState>>();
 
@@ -100,28 +97,36 @@ function markDifferences(left: string[], right: string[]): { left: boolean[]; ri
 
 const PREVIEW_LINES = 140;
 
-function FilePane({ step, role, path, displayPath, state, changed, soft }: {
+/** Compact path for the header: at most two parent directories plus the file. */
+function shortPath(projectRoot: string, absolutePath: string): string {
+  const parts = toPosix(projectRelative(projectRoot, absolutePath)).split('/').filter(Boolean);
+  const name = parts.at(-1) ?? '';
+  const dirs = parts.slice(0, -1);
+  if (!dirs.length) return name;
+  const prefix = dirs.length <= 2 ? dirs.join('/') : `…/${dirs.slice(-2).join('/')}`;
+  return `${prefix}/${name}`;
+}
+
+function FilePane({ step, role, path, dirLabel, state, changed, missing }: {
   step: string;
   role: string;
   path: string;
-  displayPath: string;
+  dirLabel: string;
   state?: FileState;
   changed?: boolean[];
-  /** A missing file is normal for the "current file on disk" side, not an error. */
-  soft?: boolean;
+  /** Text shown instead of the error when the file simply is not there yet. */
+  missing?: string;
 }) {
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
   return (
-    <section className="vfp-cmp-side" data-side={step === '替换后' ? 'after' : 'before'} data-loading={!state ? '' : undefined}>
+    <section className="vfp-cmp-side" data-side={step === '构建后' ? 'after' : 'before'} data-loading={!state ? '' : undefined}>
       <header>
-        <div className="vfp-cmp-side-head">
-          <span className="vfp-cmp-step">{step}</span>
-          <span className="vfp-cmp-role">{role}</span>
-        </div>
-        <code title={path}>{displayPath || basenameOf(path)}</code>
+        <span className="vfp-cmp-step">{step}</span>
+        <span className="vfp-cmp-role">{role}</span>
+        <code className="vfp-cmp-dir" title={path}>{dirLabel}</code>
       </header>
       {!state ? <div className="vfp-cmp-empty">读取中…</div>
-        : state.error ? <div className="vfp-cmp-empty" data-error={soft ? undefined : ''} title={state.error}>{soft ? '目录中还没有这个文件' : state.error}</div>
+        : state.error ? <div className="vfp-cmp-empty" data-error={missing ? undefined : ''} title={state.error}>{missing ?? state.error}</div>
           : shown.length === 0 || (shown.length === 1 && shown[0] === '') ? <div className="vfp-cmp-empty">空文件</div>
             : <pre>
               {shown.map((line, index) => (
@@ -139,10 +144,7 @@ function FilePane({ step, role, path, displayPath, state, changed, soft }: {
 
 type PathNode = { title: React.ReactNode; key: string; icon?: React.ReactNode; children?: PathNode[] };
 
-/**
- * Where the source file actually lives: project → directories → file.
- * Long chains collapse their middle, keeping the first and last two parents.
- */
+/** Where the written file comes from: project → directories → file. */
 function buildAddressTree(projectName: string, projectRoot: string, absolutePath: string): PathNode[] {
   const parts = toPosix(projectRelative(projectRoot, absolutePath)).split('/').filter(Boolean);
   const file = parts.at(-1) ?? '';
@@ -172,34 +174,34 @@ export type SourceCompareProps = {
   projectName: string;
   slotLabel: string;
   originText: string;
-  /** What the adopted file replaces: a template copy or the file on disk. */
-  base: { role: string; path: string };
-  /** The file this task will actually use. */
-  adopted: { role: string; path: string };
-  /** Absolute path of the adopted file, used for the address tree. */
-  sourcePath: string;
+  /** File already in the task directory; may not exist yet. */
+  before: { path: string };
+  /** File build will write, copied from the source. */
+  after: { role: string; path: string };
 };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, originText, base, adopted, sourcePath }: SourceCompareProps) {
-  const [baseState, setBaseState] = React.useState<FileState>();
-  const [adoptedState, setAdoptedState] = React.useState<FileState>();
+export function SourceCompare({ projectRoot, projectName, slotLabel, originText, before, after }: SourceCompareProps) {
+  const [beforeState, setBeforeState] = React.useState<FileState>();
+  const [afterState, setAfterState] = React.useState<FileState>();
   React.useEffect(() => {
     let cancelled = false;
-    void readProjectFile(projectRoot, base.path).then((value) => { if (!cancelled) setBaseState(value); });
-    void readProjectFile(projectRoot, adopted.path).then((value) => { if (!cancelled) setAdoptedState(value); });
+    void readProjectFile(projectRoot, before.path).then((value) => { if (!cancelled) setBeforeState(value); });
+    void readProjectFile(projectRoot, after.path).then((value) => { if (!cancelled) setAfterState(value); });
     return () => { cancelled = true; };
-  }, [projectRoot, base.path, adopted.path]);
+  }, [projectRoot, before.path, after.path]);
 
   const marks = React.useMemo(
-    () => (baseState && adoptedState && !baseState.error && !adoptedState.error
-      ? markDifferences(baseState.lines.slice(0, PREVIEW_LINES), adoptedState.lines.slice(0, PREVIEW_LINES))
+    () => (beforeState && afterState && !beforeState.error && !afterState.error
+      ? markDifferences(beforeState.lines.slice(0, PREVIEW_LINES), afterState.lines.slice(0, PREVIEW_LINES))
       : undefined),
-    [baseState, adoptedState],
+    [beforeState, afterState],
   );
+  const isNew = Boolean(beforeState?.error);
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
+  const status = beforeState && afterState ? (isNew ? '构建时新建' : same ? '内容不变' : '内容将变化') : '';
   const addressTree = React.useMemo(
-    () => buildAddressTree(projectName, projectRoot, sourcePath),
-    [projectName, projectRoot, sourcePath],
+    () => buildAddressTree(projectName, projectRoot, after.path),
+    [projectName, projectRoot, after.path],
   );
 
   return (
@@ -207,13 +209,13 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, originText,
       <div className="vfp-cmp-head">
         <strong>{slotLabel}</strong>
         <span className="vfp-cmp-origin">{originText}</span>
-        {marks && (same
-          ? <span className="vfp-cmp-same">内容相同</span>
-          : <span className="vfp-cmp-diff">有差异</span>)}
+        {status ? <span className={same ? 'vfp-cmp-same' : 'vfp-cmp-diff'}>{status}</span> : null}
       </div>
       <div className="vfp-cmp-grid">
-        <FilePane step="替换前" role={base.role} path={base.path} displayPath={relativeDisplay(projectRoot, base.path)} state={baseState} changed={marks?.left} soft={base.role !== '模板'} />
-        <FilePane step="替换后" role={adopted.role} path={adopted.path} displayPath={relativeDisplay(projectRoot, adopted.path)} state={adoptedState} changed={marks?.right} />
+        <FilePane step="构建前" role="目录现状" path={before.path} dirLabel={shortPath(projectRoot, before.path)}
+          state={beforeState} changed={marks?.left} missing="目录中还没有这个文件" />
+        <FilePane step="构建后" role={after.role} path={after.path} dirLabel={shortPath(projectRoot, after.path)}
+          state={afterState} changed={marks?.right} />
       </div>
       <div className="vfp-cmp-address">
         <div className="vfp-cmp-address-head">来源地址</div>
