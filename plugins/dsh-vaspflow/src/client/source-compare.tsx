@@ -42,11 +42,10 @@ async function readProjectFile(projectRoot: string, absolutePath: string): Promi
       const task = await openTaskByPath(projectRoot, dir);
       const response = await fetchFileContent(task.id, name, { offset: 0 });
       const text = response.content ?? '';
-      const value: FileState = {
-        text,
-        lines: text.replace(/\r\n?/g, '\n').split('\n'),
-        truncated: !!response.hasAfter,
-      };
+      const lines = text.replace(/\r\n?/g, '\n').split('\n');
+      // A trailing newline is not a line of its own in a side-by-side view.
+      if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+      const value: FileState = { text, lines, truncated: !!response.hasAfter };
       fileCache.set(key, value);
       return value;
     } catch (error) {
@@ -113,7 +112,7 @@ function FilePane({ step, role, path, displayPath, state, changed, soft }: {
 }) {
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
   return (
-    <section className="vfp-cmp-side" data-loading={!state ? '' : undefined}>
+    <section className="vfp-cmp-side" data-side={step === '替换后' ? 'after' : 'before'} data-loading={!state ? '' : undefined}>
       <header>
         <div className="vfp-cmp-side-head">
           <span className="vfp-cmp-step">{step}</span>
@@ -164,7 +163,7 @@ function buildAddressTree(projectName: string, projectRoot: string, absolutePath
     node.children = [...(node.children ?? []), child];
     node = child;
   });
-  node.children = [...(node.children ?? []), { title: file, key: `${node.key}/${file}`, icon: <FileTextOutlined /> }];
+  node.children = [...(node.children ?? []), { title: <span className="vfp-cmp-file">{file}</span>, key: `${node.key}/${file}`, icon: <FileTextOutlined /> }];
   return [root];
 }
 

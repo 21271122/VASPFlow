@@ -59527,11 +59527,9 @@ async function readProjectFile(projectRoot, absolutePath) {
       const task = await openTaskByPath(projectRoot, dir);
       const response = await fetchFileContent(task.id, name, { offset: 0 });
       const text = response.content ?? "";
-      const value = {
-        text,
-        lines: text.replace(/\r\n?/g, "\n").split("\n"),
-        truncated: !!response.hasAfter
-      };
+      const lines = text.replace(/\r\n?/g, "\n").split("\n");
+      if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+      const value = { text, lines, truncated: !!response.hasAfter };
       fileCache.set(key, value);
       return value;
     } catch (error) {
@@ -59582,7 +59580,7 @@ function markDifferences(left, right) {
 var PREVIEW_LINES = 140;
 function FilePane({ step, role, path: path3, displayPath, state, changed, soft }) {
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", "data-loading": !state ? "" : void 0, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", "data-side": step === "\u66FF\u6362\u540E" ? "after" : "before", "data-loading": !state ? "" : void 0, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-side-head", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-step", children: step }),
@@ -59620,7 +59618,7 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
     node2.children = [...node2.children ?? [], child];
     node2 = child;
   });
-  node2.children = [...node2.children ?? [], { title: file, key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
+  node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
 function SourceCompare({ projectRoot, projectName, slotLabel, originText, base, adopted, sourcePath }) {
@@ -102103,42 +102101,81 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-inherit-extras code { margin-right:8px; color:var(--vfp-text); }
 /* Hover drill-down: the two candidate files side by side, then where the
    adopted file lives. */
-.vfp-cmp-popover .ant-popover-inner { padding:12px 14px; max-height:calc(100vh - 32px); overflow:hidden; }
-.vfp-cmp { display:grid; gap:10px; width:clamp(360px,46vw,560px); max-height:min(66vh,540px); overflow:auto; font-size:12px; }
-.vfp-cmp-head { display:flex; align-items:baseline; gap:8px; }
-.vfp-cmp-head strong { font-size:13px; }
-.vfp-cmp-origin { color:var(--vfp-muted); }
-.vfp-cmp-diff { margin-left:auto; color:var(--vfp-warning); }
-.vfp-cmp-same { margin-left:auto; color:var(--vfp-success); }
+.vfp-cmp-popover .ant-popover-inner {
+  padding:0; border:1px solid var(--vfp-line); border-radius:10px; overflow:hidden;
+  box-shadow:0 16px 38px -12px rgba(20,32,52,.28), 0 2px 6px rgba(20,32,52,.06);
+  max-height:calc(100vh - 28px);
+}
+.vfp-cmp-popover .ant-popover-arrow { display:none; }
+.vfp-cmp {
+  display:grid; gap:12px; width:clamp(420px,46vw,560px); padding:13px 15px;
+  max-height:min(66vh,540px); overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; font-size:12px;
+  scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.38) transparent;
+}
+.vfp-cmp::-webkit-scrollbar,
+.vfp-cmp-side pre::-webkit-scrollbar,
+.vfp-cmp-address .ant-tree::-webkit-scrollbar { width:8px; height:8px; }
+.vfp-cmp::-webkit-scrollbar-track,
+.vfp-cmp-side pre::-webkit-scrollbar-track,
+.vfp-cmp-address .ant-tree::-webkit-scrollbar-track { background:transparent; }
+.vfp-cmp::-webkit-scrollbar-thumb,
+.vfp-cmp-side pre::-webkit-scrollbar-thumb,
+.vfp-cmp-address .ant-tree::-webkit-scrollbar-thumb {
+  background:rgba(120,132,150,.34); background-clip:padding-box; border:2px solid transparent; border-radius:99px;
+}
+.vfp-cmp::-webkit-scrollbar-thumb:hover,
+.vfp-cmp-side pre::-webkit-scrollbar-thumb:hover,
+.vfp-cmp-address .ant-tree::-webkit-scrollbar-thumb:hover { background:rgba(120,132,150,.55); background-clip:padding-box; }
+body[data-ds-dark-theme] .vfp-cmp { scrollbar-color:rgba(158,170,188,.42) transparent; }
+body[data-ds-dark-theme] .vfp-cmp::-webkit-scrollbar-thumb,
+body[data-ds-dark-theme] .vfp-cmp-side pre::-webkit-scrollbar-thumb,
+body[data-ds-dark-theme] .vfp-cmp-address .ant-tree::-webkit-scrollbar-thumb { background:rgba(158,170,188,.38); background-clip:padding-box; border:2px solid transparent; }
+body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.38) transparent; }
+.vfp-cmp-head { display:flex; align-items:center; gap:8px; padding-bottom:9px; border-bottom:1px solid var(--vfp-line); }
+.vfp-cmp-head strong { font-size:13px; letter-spacing:.01em; }
+.vfp-cmp-origin { padding:0 7px; border-radius:9px; background:var(--vfp-soft); color:var(--vfp-muted); font-size:11px; line-height:18px; }
+.vfp-cmp-diff, .vfp-cmp-same { display:inline-flex; align-items:center; gap:5px; margin-left:auto; font-size:11px; }
+.vfp-cmp-diff::before, .vfp-cmp-same::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.vfp-cmp-diff { color:var(--vfp-warning); }
+.vfp-cmp-same { color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
-.vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:6px; overflow:hidden; background:var(--vfp-surface); }
-/* Reserve the loaded height while reading, so the card is positioned once, at its real size. */
-.vfp-cmp-side[data-loading] { min-height:214px; }
-.vfp-cmp-side>header { display:grid; gap:2px; padding:5px 8px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
-.vfp-cmp-side-head { display:flex; align-items:baseline; gap:6px; }
-.vfp-cmp-step { flex:none; padding:0 5px; border-radius:3px; background:var(--vfp-surface); border:1px solid var(--vfp-line); color:var(--vfp-text); font-size:11px; line-height:16px; }
+.vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; background:var(--vfp-surface); }
+.vfp-cmp-side>header { display:grid; gap:3px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
+.vfp-cmp-side-head { display:flex; align-items:center; gap:6px; }
+.vfp-cmp-step { flex:none; padding:0 5px; border:1px solid var(--vfp-line); border-radius:4px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }
+.vfp-cmp-side[data-side="after"] .vfp-cmp-step { color:var(--vfp-accent); border-color:rgba(57,107,215,.34); background:rgba(57,107,215,.08); }
 .vfp-cmp-role { flex:none; color:var(--vfp-muted); font-size:11px; }
-.vfp-cmp-side>header code { min-width:0; color:var(--vfp-text); font:11.5px/1.4 Consolas,"Cascadia Mono",monospace; overflow-wrap:anywhere; }
-.vfp-cmp-side pre { margin:0; padding:6px 0; max-height:208px; overflow:auto; font:11px/1.5 Consolas,"Cascadia Mono",monospace; }
-.vfp-cmp-line { display:block; padding:0 8px; white-space:pre; }
-.vfp-cmp-line i { display:inline-block; width:22px; margin-right:6px; color:var(--vfp-muted); font-style:normal; text-align:right; user-select:none; }
-.vfp-cmp-line[data-changed] { background:rgba(149,104,23,.14); }
-.vfp-cmp-empty { padding:12px 10px; color:var(--vfp-muted); }
+.vfp-cmp-side>header code { min-width:0; color:var(--vfp-text); font:11px/1.45 Consolas,"Cascadia Mono",monospace; overflow-wrap:anywhere; }
+.vfp-cmp-side pre {
+  margin:0; padding:6px 0; max-height:252px; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable;
+  font:11px/1.55 Consolas,"Cascadia Mono",monospace;
+  scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.32) transparent;
+}
+.vfp-cmp-line { display:block; padding:0 9px; white-space:pre; }
+.vfp-cmp-line i { display:inline-block; width:24px; margin-right:8px; color:var(--vfp-muted); opacity:.72; font-style:normal; text-align:right; user-select:none; font-variant-numeric:tabular-nums; }
+.vfp-cmp-line[data-changed] { background:rgba(149,104,23,.13); box-shadow:inset 2px 0 0 var(--vfp-warning); }
+.vfp-cmp-line[data-changed] i { opacity:1; color:var(--vfp-warning); }
+.vfp-cmp-empty { padding:16px 10px; text-align:center; color:var(--vfp-muted); font-size:11.5px; }
 .vfp-cmp-empty[data-error] { color:var(--vfp-warning); }
-.vfp-cmp-more { padding:4px 8px 6px; color:var(--vfp-muted); font-size:11px; border-top:1px dashed var(--vfp-line); }
-.vfp-cmp-address { border-top:1px solid var(--vfp-line); padding-top:8px; }
-.vfp-cmp-address-head { margin-bottom:2px; color:var(--vfp-muted); }
-.vfp-cmp-address .ant-tree { max-height:200px; overflow:auto; }
+.vfp-cmp-side[data-loading] { min-height:214px; }
+.vfp-cmp-side[data-loading] .vfp-cmp-empty { padding:0; height:212px; display:flex; align-items:center; justify-content:center; }
+.vfp-cmp-more { padding:5px 9px 6px; color:var(--vfp-muted); font-size:11px; border-top:1px dashed var(--vfp-line); }
+.vfp-cmp-address { border-top:1px solid var(--vfp-line); padding-top:9px; }
+.vfp-cmp-address-head { display:flex; align-items:center; gap:6px; margin-bottom:4px; color:var(--vfp-muted); font-size:11px; }
+.vfp-cmp-address .ant-tree { max-height:200px; overflow:auto; overscroll-behavior:contain; background:transparent; }
+.vfp-cmp-address .ant-tree-list, .vfp-cmp-address .ant-tree-list-holder-inner { background:transparent; }
 /* Same tree language as the task list, at popover scale. */
 .vfp-cmp-address .ant-tree .ant-tree-treenode { padding:0!important; line-height:22px; }
 .vfp-cmp-address .ant-tree-indent-unit { width:10px!important; }
 .vfp-cmp-address .ant-tree-switcher { width:12px!important; margin-right:0!important; }
 .vfp-cmp-address .ant-tree-title { font-size:12px!important; }
-.vfp-cmp-address .ant-tree-node-content-wrapper { padding:0 3px!important; min-height:22px!important; line-height:22px!important; }
+.vfp-cmp-address .ant-tree-iconEle { color:var(--vfp-muted); }
+.vfp-cmp-address .ant-tree-node-content-wrapper { padding:0 4px!important; min-height:22px!important; line-height:22px!important; border-radius:4px; }
+.vfp-cmp-address .ant-tree-node-content-wrapper:hover { background:var(--vfp-soft); }
+.vfp-cmp-file { color:var(--vfp-text); font-weight:500; }
 .vfp-cmp-ellipsis { color:var(--vfp-muted); }
 .vfp-inherit-row { cursor:pointer; }
-.vfp-inherit-row[data-pinned] { background:var(--vfp-selected); }
-/* The detail section styles any div holding a <span> as a two-column row; the
+.vfp-inherit-row[data-pinned] { background:var(--vfp-selected); }/* The detail section styles any div holding a <span> as a two-column row; the
    ledger needs its own columns (name / badge / path / share). */
 [data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-template,
 [data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-extras { grid-template-columns:64px minmax(0,1fr) auto; }
