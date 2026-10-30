@@ -59464,20 +59464,6 @@ function buildShareIndex(batch, projectRoot) {
   });
   return share;
 }
-function buildSourceTasks(batch) {
-  const owners = /* @__PURE__ */ new Map();
-  (batch?.tasks ?? []).forEach((entry, index2) => {
-    const result = batch?.results?.[index2];
-    const dir = typeof entry?.dir === "string" && entry.dir ? entry.dir.replace(/[\\/]+/g, "/") : "(\u672A\u547D\u540D\u4EFB\u52A1)";
-    for (const slot of BUILD_SLOTS) {
-      const resolved = slotResolvedPath(entry, result, slot);
-      if (!resolved) continue;
-      const key = `${slot.key}|${resolved.toLowerCase()}`;
-      owners.set(key, [...owners.get(key) ?? [], dir]);
-    }
-  });
-  return owners;
-}
 function summarizeBatch(batch, projectRoot) {
   const tasks = batch?.tasks ?? [];
   if (tasks.length < 2) return null;
@@ -59520,6 +59506,9 @@ function originLabel(origin) {
 var import_react129 = __toESM(require("react"), 1);
 init_api();
 var import_jsx_runtime = require("react/jsx-runtime");
+function relativeDisplay(projectRoot, absolutePath) {
+  return toPosix(projectRelative(projectRoot, absolutePath));
+}
 var fileCache = /* @__PURE__ */ new Map();
 var pending = /* @__PURE__ */ new Map();
 async function readProjectFile(projectRoot, absolutePath) {
@@ -59591,13 +59580,15 @@ function markDifferences(left, right) {
   return { left: leftFlags, right: rightFlags };
 }
 var PREVIEW_LINES = 140;
-function FilePane({ role, path: path3, state, changed, soft }) {
-  const rel = state?.relPath ?? "";
+function FilePane({ step, role, path: path3, displayPath, state, changed, soft }) {
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-role", children: role }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { title: path3, children: rel || basenameOf(path3) })
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-side-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-step", children: step }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-role", children: role })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { title: path3, children: displayPath || basenameOf(path3) })
     ] }),
     !state ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : state.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", "data-error": soft ? void 0 : "", title: state.error, children: soft ? "\u76EE\u5F55\u4E2D\u8FD8\u6CA1\u6709\u8FD9\u4E2A\u6587\u4EF6" : state.error }) : shown.length === 0 || shown.length === 1 && shown[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { children: shown.map((line2, index2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[index2] ? "" : void 0, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { children: index2 + 1 }),
@@ -59611,30 +59602,28 @@ function FilePane({ role, path: path3, state, changed, soft }) {
     ] })
   ] });
 }
-function buildTaskTree(projectName, dirs) {
+function buildAddressTree(projectName, projectRoot, absolutePath) {
+  const parts = toPosix(projectRelative(projectRoot, absolutePath)).split("/").filter(Boolean);
+  const file = parts.at(-1) ?? "";
+  const dirs = parts.slice(0, -1);
+  const shown = dirs.length > 4 ? [dirs[0], dirs[1], "\u2026", dirs[dirs.length - 2], dirs[dirs.length - 1]] : dirs;
   const root = { title: projectName, key: "root", icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderOutlined_default2, {}), children: [] };
-  for (const dir of dirs) {
-    const parts = toPosix(dir).split("/").filter(Boolean);
-    const shown = parts.length > 4 ? [parts[0], parts[1], "\u2026", parts[parts.length - 2], parts[parts.length - 1]] : parts;
-    let node2 = root;
-    shown.forEach((segment, index2) => {
-      const key = `${node2.key}/${segment}`;
-      let child = node2.children?.find((entry) => entry.key === key);
-      if (!child) {
-        child = {
-          title: segment,
-          key,
-          icon: index2 === shown.length - 1 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderOutlined_default2, {}),
-          children: index2 === shown.length - 1 ? void 0 : []
-        };
-        node2.children = [...node2.children ?? [], child];
-      }
-      node2 = child;
-    });
-  }
+  let node2 = root;
+  shown.forEach((segment) => {
+    const key = `${node2.key}/${segment}`;
+    const child = {
+      title: segment === "\u2026" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-ellipsis", children: "\u2026" }) : segment,
+      key,
+      icon: segment === "\u2026" ? void 0 : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderOutlined_default2, {}),
+      children: []
+    };
+    node2.children = [...node2.children ?? [], child];
+    node2 = child;
+  });
+  node2.children = [...node2.children ?? [], { title: file, key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, originText, base, adopted, taskDirs }) {
+function SourceCompare({ projectRoot, projectName, slotLabel, originText, base, adopted, sourcePath }) {
   const [baseState, setBaseState] = import_react129.default.useState();
   const [adoptedState, setAdoptedState] = import_react129.default.useState();
   import_react129.default.useEffect(() => {
@@ -59654,8 +59643,10 @@ function SourceCompare({ projectRoot, projectName, slotLabel, originText, base, 
     [baseState, adoptedState]
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
-  const baseWithRel = baseState ? { ...baseState, relPath: projectRelative(projectRoot, base.path) } : void 0;
-  const adoptedWithRel = adoptedState ? { ...adoptedState, relPath: projectRelative(projectRoot, adopted.path) } : void 0;
+  const addressTree = import_react129.default.useMemo(
+    () => buildAddressTree(projectName, projectRoot, sourcePath),
+    [projectName, projectRoot, sourcePath]
+  );
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: slotLabel }),
@@ -59663,18 +59654,15 @@ function SourceCompare({ projectRoot, projectName, slotLabel, originText, base, 
       marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: "\u5185\u5BB9\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-diff", children: "\u6709\u5DEE\u5F02" }))
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FilePane, { role: base.role, path: base.path, state: baseWithRel, changed: marks?.left, soft: base.role !== "\u6A21\u677F" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FilePane, { role: adopted.role, path: adopted.path, state: adoptedWithRel, changed: marks?.right })
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FilePane, { step: "\u66FF\u6362\u524D", role: base.role, path: base.path, displayPath: relativeDisplay(projectRoot, base.path), state: baseState, changed: marks?.left, soft: base.role !== "\u6A21\u677F" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FilePane, { step: "\u66FF\u6362\u540E", role: adopted.role, path: adopted.path, displayPath: relativeDisplay(projectRoot, adopted.path), state: adoptedState, changed: marks?.right })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-tasks", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-tasks-head", children: [
-        "\u4F7F\u7528\u8BE5\u6765\u6E90\u7684\u4EFB\u52A1 \xB7 ",
-        taskDirs.length
-      ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-address", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-address-head", children: "\u6765\u6E90\u5730\u5740" }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         tree_default,
         {
-          treeData: buildTaskTree(projectName, taskDirs),
+          treeData: addressTree,
           defaultExpandAll: true,
           selectable: false,
           showIcon: true,
@@ -100979,7 +100967,6 @@ function BuildPreviewDetail({ detail }) {
   const target = projectRoot ? absoluteTaskPath(projectRoot, task.dir || ".") : task.dir || "\u672A\u6307\u5B9A";
   const crumbs = toPosix(task.dir || ".").split("/").filter((part) => part && part !== ".");
   const share = (0, import_react169.useMemo)(() => buildShareIndex(batch, projectRoot), [batch, projectRoot]);
-  const sourceOwners = (0, import_react169.useMemo)(() => buildSourceTasks(batch), [batch]);
   const summary = (0, import_react169.useMemo)(() => summarizeBatch(batch, projectRoot), [batch, projectRoot]);
   const slots = (0, import_react169.useMemo)(() => describeSlots(task, result, projectRoot, share), [task, result, projectRoot, share]);
   const templateFullRel = task.template ? projectRelative(projectRoot, absoluteTaskPath(projectRoot, task.template)) : "";
@@ -100989,6 +100976,44 @@ function BuildPreviewDetail({ detail }) {
     name: item.dest || item.fromTemplate || basenameOf(item.src) || `\u989D\u5916\u6587\u4EF6 ${index2 + 1}`,
     path: (result?.sources ?? {})[item.dest || item.fromTemplate || basenameOf(item.src) || ""]
   }));
+  const [hoverSlot, setHoverSlot] = (0, import_react169.useState)(null);
+  const [pinnedSlot, setPinnedSlot] = (0, import_react169.useState)(null);
+  const hoverTimer = (0, import_react169.useRef)(null);
+  const cancelHoverClose = (0, import_react169.useCallback)(() => {
+    if (hoverTimer.current !== null) {
+      window.clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+  }, []);
+  const scheduleHoverClose = (0, import_react169.useCallback)(() => {
+    cancelHoverClose();
+    hoverTimer.current = window.setTimeout(() => {
+      setHoverSlot(null);
+      hoverTimer.current = null;
+    }, 200);
+  }, [cancelHoverClose]);
+  (0, import_react169.useEffect)(() => () => cancelHoverClose(), [cancelHoverClose]);
+  (0, import_react169.useEffect)(() => {
+    setHoverSlot(null);
+    setPinnedSlot(null);
+  }, [task.dir]);
+  (0, import_react169.useEffect)(() => {
+    if (!pinnedSlot) return;
+    const onPointerDown = (event) => {
+      const target2 = event.target;
+      if (target2?.closest?.(".vfp-cmp-popover, [data-vfp-source-row]")) return;
+      setPinnedSlot(null);
+    };
+    const onKeyDown2 = (event) => {
+      if (event.key === "Escape") setPinnedSlot(null);
+    };
+    document.addEventListener("mousedown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown2);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown2);
+    };
+  }, [pinnedSlot]);
   return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-build-detail", children: [
     /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-build-detail-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("strong", { children: basenameOf(task.dir) || "\u672A\u547D\u540D\u4EFB\u52A1" }),
@@ -101007,43 +101032,89 @@ function BuildPreviewDetail({ detail }) {
         ] }) : null
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("ul", { className: "vfp-inherit-rows", children: slots.map((slot) => {
-        const row = /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("li", { className: "vfp-inherit-row", "data-origin": slot.origin, title: slot.path || slot.rel || "\u672A\u63D0\u4F9B", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-name", children: slot.label }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-badge", "data-origin": slot.origin, children: originLabel(slot.origin) }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("code", { className: "vfp-inherit-path", children: slot.rel || "\u672A\u63D0\u4F9B" }),
-          slot.shared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "vfp-inherit-share", title: `${slot.shared} \u4E2A\u4EFB\u52A1\u4F7F\u7528\u540C\u4E00\u6765\u6E90`, children: [
-            "\xD7",
-            slot.shared
-          ] }) : null
-        ] }, slot.key);
+        const row = /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+          "li",
+          {
+            className: "vfp-inherit-row",
+            "data-origin": slot.origin,
+            "data-vfp-source-row": slot.key,
+            title: slot.path || slot.rel || "\u672A\u63D0\u4F9B",
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-name", children: slot.label }),
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-badge", "data-origin": slot.origin, children: originLabel(slot.origin) }),
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("code", { className: "vfp-inherit-path", children: slot.rel || "\u672A\u63D0\u4F9B" }),
+              slot.shared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "vfp-inherit-share", title: `${slot.shared} \u4E2A\u4EFB\u52A1\u4F7F\u7528\u540C\u4E00\u6765\u6E90`, children: [
+                "\xD7",
+                slot.shared
+              ] }) : null
+            ]
+          },
+          slot.key
+        );
         if (!slot.path) return row;
         const destination = slot.key === "submit" ? basenameOf(task.submitSrc) : slot.key;
         const templateCopy = slot.fromTemplate && task.template ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`) : "";
         const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || ".")}/${destination}`);
-        const baseSide = slot.origin === "override" && templateCopy ? { role: "\u6A21\u677F", path: templateCopy } : { role: "\u76EE\u5F55\u73B0\u6709", path: diskCopy };
-        const owners = sourceOwners.get(`${slot.key}|${slot.path.toLowerCase()}`) ?? [toPosix(task.dir || ".")];
+        const fromTemplate = slot.origin === "override" && Boolean(templateCopy);
+        const baseSide = fromTemplate ? { role: "\u6A21\u677F", path: templateCopy } : { role: "\u76EE\u5F55", path: diskCopy };
+        const adoptedSide = { role: slot.origin === "inherit" ? "\u6A21\u677F" : "\u672C\u4EFB\u52A1", path: slot.path };
+        const open = hoverSlot === slot.key || pinnedSlot === slot.key;
         return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           popover_default,
           {
-            trigger: "hover",
-            mouseEnterDelay: 0.35,
-            mouseLeaveDelay: 0.12,
+            trigger: [],
+            open,
             destroyTooltipOnHide: true,
             placement: "leftTop",
+            align: { offset: [0, -6] },
             overlayClassName: "vfp-cmp-popover",
             content: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
-              SourceCompare,
+              "div",
               {
-                projectRoot,
-                projectName: basenameOf(projectRoot) || "\u9879\u76EE",
-                slotLabel: slot.label,
-                originText: originLabel(slot.origin),
-                base: baseSide,
-                adopted: { role: "\u672C\u4EFB\u52A1\u91C7\u7528", path: slot.path },
-                taskDirs: owners
+                onMouseEnter: () => {
+                  cancelHoverClose();
+                  setHoverSlot(slot.key);
+                },
+                onMouseLeave: scheduleHoverClose,
+                children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                  SourceCompare,
+                  {
+                    projectRoot,
+                    projectName: basenameOf(projectRoot) || "\u9879\u76EE",
+                    slotLabel: slot.label,
+                    originText: originLabel(slot.origin),
+                    base: baseSide,
+                    adopted: adoptedSide,
+                    sourcePath: slot.path
+                  }
+                )
               }
             ),
-            children: row
+            children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+              "li",
+              {
+                className: "vfp-inherit-row",
+                "data-origin": slot.origin,
+                "data-vfp-source-row": slot.key,
+                "data-pinned": pinnedSlot === slot.key ? "" : void 0,
+                title: slot.path || slot.rel || "\u672A\u63D0\u4F9B",
+                onMouseEnter: () => {
+                  cancelHoverClose();
+                  setHoverSlot(slot.key);
+                },
+                onMouseLeave: scheduleHoverClose,
+                onClick: () => setPinnedSlot((current) => current === slot.key ? null : slot.key),
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-name", children: slot.label }),
+                  /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-badge", "data-origin": slot.origin, children: originLabel(slot.origin) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("code", { className: "vfp-inherit-path", children: slot.rel || "\u672A\u63D0\u4F9B" }),
+                  slot.shared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "vfp-inherit-share", title: `${slot.shared} \u4E2A\u4EFB\u52A1\u4F7F\u7528\u540C\u4E00\u6765\u6E90`, children: [
+                    "\xD7",
+                    slot.shared
+                  ] }) : null
+                ]
+              }
+            )
           },
           slot.key
         );
@@ -102020,10 +102091,10 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-inherit-empty { color:var(--vfp-muted); font-size:12px; }
 .vfp-inherit-extras { display:grid; grid-template-columns:64px minmax(0,1fr); align-items:baseline; gap:8px; margin-top:3px; font-size:12px; }
 .vfp-inherit-extras code { margin-right:8px; color:var(--vfp-text); }
-/* Hover drill-down: the two candidate files side by side, plus the tasks that
-   resolve to the same source. */
-.vfp-cmp-popover .ant-popover-inner { padding:12px 14px; }
-.vfp-cmp { display:grid; gap:10px; width:min(560px,72vw); font-size:12px; }
+/* Hover drill-down: the two candidate files side by side, then where the
+   adopted file lives. */
+.vfp-cmp-popover .ant-popover-inner { padding:12px 14px; max-height:calc(100vh - 32px); overflow:hidden; }
+.vfp-cmp { display:grid; gap:10px; width:clamp(360px,46vw,560px); max-height:min(74vh,640px); overflow:auto; font-size:12px; }
 .vfp-cmp-head { display:flex; align-items:baseline; gap:8px; }
 .vfp-cmp-head strong { font-size:13px; }
 .vfp-cmp-origin { color:var(--vfp-muted); }
@@ -102031,9 +102102,11 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-cmp-same { margin-left:auto; color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
 .vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:6px; overflow:hidden; background:var(--vfp-surface); }
-.vfp-cmp-side>header { display:flex; align-items:baseline; gap:8px; padding:5px 8px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
+.vfp-cmp-side>header { display:grid; gap:2px; padding:5px 8px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
+.vfp-cmp-side-head { display:flex; align-items:baseline; gap:6px; }
+.vfp-cmp-step { flex:none; padding:0 5px; border-radius:3px; background:var(--vfp-surface); border:1px solid var(--vfp-line); color:var(--vfp-text); font-size:11px; line-height:16px; }
 .vfp-cmp-role { flex:none; color:var(--vfp-muted); font-size:11px; }
-.vfp-cmp-side>header code { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--vfp-text); font:11.5px/1.5 Consolas,"Cascadia Mono",monospace; }
+.vfp-cmp-side>header code { min-width:0; color:var(--vfp-text); font:11.5px/1.4 Consolas,"Cascadia Mono",monospace; overflow-wrap:anywhere; }
 .vfp-cmp-side pre { margin:0; padding:6px 0; max-height:208px; overflow:auto; font:11px/1.5 Consolas,"Cascadia Mono",monospace; }
 .vfp-cmp-line { display:block; padding:0 8px; white-space:pre; }
 .vfp-cmp-line i { display:inline-block; width:22px; margin-right:6px; color:var(--vfp-muted); font-style:normal; text-align:right; user-select:none; }
@@ -102041,8 +102114,18 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-cmp-empty { padding:12px 10px; color:var(--vfp-muted); }
 .vfp-cmp-empty[data-error] { color:var(--vfp-warning); }
 .vfp-cmp-more { padding:4px 8px 6px; color:var(--vfp-muted); font-size:11px; border-top:1px dashed var(--vfp-line); }
-.vfp-cmp-tasks { border-top:1px solid var(--vfp-line); padding-top:8px; }
-.vfp-cmp-tasks-head { margin-bottom:4px; color:var(--vfp-muted); }
+.vfp-cmp-address { border-top:1px solid var(--vfp-line); padding-top:8px; }
+.vfp-cmp-address-head { margin-bottom:2px; color:var(--vfp-muted); }
+.vfp-cmp-address .ant-tree { max-height:200px; overflow:auto; }
+/* Same tree language as the task list, at popover scale. */
+.vfp-cmp-address .ant-tree .ant-tree-treenode { padding:0!important; line-height:22px; }
+.vfp-cmp-address .ant-tree-indent-unit { width:10px!important; }
+.vfp-cmp-address .ant-tree-switcher { width:12px!important; margin-right:0!important; }
+.vfp-cmp-address .ant-tree-title { font-size:12px!important; }
+.vfp-cmp-address .ant-tree-node-content-wrapper { padding:0 3px!important; min-height:22px!important; line-height:22px!important; }
+.vfp-cmp-ellipsis { color:var(--vfp-muted); }
+.vfp-inherit-row { cursor:pointer; }
+.vfp-inherit-row[data-pinned] { background:var(--vfp-selected); }
 /* The detail section styles any div holding a <span> as a two-column row; the
    ledger needs its own columns (name / badge / path / share). */
 [data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-template,
@@ -103848,7 +103931,7 @@ function parseBuildResult(block) {
   }
   return {};
 }
-function buildTaskTree2(tasks) {
+function buildTaskTree(tasks) {
   const root = { name: "", path: "", indices: [], taskIndices: [], children: /* @__PURE__ */ new Map() };
   tasks.forEach((task, index2) => {
     const parts = (task.dir || `\u4EFB\u52A1 ${index2 + 1}`).split(/[\\/]+/).filter(Boolean);
@@ -103939,7 +104022,7 @@ function BuildInputsToolRow({ block }) {
   const directMode = buildDryRun === false;
   const submitLock = import_react171.default.useRef(false);
   const isPreview = preview.dryRun !== false;
-  const taskTree = buildTaskTree2(tasks);
+  const taskTree = buildTaskTree(tasks);
   const canConfirm = settled && isPreview && !!preview.planId && !preview.error && !buildModeError && phase === "preview" && dropBusy === null && !cancelBusy;
   const selectedIndices = [...selected].sort((a2, b) => a2 - b);
   const selectedErrors = selectedIndices.filter((index2) => preview.results?.[index2]?.errors?.length).length;

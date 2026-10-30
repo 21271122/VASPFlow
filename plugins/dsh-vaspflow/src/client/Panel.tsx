@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { panelStore, usePanelStore } from './store';
 import {
-  absoluteTaskPath, basenameOf, buildShareIndex, buildSourceTasks, describeSlots, originLabel,
+  absoluteTaskPath, basenameOf, buildShareIndex, describeSlots, originLabel,
   projectRelative, shortenPath, summarizeBatch, toPosix,
 } from './inheritance';
 import type { BuildBatchSummary } from './inheritance';
@@ -92,7 +92,6 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
   const target = projectRoot ? absoluteTaskPath(projectRoot, task.dir || '.') : task.dir || '未指定';
   const crumbs = toPosix(task.dir || '.').split('/').filter((part) => part && part !== '.');
   const share = useMemo(() => buildShareIndex(batch, projectRoot), [batch, projectRoot]);
-  const sourceOwners = useMemo(() => buildSourceTasks(batch), [batch]);
   const summary = useMemo(() => summarizeBatch(batch, projectRoot), [batch, projectRoot]);
   const slots = useMemo(() => describeSlots(task, result, projectRoot, share), [task, result, projectRoot, share]);
   const templateFullRel = task.template ? projectRelative(projectRoot, absoluteTaskPath(projectRoot, task.template)) : '';
@@ -102,6 +101,41 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
     name: item.dest || item.fromTemplate || basenameOf(item.src) || `额外文件 ${index + 1}`,
     path: (result?.sources ?? {})[item.dest || item.fromTemplate || basenameOf(item.src) || ''] as string | undefined,
   }));
+  /** Hover previews; a click pins the card so it survives the pointer leaving. */
+  const [hoverSlot, setHoverSlot] = useState<string | null>(null);
+  const [pinnedSlot, setPinnedSlot] = useState<string | null>(null);
+  /** Small grace period so moving from the row into the card does not close it. */
+  const hoverTimer = useRef<number | null>(null);
+  const cancelHoverClose = useCallback(() => {
+    if (hoverTimer.current !== null) {
+      window.clearTimeout(hoverTimer.current);
+      hoverTimer.current = null;
+    }
+  }, []);
+  const scheduleHoverClose = useCallback(() => {
+    cancelHoverClose();
+    hoverTimer.current = window.setTimeout(() => {
+      setHoverSlot(null);
+      hoverTimer.current = null;
+    }, 200);
+  }, [cancelHoverClose]);
+  useEffect(() => () => cancelHoverClose(), [cancelHoverClose]);
+  useEffect(() => { setHoverSlot(null); setPinnedSlot(null); }, [task.dir]);
+  useEffect(() => {
+    if (!pinnedSlot) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest?.('.vfp-cmp-popover, [data-vfp-source-row]')) return;
+      setPinnedSlot(null);
+    };
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setPinnedSlot(null); };
+    document.addEventListener('mousedown', onPointerDown, true);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown, true);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [pinnedSlot]);
   return (
     <div className="vfp-build-detail">
       <div className="vfp-build-detail-head"><strong>{basenameOf(task.dir) || '未命名任务'}</strong><Tag color={result?.errors?.length ? 'error' : result?.warnings?.length ? 'warning' : 'success'}>{status}</Tag></div>
@@ -117,7 +151,8 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
         </div>
         <ul className="vfp-inherit-rows">
           {slots.map((slot) => {
-            const row = <li key={slot.key} className="vfp-inherit-row" data-origin={slot.origin} title={slot.path || slot.rel || '未提供'}>
+            const row = <li key={slot.key} className="vfp-inherit-row" data-origin={slot.origin} data-vfp-source-row={slot.key}
+              title={slot.path || slot.rel || '未提供'}>
               <span className="vfp-inherit-name">{slot.label}</span>
               <span className="vfp-inherit-badge" data-origin={slot.origin}>{originLabel(slot.origin)}</span>
               <code className="vfp-inherit-path">{slot.rel || '未提供'}</code>
@@ -129,28 +164,51 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
               ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`)
               : '';
             const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || '.')}/${destination}`);
-            const baseSide = slot.origin === 'override' && templateCopy
+            const fromTemplate = slot.origin === 'override' && Boolean(templateCopy);
+            const baseSide = fromTemplate
               ? { role: '模板', path: templateCopy }
-              : { role: '目录现有', path: diskCopy };
-            const owners = sourceOwners.get(`${slot.key}|${slot.path.toLowerCase()}`) ?? [toPosix(task.dir || '.')];
+              : { role: '目录', path: diskCopy };
+            const adoptedSide = { role: slot.origin === 'inherit' ? '模板' : '本任务', path: slot.path };
+            const open = hoverSlot === slot.key || pinnedSlot === slot.key;
             return <Popover
               key={slot.key}
-              trigger="hover"
-              mouseEnterDelay={0.35}
-              mouseLeaveDelay={0.12}
+              trigger={[]}
+              open={open}
               destroyTooltipOnHide
               placement="leftTop"
+              align={{ offset: [0, -6] }}
               overlayClassName="vfp-cmp-popover"
-              content={<SourceCompare
-                projectRoot={projectRoot}
-                projectName={basenameOf(projectRoot) || '项目'}
-                slotLabel={slot.label}
-                originText={originLabel(slot.origin)}
-                base={baseSide}
-                adopted={{ role: '本任务采用', path: slot.path }}
-                taskDirs={owners}
-              />}
-            >{row}</Popover>;
+              content={<div
+                onMouseEnter={() => { cancelHoverClose(); setHoverSlot(slot.key); }}
+                onMouseLeave={scheduleHoverClose}
+              >
+                <SourceCompare
+                  projectRoot={projectRoot}
+                  projectName={basenameOf(projectRoot) || '项目'}
+                  slotLabel={slot.label}
+                  originText={originLabel(slot.origin)}
+                  base={baseSide}
+                  adopted={adoptedSide}
+                  sourcePath={slot.path}
+                />
+              </div>}
+            >
+              <li
+                className="vfp-inherit-row"
+                data-origin={slot.origin}
+                data-vfp-source-row={slot.key}
+                data-pinned={pinnedSlot === slot.key ? '' : undefined}
+                title={slot.path || slot.rel || '未提供'}
+                onMouseEnter={() => { cancelHoverClose(); setHoverSlot(slot.key); }}
+                onMouseLeave={scheduleHoverClose}
+                onClick={() => setPinnedSlot((current) => (current === slot.key ? null : slot.key))}
+              >
+                <span className="vfp-inherit-name">{slot.label}</span>
+                <span className="vfp-inherit-badge" data-origin={slot.origin}>{originLabel(slot.origin)}</span>
+                <code className="vfp-inherit-path">{slot.rel || '未提供'}</code>
+                {slot.shared > 1 ? <span className="vfp-inherit-share" title={`${slot.shared} 个任务使用同一来源`}>×{slot.shared}</span> : null}
+              </li>
+            </Popover>;
           })}
         </ul>
         {extras.length ? <div className="vfp-inherit-extras">

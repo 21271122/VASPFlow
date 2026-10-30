@@ -1,13 +1,14 @@
 /**
  * dsh-vaspflow client: source drill-down for the build inheritance ledger.
  *
- * Hovering "本任务来源" row shows what the file replaces (the template copy, or
- * whatever already sits in the task directory) next to the file that will
- * actually be used, and which tasks in the batch share that source.
+ * Hovering a "本任务来源" row opens a card that shows two things:
+ *   1. what the build replaces (the template copy, or whatever already sits in
+ *      the task directory) next to the file that will actually be used;
+ *   2. where that source file physically lives, as a directory tree.
  *
  * File contents come from the existing task routes: open-by-path registers any
  * existing directory, then file-content reads one file inside it. Results are
- * cached per absolute path so hovering the same source twice costs nothing.
+ * cached per absolute path so reopening the same source costs nothing.
  */
 import React from 'react';
 import { Tree } from 'antd';
@@ -16,6 +17,11 @@ import { fetchFileContent, openTaskByPath } from './api';
 import { basenameOf, projectRelative, toPosix } from './inheritance';
 
 type FileState = { text: string; lines: string[]; error?: string; truncated?: boolean; relPath?: string };
+
+/** Project-relative display path; the absolute path stays in the tooltip. */
+function relativeDisplay(projectRoot: string, absolutePath: string): string {
+  return toPosix(projectRelative(projectRoot, absolutePath));
+}
 const fileCache = new Map<string, FileState>();
 const pending = new Map<string, Promise<FileState>>();
 
@@ -95,21 +101,25 @@ function markDifferences(left: string[], right: string[]): { left: boolean[]; ri
 
 const PREVIEW_LINES = 140;
 
-function FilePane({ role, path, state, changed, soft }: {
+function FilePane({ step, role, path, displayPath, state, changed, soft }: {
+  step: string;
   role: string;
   path: string;
+  displayPath: string;
   state?: FileState;
   changed?: boolean[];
   /** A missing file is normal for the "current file on disk" side, not an error. */
   soft?: boolean;
 }) {
-  const rel = state?.relPath ?? '';
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
   return (
     <section className="vfp-cmp-side">
       <header>
-        <span className="vfp-cmp-role">{role}</span>
-        <code title={path}>{rel || basenameOf(path)}</code>
+        <div className="vfp-cmp-side-head">
+          <span className="vfp-cmp-step">{step}</span>
+          <span className="vfp-cmp-role">{role}</span>
+        </div>
+        <code title={path}>{displayPath || basenameOf(path)}</code>
       </header>
       {!state ? <div className="vfp-cmp-empty">读取中…</div>
         : state.error ? <div className="vfp-cmp-empty" data-error={soft ? undefined : ''} title={state.error}>{soft ? '目录中还没有这个文件' : state.error}</div>
@@ -128,30 +138,33 @@ function FilePane({ role, path, state, changed, soft }: {
   );
 }
 
-type PathNode = { title: React.ReactNode; key: string; icon?: React.ReactNode; children?: PathNode[]; selectable?: boolean };
+type PathNode = { title: React.ReactNode; key: string; icon?: React.ReactNode; children?: PathNode[] };
 
-/** Tree of task directories, keeping the first and last two segments. */
-function buildTaskTree(projectName: string, dirs: string[]): PathNode[] {
+/**
+ * Where the source file actually lives: project → directories → file.
+ * Long chains collapse their middle, keeping the first and last two parents.
+ */
+function buildAddressTree(projectName: string, projectRoot: string, absolutePath: string): PathNode[] {
+  const parts = toPosix(projectRelative(projectRoot, absolutePath)).split('/').filter(Boolean);
+  const file = parts.at(-1) ?? '';
+  const dirs = parts.slice(0, -1);
+  const shown = dirs.length > 4
+    ? [dirs[0], dirs[1], '…', dirs[dirs.length - 2], dirs[dirs.length - 1]]
+    : dirs;
   const root: PathNode = { title: projectName, key: 'root', icon: <FolderOutlined />, children: [] };
-  for (const dir of dirs) {
-    const parts = toPosix(dir).split('/').filter(Boolean);
-    const shown = parts.length > 4 ? [parts[0], parts[1], '…', parts[parts.length - 2], parts[parts.length - 1]] : parts;
-    let node = root;
-    shown.forEach((segment, index) => {
-      const key = `${node.key}/${segment}`;
-      let child = node.children?.find((entry) => entry.key === key);
-      if (!child) {
-        child = {
-          title: segment,
-          key,
-          icon: index === shown.length - 1 ? <FileTextOutlined /> : <FolderOutlined />,
-          children: index === shown.length - 1 ? undefined : [],
-        };
-        node.children = [...(node.children ?? []), child];
-      }
-      node = child;
-    });
-  }
+  let node = root;
+  shown.forEach((segment) => {
+    const key = `${node.key}/${segment}`;
+    const child: PathNode = {
+      title: segment === '…' ? <span className="vfp-cmp-ellipsis">…</span> : segment,
+      key,
+      icon: segment === '…' ? undefined : <FolderOutlined />,
+      children: [],
+    };
+    node.children = [...(node.children ?? []), child];
+    node = child;
+  });
+  node.children = [...(node.children ?? []), { title: file, key: `${node.key}/${file}`, icon: <FileTextOutlined /> }];
   return [root];
 }
 
@@ -160,14 +173,15 @@ export type SourceCompareProps = {
   projectName: string;
   slotLabel: string;
   originText: string;
-  /** What the adopted file replaces: the template copy or the current file on disk. */
+  /** What the adopted file replaces: a template copy or the file on disk. */
   base: { role: string; path: string };
   /** The file this task will actually use. */
   adopted: { role: string; path: string };
-  taskDirs: string[];
+  /** Absolute path of the adopted file, used for the address tree. */
+  sourcePath: string;
 };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, originText, base, adopted, taskDirs }: SourceCompareProps) {
+export function SourceCompare({ projectRoot, projectName, slotLabel, originText, base, adopted, sourcePath }: SourceCompareProps) {
   const [baseState, setBaseState] = React.useState<FileState>();
   const [adoptedState, setAdoptedState] = React.useState<FileState>();
   React.useEffect(() => {
@@ -184,8 +198,10 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, originText,
     [baseState, adoptedState],
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
-  const baseWithRel = baseState ? { ...baseState, relPath: projectRelative(projectRoot, base.path) } : undefined;
-  const adoptedWithRel = adoptedState ? { ...adoptedState, relPath: projectRelative(projectRoot, adopted.path) } : undefined;
+  const addressTree = React.useMemo(
+    () => buildAddressTree(projectName, projectRoot, sourcePath),
+    [projectName, projectRoot, sourcePath],
+  );
 
   return (
     <div className="vfp-cmp vaspflow-task-popover">
@@ -197,13 +213,13 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, originText,
           : <span className="vfp-cmp-diff">有差异</span>)}
       </div>
       <div className="vfp-cmp-grid">
-        <FilePane role={base.role} path={base.path} state={baseWithRel} changed={marks?.left} soft={base.role !== '模板'} />
-        <FilePane role={adopted.role} path={adopted.path} state={adoptedWithRel} changed={marks?.right} />
+        <FilePane step="替换前" role={base.role} path={base.path} displayPath={relativeDisplay(projectRoot, base.path)} state={baseState} changed={marks?.left} soft={base.role !== '模板'} />
+        <FilePane step="替换后" role={adopted.role} path={adopted.path} displayPath={relativeDisplay(projectRoot, adopted.path)} state={adoptedState} changed={marks?.right} />
       </div>
-      <div className="vfp-cmp-tasks">
-        <div className="vfp-cmp-tasks-head">使用该来源的任务 · {taskDirs.length}</div>
+      <div className="vfp-cmp-address">
+        <div className="vfp-cmp-address-head">来源地址</div>
         <Tree
-          treeData={buildTaskTree(projectName, taskDirs) as any}
+          treeData={addressTree as any}
           defaultExpandAll
           selectable={false}
           showIcon
