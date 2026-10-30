@@ -106,15 +106,9 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-status-source { display:block; margin-top:6px; font-size:11px; }
 .vfp-status-excerpt { margin-top:7px; padding:8px 10px; color:var(--vfp-text); background:var(--vfp-surface); border:1px solid var(--vfp-line); border-radius:5px; font:12px/1.6 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
 .vfp-status-extra { margin-top:7px; color:var(--vfp-muted); font-size:12px; }
-[data-dsh-vaspflow-tool]:not([data-dsh-vaspflow-tool="vasp_say"]):not([data-dsh-vaspflow-tool="vasp_done"]) { border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); padding:12px 14px; }
-[data-dsh-vaspflow-tool] { --vfp-tree-folder-bg:transparent; --vfp-tree-leaf-bg:transparent; }
-body[data-ds-dark-theme] [data-dsh-vaspflow-tool] { --vfp-tree-folder-bg:transparent; --vfp-tree-leaf-bg:transparent; }
-[data-dsh-vaspflow-tool] .vfp-tree-task[data-selected], body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-task[data-selected],
-[data-dsh-vaspflow-tool] .vfp-inline-tree .vfp-visual-tree-leaf[aria-current="true"] { background:var(--vfp-selected); color:var(--vfp-accent); }
-[data-dsh-vaspflow-tool] .vfp-tree-task:hover, [data-dsh-vaspflow-tool] .vfp-result-row:hover { background:var(--vfp-soft); }
-[data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); font-size:14px; }
-body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); }
-[data-dsh-vaspflow-tool] .vfp-tree-group { font-size:12px; }
+/* Conversation cards keep the shell's own chrome: no border, background or
+   padding here, and the tree keeps its tinted rows. Only the dock uses the
+   --vfp-* presentation layer above. */
 /* Build inheritance ledger: batch distribution bars + one row per inherited input. */
 .vfp-inherit-batch { display:grid; gap:7px; margin:10px 0 2px; padding:10px 12px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
 .vfp-inherit-batch-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:12px; color:var(--vfp-muted); }
