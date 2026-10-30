@@ -59583,15 +59583,14 @@ function shortPath(projectRoot, absolutePath) {
   const prefix2 = dirs.length <= 2 ? dirs.join("/") : `\u2026/${dirs.slice(-2).join("/")}`;
   return `${prefix2}/${name}`;
 }
-function FilePane({ step, role, path: path3, dirLabel, state, changed, missing }) {
+function FilePane({ step, path: path3, dirLabel, state, changed }) {
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", "data-side": step === "\u53C2\u8003\u6765\u6E90" ? "source" : "target", "data-loading": !state ? "" : void 0, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", "data-side": step === "\u5C06\u5199\u5165" ? "write" : "reference", "data-loading": !state ? "" : void 0, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-step", children: step }),
-      role ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-role", children: role }) : null,
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "vfp-cmp-dir", title: path3, children: dirLabel })
     ] }),
-    !state ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : state.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", "data-error": missing ? void 0 : "", title: state.error, children: missing ?? state.error }) : shown.length === 0 || shown.length === 1 && shown[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { children: shown.map((line2, index2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[index2] ? "" : void 0, children: [
+    !state ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : state.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", "data-error": "", title: state.error, children: state.error }) : shown.length === 0 || shown.length === 1 && shown[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { children: shown.map((line2, index2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[index2] ? "" : void 0, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { children: index2 + 1 }),
       line2 || " "
     ] }, index2)) }),
@@ -59624,74 +59623,85 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, target, source }) {
-  const [targetState, setTargetState] = import_react129.default.useState();
-  const [sourceState, setSourceState] = import_react129.default.useState();
+function SourceCompare({ projectRoot, projectName, slotLabel, adopted, templatePath, diskPath }) {
+  const [adoptedState, setAdoptedState] = import_react129.default.useState();
+  const [reference, setReference] = import_react129.default.useState(null);
   import_react129.default.useEffect(() => {
     let cancelled = false;
-    void readProjectFile(projectRoot, target.path).then((value) => {
-      if (!cancelled) setTargetState(value);
+    void readProjectFile(projectRoot, adopted.path).then((value) => {
+      if (!cancelled) setAdoptedState(value);
     });
-    void readProjectFile(projectRoot, source.path).then((value) => {
-      if (!cancelled) setSourceState(value);
-    });
+    const choose = async () => {
+      if (templatePath) {
+        const template = await readProjectFile(projectRoot, templatePath);
+        if (!cancelled && !template.error) {
+          setReference({ label: "\u6A21\u677F\u7248\u672C", path: templatePath, state: template });
+          return;
+        }
+      }
+      const disk = await readProjectFile(projectRoot, diskPath);
+      if (cancelled) return;
+      setReference(disk.error ? { label: "", path: "", state: disk } : { label: "\u76EE\u5F55\u73B0\u6709", path: diskPath, state: disk });
+    };
+    void choose();
     return () => {
       cancelled = true;
     };
-  }, [projectRoot, target.path, source.path]);
+  }, [projectRoot, adopted.path, templatePath, diskPath]);
+  const referenceState = reference?.state;
+  const usable = Boolean(reference && reference.path && referenceState && !referenceState.error);
   const marks = import_react129.default.useMemo(
-    () => targetState && sourceState && !targetState.error && !sourceState.error ? markDifferences(sourceState.lines.slice(0, PREVIEW_LINES), targetState.lines.slice(0, PREVIEW_LINES)) : void 0,
-    [targetState, sourceState]
+    () => adoptedState && usable && referenceState && !adoptedState.error ? markDifferences(referenceState.lines.slice(0, PREVIEW_LINES), adoptedState.lines.slice(0, PREVIEW_LINES)) : void 0,
+    [adoptedState, referenceState, usable]
   );
-  const isNew = Boolean(targetState?.error);
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
-  const changedLines = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : void 0;
-  const state = targetState && sourceState ? isNew ? "missing" : same ? "same" : "changed" : "loading";
+  const delta = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : void 0;
   const addressTree = import_react129.default.useMemo(
-    () => buildAddressTree(projectName, projectRoot, source.path),
-    [projectName, projectRoot, source.path]
+    () => buildAddressTree(projectName, projectRoot, adopted.path),
+    [projectName, projectRoot, adopted.path]
   );
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: slotLabel }),
-      state === "missing" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u5C1A\u672A\u5199\u5165" }),
-      state === "same" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: "\u5185\u5BB9\u76F8\u540C" }),
-      state === "changed" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
-        "\u5185\u5BB9\u6709\u53D8\u5316",
-        changedLines && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("em", { className: "vfp-cmp-delta", children: [
+      adoptedState && reference && (usable ? same ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-same", children: [
+        "\u4E0E",
+        reference.label,
+        "\u76F8\u540C"
+      ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
+        "\u4E0E",
+        reference.label,
+        "\u4E0D\u540C",
+        delta && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("em", { className: "vfp-cmp-delta", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
             "+",
-            changedLines.added
+            delta.added
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
             "\u2212",
-            changedLines.removed
+            delta.removed
           ] })
         ] })
-      ] })
+      ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u65E0\u53EF\u5BF9\u6BD4\u6587\u4EF6\uFF0C\u5C06\u65B0\u5EFA" }))
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", "data-single": usable ? void 0 : "", children: [
+      usable && reference && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         FilePane,
         {
-          step: "\u672C\u4EFB\u52A1\u6587\u4EF6",
-          role: "",
-          path: target.path,
-          dirLabel: shortPath(projectRoot, target.path),
-          state: targetState,
-          changed: marks?.right,
-          missing: "\u5C1A\u672A\u5199\u5165"
+          step: reference.label,
+          path: reference.path,
+          dirLabel: shortPath(projectRoot, reference.path),
+          state: referenceState,
+          changed: marks?.left
         }
       ),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         FilePane,
         {
-          step: "\u53C2\u8003\u6765\u6E90",
-          role: "",
-          path: source.path,
-          dirLabel: shortPath(projectRoot, source.path),
-          state: sourceState,
-          changed: marks?.left
+          step: "\u5C06\u5199\u5165",
+          path: adopted.path,
+          dirLabel: shortPath(projectRoot, adopted.path),
+          state: adoptedState,
+          changed: marks?.right
         }
       )
     ] }),
@@ -101105,7 +101115,7 @@ function BuildPreviewDetail({ detail }) {
         if (!slot.path) return row;
         const destination = slot.key === "submit" ? basenameOf(task.submitSrc) : slot.key;
         const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || ".")}/${destination}`);
-        const sourceRole = slot.origin === "inherit" ? "\u6A21\u677F" : slot.origin === "override" ? "\u672C\u4EFB\u52A1\u8986\u76D6" : "\u672C\u4EFB\u52A1\u6307\u5B9A";
+        const templateCopy = slot.fromTemplate && task.template ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`) : void 0;
         const open = hoverSlot === slot.key || pinnedSlot === slot.key;
         return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           popover_default,
@@ -101129,8 +101139,9 @@ function BuildPreviewDetail({ detail }) {
                     projectRoot,
                     projectName: basenameOf(projectRoot) || "\u9879\u76EE",
                     slotLabel: slot.label,
-                    target: { path: diskCopy },
-                    source: { role: sourceRole, path: slot.path }
+                    adopted: { path: slot.path },
+                    templatePath: templateCopy,
+                    diskPath: diskCopy
                   }
                 )
               }
@@ -102180,10 +102191,11 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp-diff { color:var(--vfp-warning); }
 .vfp-cmp-same { color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+.vfp-cmp-grid[data-single] { grid-template-columns:minmax(0,1fr); }
 .vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; background:var(--vfp-surface); }
 .vfp-cmp-side>header { display:flex; align-items:center; gap:6px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
 .vfp-cmp-step { flex:none; padding:0 5px; border:1px solid var(--vfp-line); border-radius:4px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }
-.vfp-cmp-side[data-side="source"] .vfp-cmp-step { color:var(--vfp-accent); border-color:rgba(57,107,215,.34); background:rgba(57,107,215,.08); }
+.vfp-cmp-side[data-side="write"] .vfp-cmp-step { color:var(--vfp-accent); border-color:rgba(57,107,215,.34); background:rgba(57,107,215,.08); }
 .vfp-cmp-role { flex:none; color:var(--vfp-muted); font-size:11px; }
 .vfp-cmp-dir { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; color:var(--vfp-muted); font:10.5px/1.4 Consolas,"Cascadia Mono",monospace; }
 .vfp-cmp-side pre {

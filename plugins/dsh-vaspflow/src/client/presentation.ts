@@ -183,10 +183,11 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp-diff { color:var(--vfp-warning); }
 .vfp-cmp-same { color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+.vfp-cmp-grid[data-single] { grid-template-columns:minmax(0,1fr); }
 .vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; background:var(--vfp-surface); }
 .vfp-cmp-side>header { display:flex; align-items:center; gap:6px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
 .vfp-cmp-step { flex:none; padding:0 5px; border:1px solid var(--vfp-line); border-radius:4px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }
-.vfp-cmp-side[data-side="source"] .vfp-cmp-step { color:var(--vfp-accent); border-color:rgba(57,107,215,.34); background:rgba(57,107,215,.08); }
+.vfp-cmp-side[data-side="write"] .vfp-cmp-step { color:var(--vfp-accent); border-color:rgba(57,107,215,.34); background:rgba(57,107,215,.08); }
 .vfp-cmp-role { flex:none; color:var(--vfp-muted); font-size:11px; }
 .vfp-cmp-dir { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; color:var(--vfp-muted); font:10.5px/1.4 Consolas,"Cascadia Mono",monospace; }
 .vfp-cmp-side pre {

@@ -1,11 +1,13 @@
 /**
  * dsh-vaspflow client: source drill-down for the build inheritance ledger.
  *
- * Opens on a "本任务来源" row and answers two questions about the file that
- * build will write:
- *   1. the file in the task directory (目标) next to the file it is copied from
- *      (来源), line-numbered with the differing lines marked;
- *   2. where the written file comes from, as a directory tree (来源地址).
+ * The build flow is check → confirm → write, so the card has to be useful
+ * *before* anything exists on disk. It therefore compares what will be written
+ * against whatever is available to compare with:
+ *
+ *   override row        → 模板版本 (the file this task deviates from)
+ *   inherit row         → 目录现有 (only when the task directory already has one)
+ *   nothing to compare  → one full-width pane, marked 将新建
  *
  * File contents come from the existing task routes: open-by-path registers any
  * existing directory, then file-content reads one file inside it. Results are
@@ -15,7 +17,7 @@ import React from 'react';
 import { Tree } from 'antd';
 import { FileTextOutlined, FolderOutlined } from '@ant-design/icons';
 import { fetchFileContent, openTaskByPath } from './api';
-import { basenameOf, projectRelative, toPosix } from './inheritance';
+import { projectRelative, toPosix } from './inheritance';
 
 type FileState = { text: string; lines: string[]; error?: string; truncated?: boolean };
 
@@ -107,26 +109,22 @@ function shortPath(projectRoot: string, absolutePath: string): string {
   return `${prefix}/${name}`;
 }
 
-function FilePane({ step, role, path, dirLabel, state, changed, missing }: {
+function FilePane({ step, path, dirLabel, state, changed }: {
   step: string;
-  role: string;
   path: string;
   dirLabel: string;
   state?: FileState;
   changed?: boolean[];
-  /** Text shown instead of the error when the file simply is not there yet. */
-  missing?: string;
 }) {
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
   return (
-    <section className="vfp-cmp-side" data-side={step === '参考来源' ? 'source' : 'target'} data-loading={!state ? '' : undefined}>
+    <section className="vfp-cmp-side" data-side={step === '将写入' ? 'write' : 'reference'} data-loading={!state ? '' : undefined}>
       <header>
         <span className="vfp-cmp-step">{step}</span>
-        {role ? <span className="vfp-cmp-role">{role}</span> : null}
         <code className="vfp-cmp-dir" title={path}>{dirLabel}</code>
       </header>
       {!state ? <div className="vfp-cmp-empty">读取中…</div>
-        : state.error ? <div className="vfp-cmp-empty" data-error={missing ? undefined : ''} title={state.error}>{missing ?? state.error}</div>
+        : state.error ? <div className="vfp-cmp-empty" data-error="" title={state.error}>{state.error}</div>
           : shown.length === 0 || (shown.length === 1 && shown[0] === '') ? <div className="vfp-cmp-empty">空文件</div>
             : <pre>
               {shown.map((line, index) => (
@@ -173,53 +171,69 @@ export type SourceCompareProps = {
   projectRoot: string;
   projectName: string;
   slotLabel: string;
-  /** The file in this task's directory: what the build produces or already produced. */
-  target: { path: string };
-  /** The file it is copied from: a template's file, or one chosen for this task. */
-  source: { role: string; path: string };
+  /** The file the build will write into the task directory. */
+  adopted: { path: string };
+  /** Template copy, when this task overrides it. */
+  templatePath?: string;
+  /** What already sits in the task directory, if anything. */
+  diskPath: string;
 };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, target, source }: SourceCompareProps) {
-  const [targetState, setTargetState] = React.useState<FileState>();
-  const [sourceState, setSourceState] = React.useState<FileState>();
+export function SourceCompare({ projectRoot, projectName, slotLabel, adopted, templatePath, diskPath }: SourceCompareProps) {
+  const [adoptedState, setAdoptedState] = React.useState<FileState>();
+  const [reference, setReference] = React.useState<{ label: string; path: string; state?: FileState } | null>(null);
+
   React.useEffect(() => {
     let cancelled = false;
-    void readProjectFile(projectRoot, target.path).then((value) => { if (!cancelled) setTargetState(value); });
-    void readProjectFile(projectRoot, source.path).then((value) => { if (!cancelled) setSourceState(value); });
-    return () => { cancelled = true; };
-  }, [projectRoot, target.path, source.path]);
+    void readProjectFile(projectRoot, adopted.path).then((value) => { if (!cancelled) setAdoptedState(value); });
 
+    // Pick the most useful thing to compare against, before anything is written:
+    // the template this task deviates from, otherwise whatever is on disk.
+    const choose = async () => {
+      if (templatePath) {
+        const template = await readProjectFile(projectRoot, templatePath);
+        if (!cancelled && !template.error) { setReference({ label: '模板版本', path: templatePath, state: template }); return; }
+      }
+      const disk = await readProjectFile(projectRoot, diskPath);
+      if (cancelled) return;
+      setReference(disk.error ? { label: '', path: '', state: disk } : { label: '目录现有', path: diskPath, state: disk });
+    };
+    void choose();
+    return () => { cancelled = true; };
+  }, [projectRoot, adopted.path, templatePath, diskPath]);
+
+  const referenceState = reference?.state;
+  const usable = Boolean(reference && reference.path && referenceState && !referenceState.error);
   const marks = React.useMemo(
-    () => (targetState && sourceState && !targetState.error && !sourceState.error
-      ? markDifferences(sourceState.lines.slice(0, PREVIEW_LINES), targetState.lines.slice(0, PREVIEW_LINES))
+    () => (adoptedState && usable && referenceState && !adoptedState.error
+      ? markDifferences(referenceState.lines.slice(0, PREVIEW_LINES), adoptedState.lines.slice(0, PREVIEW_LINES))
       : undefined),
-    [targetState, sourceState],
+    [adoptedState, referenceState, usable],
   );
-  const isNew = Boolean(targetState?.error);
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
-  const changedLines = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : undefined;
-  const state = targetState && sourceState ? (isNew ? 'missing' : same ? 'same' : 'changed') : 'loading';
+  const delta = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : undefined;
   const addressTree = React.useMemo(
-    () => buildAddressTree(projectName, projectRoot, source.path),
-    [projectName, projectRoot, source.path],
+    () => buildAddressTree(projectName, projectRoot, adopted.path),
+    [projectName, projectRoot, adopted.path],
   );
 
   return (
     <div className="vfp-cmp vaspflow-task-popover">
       <div className="vfp-cmp-head">
         <strong>{slotLabel}</strong>
-        {state === 'missing' && <span className="vfp-cmp-note">尚未写入</span>}
-        {state === 'same' && <span className="vfp-cmp-same">内容相同</span>}
-        {state === 'changed' && <span className="vfp-cmp-diff">
-          内容有变化
-          {changedLines && <em className="vfp-cmp-delta"><b>+{changedLines.added}</b><b>−{changedLines.removed}</b></em>}
-        </span>}
+        {adoptedState && reference && (usable
+          ? (same
+            ? <span className="vfp-cmp-same">与{reference.label}相同</span>
+            : <span className="vfp-cmp-diff">与{reference.label}不同{delta && <em className="vfp-cmp-delta"><b>+{delta.added}</b><b>−{delta.removed}</b></em>}</span>)
+          : <span className="vfp-cmp-note">无可对比文件，将新建</span>)}
       </div>
-      <div className="vfp-cmp-grid">
-        <FilePane step="本任务文件" role="" path={target.path} dirLabel={shortPath(projectRoot, target.path)}
-          state={targetState} changed={marks?.right} missing="尚未写入" />
-        <FilePane step="参考来源" role="" path={source.path} dirLabel={shortPath(projectRoot, source.path)}
-          state={sourceState} changed={marks?.left} />
+      <div className="vfp-cmp-grid" data-single={usable ? undefined : ''}>
+        {usable && reference && (
+          <FilePane step={reference.label} path={reference.path} dirLabel={shortPath(projectRoot, reference.path)}
+            state={referenceState} changed={marks?.left} />
+        )}
+        <FilePane step="将写入" path={adopted.path} dirLabel={shortPath(projectRoot, adopted.path)}
+          state={adoptedState} changed={marks?.right} />
       </div>
       <div className="vfp-cmp-address">
         <div className="vfp-cmp-address-head">来源地址</div>
