@@ -8,7 +8,7 @@
  * touching React so it can be checked on its own.
  */
 
-export type BuildOrigin = 'inherit' | 'explicit' | 'pending' | 'missing';
+export type BuildOrigin = 'inherit' | 'override' | 'explicit' | 'pending' | 'missing';
 
 export const BUILD_SLOTS = [
   { key: 'POSCAR', short: 'poscar', field: 'poscarSrc', label: 'POSCAR', fromTemplate: false },
@@ -39,7 +39,7 @@ export type BuildBatchSummary = {
   total: number;
   templates: Array<{ name: string; rel: string; count: number }>;
   untemplated: number;
-  slots: Array<{ key: string; label: string; fromTemplate: boolean; inherit: number; explicit: number; missing: number }>;
+  slots: Array<{ key: string; label: string; fromTemplate: boolean; inherit: number; override: number; explicit: number; missing: number }>;
 };
 
 export function toPosix(value: string): string {
@@ -98,9 +98,15 @@ export function slotDeclaredPath(task: any, slot: BuildSlot): string | undefined
   return typeof value === 'string' && value ? value : undefined;
 }
 
+/**
+ * Provenance of one resolved file. A file the task chose itself is only an
+ * "override" when a template was supposed to provide it (INCAR/KPOINTS/POTCAR
+ * with a template set); POSCAR and the submit script are task-owned by design.
+ */
 export function slotOrigin(task: any, slot: BuildSlot, resolved?: string): BuildOrigin {
-  if (resolved) return slotExplicit(task, slot) ? 'explicit' : 'inherit';
-  return slotDeclaredPath(task, slot) ? 'pending' : 'missing';
+  if (!resolved) return slotDeclaredPath(task, slot) ? 'pending' : 'missing';
+  if (!slotExplicit(task, slot)) return 'inherit';
+  return slot.fromTemplate && templateKeyOf(task) ? 'override' : 'explicit';
 }
 
 export function templateKeyOf(task: any): string {
@@ -148,7 +154,7 @@ export function summarizeBatch(batch: BuildBatch, projectRoot: string): BuildBat
   const tasks = batch?.tasks ?? [];
   if (tasks.length < 2) return null;
   const templates = new Map<string, { name: string; rel: string; count: number }>();
-  const slots = BUILD_SLOTS.map((slot) => ({ key: slot.key as string, label: slot.label, fromTemplate: slot.fromTemplate, inherit: 0, explicit: 0, missing: 0 }));
+  const slots = BUILD_SLOTS.map((slot) => ({ key: slot.key as string, label: slot.label, fromTemplate: slot.fromTemplate, inherit: 0, override: 0, explicit: 0, missing: 0 }));
   for (let index = 0; index < tasks.length; index += 1) {
     const task = tasks[index];
     const template = templateKeyOf(task);
@@ -160,7 +166,8 @@ export function summarizeBatch(batch: BuildBatch, projectRoot: string): BuildBat
     }
     const rows = describeSlots(task, batch?.results?.[index], projectRoot, new Map());
     rows.forEach((row, position) => {
-      if (row.origin === 'explicit') slots[position].explicit += 1;
+      if (row.origin === 'override') slots[position].override += 1;
+      else if (row.origin === 'explicit') slots[position].explicit += 1;
       else if (row.origin === 'inherit') slots[position].inherit += 1;
       else if (row.origin === 'missing') slots[position].missing += 1;
       else slots[position].explicit += 1; // unresolved declaration still counts as task-specific
@@ -174,9 +181,10 @@ export function summarizeBatch(batch: BuildBatch, projectRoot: string): BuildBat
   };
 }
 
-export function originLabel(origin: BuildOrigin, fromTemplate: boolean): string {
+export function originLabel(origin: BuildOrigin): string {
   if (origin === 'inherit') return '继承';
-  if (origin === 'explicit') return fromTemplate ? '覆盖' : '指定';
+  if (origin === 'override') return '覆盖';
+  if (origin === 'explicit') return '指定';
   if (origin === 'pending') return '待预览';
   return '缺失';
 }

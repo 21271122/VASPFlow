@@ -854,7 +854,7 @@ function BuildInputsToolRow({ block }: { block: any }) {
         <span className="vfp-build-inherit-label">继承</span>
         {inheritSummary.templates.map((template) => <span key={template.rel} className="vfp-build-inherit-template" title={template.rel}>{template.name} ×{template.count}</span>)}
         {inheritSummary.untemplated ? <span className="vfp-build-inherit-template" title="这些任务没有模板，文件全部单独指定">无模板 ×{inheritSummary.untemplated}</span> : null}
-        {inheritSummary.slots.filter((slot) => slot.fromTemplate && slot.explicit > 0).map((slot) => <span key={`override-${slot.key}`} className="vfp-build-inherit-exception" title={`${slot.explicit} 个任务的 ${slot.label} 改用其他来源`}>{slot.label} 覆盖 ×{slot.explicit}</span>)}
+        {inheritSummary.slots.filter((slot) => slot.override > 0).map((slot) => <span key={`override-${slot.key}`} className="vfp-build-inherit-exception" title={`${slot.override} 个任务的 ${slot.label} 改用其他来源`}>{slot.label} 覆盖 ×{slot.override}</span>)}
         {inheritSummary.slots.filter((slot) => slot.missing > 0).map((slot) => <span key={`missing-${slot.key}`} className="vfp-build-inherit-missing" title={`${slot.missing} 个任务未提供 ${slot.label}`}>{slot.label} 缺失 ×{slot.missing}</span>)}
       </div>}
       {settled && tasks.length > 0 && <div className="vfp-build-steps" aria-label="构建进度">

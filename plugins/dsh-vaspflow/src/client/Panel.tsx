@@ -45,7 +45,8 @@ function BuildInheritanceSummary({ summary }: { summary: BuildBatchSummary }) {
   const countsFor = (slot: BuildBatchSummary['slots'][number]) => {
     const parts: string[] = [];
     if (slot.inherit) parts.push(`${slot.inherit} 继承`);
-    if (slot.explicit) parts.push(`${slot.explicit} ${slot.fromTemplate ? '覆盖' : '指定'}`);
+    if (slot.override) parts.push(`${slot.override} 覆盖`);
+    if (slot.explicit) parts.push(`${slot.explicit} 指定`);
     if (slot.missing) parts.push(`${slot.missing} 缺失`);
     return parts.join(' · ') || '无来源';
   };
@@ -60,12 +61,13 @@ function BuildInheritanceSummary({ summary }: { summary: BuildBatchSummary }) {
       </div>
       <div className="vfp-inherit-bars">
         {summary.slots.map((slot) => {
-          const total = slot.inherit + slot.explicit + slot.missing || 1;
+          const total = slot.inherit + slot.override + slot.explicit + slot.missing || 1;
           return <div className="vfp-inherit-bar" key={slot.key} title={`${slot.label}：${countsFor(slot)}`}>
             <span className="vfp-inherit-bar-label">{slot.label}</span>
             <span className="vfp-inherit-bar-track">
               {slot.inherit ? <i data-origin="inherit" style={{ width: `${(slot.inherit / total) * 100}%` }} /> : null}
-              {slot.explicit ? <i data-origin={slot.fromTemplate ? 'override' : 'explicit'} style={{ width: `${(slot.explicit / total) * 100}%` }} /> : null}
+              {slot.override ? <i data-origin="override" style={{ width: `${(slot.override / total) * 100}%` }} /> : null}
+              {slot.explicit ? <i data-origin="explicit" style={{ width: `${(slot.explicit / total) * 100}%` }} /> : null}
               {slot.missing ? <i data-origin="missing" style={{ width: `${(slot.missing / total) * 100}%` }} /> : null}
             </span>
             <span className="vfp-inherit-bar-count">{countsFor(slot)}</span>
@@ -101,7 +103,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
   return (
     <div className="vfp-build-detail">
       <div className="vfp-build-detail-head"><strong>{basenameOf(task.dir) || '未命名任务'}</strong><Tag color={result?.errors?.length ? 'error' : result?.warnings?.length ? 'warning' : 'success'}>{status}</Tag></div>
-      <div className="vfp-build-detail-path" title={target}>{crumbs.length > 1 ? `${crumbs.slice(0, -1).join(' › ')} ›` : '项目根目录 ›'}</div>
+      <div className="vfp-build-detail-path" title={target}>{[basenameOf(projectRoot) || '项目根目录', ...crumbs.slice(0, -1)].join(' › ')}</div>
       {summary && <BuildInheritanceSummary summary={summary} />}
       <div className="vfp-build-detail-section"><b>本任务来源</b>
         <div className="vfp-inherit-template">
@@ -113,10 +115,9 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
         </div>
         <ul className="vfp-inherit-rows">
           {slots.map((slot) => {
-            const badge = slot.origin === 'explicit' && slot.fromTemplate ? 'override' : slot.origin;
-            return <li key={slot.key} className="vfp-inherit-row" data-origin={badge} title={slot.path || slot.rel || '未提供'}>
+            return <li key={slot.key} className="vfp-inherit-row" data-origin={slot.origin} title={slot.path || slot.rel || '未提供'}>
               <span className="vfp-inherit-name">{slot.label}</span>
-              <span className="vfp-inherit-badge" data-origin={badge}>{originLabel(slot.origin, slot.fromTemplate)}</span>
+              <span className="vfp-inherit-badge" data-origin={slot.origin}>{originLabel(slot.origin)}</span>
               <code className="vfp-inherit-path">{slot.rel || '未提供'}</code>
               {slot.shared > 1 ? <span className="vfp-inherit-share" title={`${slot.shared} 个任务使用同一来源`}>×{slot.shared}</span> : null}
             </li>;

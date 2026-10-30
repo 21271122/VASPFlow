@@ -119,7 +119,7 @@ body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:
 .vfp-inherit-templates { display:flex; flex-wrap:wrap; gap:5px; }
 .vfp-inherit-templates span { padding:1px 7px; border:1px solid var(--vfp-line); border-radius:9px; background:var(--vfp-surface); color:var(--vfp-text); font-size:11px; white-space:nowrap; }
 .vfp-inherit-bars { display:grid; gap:4px; }
-.vfp-inherit-bar { display:grid; grid-template-columns:56px minmax(0,1fr) auto; align-items:center; gap:8px; font-size:11px; color:var(--vfp-muted); }
+.vfp-inherit-bar { display:grid; grid-template-columns:64px minmax(0,1fr) auto; align-items:center; gap:8px; font-size:11px; color:var(--vfp-muted); }
 .vfp-inherit-bar-label { color:var(--vfp-text); }
 .vfp-inherit-bar-track { display:flex; height:6px; border-radius:3px; overflow:hidden; background:rgba(120,132,150,.18); }
 .vfp-inherit-bar-track i { display:block; height:100%; }
@@ -127,15 +127,15 @@ body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:
 .vfp-inherit-bar-track i[data-origin="override"] { background:var(--vfp-warning); }
 .vfp-inherit-bar-track i[data-origin="explicit"] { background:var(--vfp-accent); }
 .vfp-inherit-bar-track i[data-origin="missing"] { background:rgba(120,132,150,.55); }
-.vfp-inherit-bar-count { max-width:52%; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+.vfp-inherit-bar-count { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .vfp-inherit-legend { display:flex; flex-wrap:wrap; gap:10px; font-size:11px; color:var(--vfp-muted); }
 .vfp-inherit-legend span::before { content:""; display:inline-block; width:7px; height:7px; margin-right:4px; border-radius:2px; vertical-align:baseline; background:rgba(120,132,150,.55); }
 .vfp-inherit-legend span[data-origin="inherit"]::before { background:var(--vfp-success); }
 .vfp-inherit-legend span[data-origin="override"]::before { background:var(--vfp-warning); }
 .vfp-inherit-legend span[data-origin="explicit"]::before { background:var(--vfp-accent); }
-.vfp-inherit-template { display:grid; grid-template-columns:56px minmax(0,1fr) auto; align-items:baseline; gap:8px; font-size:12px; }
+.vfp-inherit-template { display:grid; grid-template-columns:64px minmax(0,1fr) auto; align-items:baseline; gap:8px; font-size:12px; }
 .vfp-inherit-rows { display:grid; gap:1px; margin:2px 0 0; padding:0; list-style:none; }
-.vfp-inherit-row { display:grid; grid-template-columns:56px 44px minmax(0,1fr) auto; align-items:baseline; gap:8px; padding:3px 0; border-bottom:1px dashed var(--vfp-line); }
+.vfp-inherit-row { display:grid; grid-template-columns:64px 44px minmax(0,1fr) auto; align-items:baseline; gap:8px; padding:3px 0; border-bottom:1px dashed var(--vfp-line); }
 .vfp-inherit-row:last-child { border-bottom:0; }
 .vfp-inherit-name { color:var(--vfp-muted); font-size:11px; }
 .vfp-inherit-badge { justify-self:start; padding:0 5px; border:1px solid transparent; border-radius:3px; font-size:11px; line-height:16px; white-space:nowrap; }
@@ -147,17 +147,17 @@ body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:
 .vfp-inherit-row[data-origin="missing"] .vfp-inherit-path, .vfp-inherit-row[data-origin="pending"] .vfp-inherit-path { color:var(--vfp-muted); }
 .vfp-inherit-share { color:var(--vfp-muted); font-size:11px; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .vfp-inherit-empty { color:var(--vfp-muted); font-size:12px; }
-.vfp-inherit-extras { display:grid; grid-template-columns:56px minmax(0,1fr); align-items:baseline; gap:8px; margin-top:3px; font-size:12px; }
+.vfp-inherit-extras { display:grid; grid-template-columns:64px minmax(0,1fr); align-items:baseline; gap:8px; margin-top:3px; font-size:12px; }
 .vfp-inherit-extras code { margin-right:8px; color:var(--vfp-text); }
 /* The detail section styles any div holding a <span> as a two-column row; the
    ledger needs its own columns (name / badge / path / share). */
 [data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-template,
-[data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-extras { grid-template-columns:56px minmax(0,1fr) auto; }
-@container vfp-panel (max-width:420px) {
-  .vfp-inherit-bar { grid-template-columns:48px minmax(0,1fr); }
+[data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-extras { grid-template-columns:64px minmax(0,1fr) auto; }
+@container vfp-panel (max-width:360px) {
+  .vfp-inherit-bar { grid-template-columns:52px minmax(0,1fr); }
   .vfp-inherit-bar-count { grid-column:2; max-width:none; text-align:left; }
-  .vfp-inherit-row { grid-template-columns:48px 40px minmax(0,1fr); }
-  .vfp-inherit-share { grid-column:3; justify-self:end; }
+  .vfp-inherit-row { grid-template-columns:56px 40px minmax(0,1fr) auto; gap:6px; }
+  .vfp-inherit-template { grid-template-columns:56px minmax(0,1fr) auto; gap:6px; }
 }
 [data-dsh-vaspflow-panel] button:focus-visible, [data-dsh-vaspflow-tool] button:focus-visible { outline:2px solid var(--vfp-accent); outline-offset:2px; }
 @media (max-height:740px) {

@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VASPFlow · 构建继承账本示例</title>
+<style>
+
+[data-dsh-vaspflow-panel], [data-dsh-vaspflow-tool], .vaspflow-task-popover {
+  --vfp-surface: var(--dsw-alias-bg-base, #fff);
+  --vfp-soft: var(--dsw-alias-bg-elevated, #f5f7fa);
+  --vfp-text: var(--dsw-alias-label-primary, #243247);
+  --vfp-muted: var(--dsw-alias-label-secondary, #66758a);
+  --vfp-line: var(--dsw-alias-border-l2, #e2e7ee);
+  --vfp-accent: #396bd7;
+  --vfp-selected: #edf3ff;
+  --vfp-success: #23836a;
+  --vfp-warning: #956817;
+  --vfp-error: #bc505b;
+}
+body[data-ds-dark-theme] [data-dsh-vaspflow-panel],
+body[data-ds-dark-theme] [data-dsh-vaspflow-tool],
+body[data-ds-dark-theme] .vaspflow-task-popover {
+  --vfp-soft: var(--dsw-alias-bg-elevated, #263143);
+  --vfp-accent: #99baff;
+  --vfp-selected: #283957;
+  --vfp-success: #89d5b9;
+  --vfp-warning: #edc783;
+  --vfp-error: #ef9fa7;
+}
+.vfp-panel { display:flex; flex-direction:column; height:100%; min-height:0; position:relative; color:var(--vfp-text); container:vfp-panel / inline-size; }
+.vfp-panel-header { flex:none; padding:10px 16px 12px; border-bottom:1px solid var(--vfp-line); }
+.vfp-panel-brand { display:flex; align-items:center; gap:12px; margin-bottom:8px; font-size:13px; font-weight:500; color:var(--vfp-muted); }
+.vfp-panel-brand > span { flex:none; }
+.vfp-panel-brand > .ant-btn { margin-left:auto; flex:none; }
+.vfp-header-statistics { display:flex; flex:1; min-width:0; align-items:center; flex-wrap:wrap; gap:0 8px; font-size:11px; }
+.vfp-project-controls { display:flex; align-items:center; gap:6px; min-width:0; }
+.vfp-workspace-picker { width:90px; flex:none; }
+.vfp-stat-states { display:flex; align-items:center; gap:2px; flex-wrap:wrap; flex-basis:100%; order:1; }
+.vfp-stat-total { font-weight:500; white-space:nowrap; }
+.vfp-stat-directory { color:var(--vfp-muted); white-space:nowrap; }
+.vfp-scan-progress { flex-basis:100%; color:var(--vfp-accent); font-size:11px; }
+[data-dsh-vaspflow-panel] .vfp-stat-filter.ant-btn { height:24px; min-height:24px; padding:0 4px; font-size:11px!important; border-radius:4px; }
+[data-dsh-vaspflow-panel] .vfp-stat-filter[aria-pressed="false"] { color:var(--vfp-muted)!important; }
+[data-dsh-vaspflow-panel] .vfp-stat-filter[data-status="ERROR_DETECTED"]:not([data-count="0"]) { color:var(--vfp-error)!important; }
+.vfp-stat-filter[aria-pressed="true"] { background:var(--vfp-selected); box-shadow:inset 0 0 0 1px var(--vfp-line); }
+[data-dsh-vaspflow-panel] .vfp-task-list-trigger.ant-btn { margin-left:auto; font-size:11px!important; height:26px; min-height:26px; padding:0 7px; border-color:transparent; box-shadow:none; color:var(--vfp-muted); background:transparent; }
+.vfp-panel-body { flex:1; min-height:0; display:flex; flex-direction:column; padding:22px 20px 12px; overflow:auto; }
+.vfp-panel-body-build { display:block; }
+.vfp-task-summary { flex:none; margin-bottom:4px; }
+.vfp-task-overview { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,340px) auto; align-items:center; gap:16px; margin-bottom:14px; }
+.vfp-task-identity { min-width:0; }
+.vfp-task-status { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+.vfp-task-navigation-standby { display:flex; justify-content:flex-end; flex:none; margin-bottom:8px; }
+.vfp-task-title { display:flex; align-items:center; gap:8px; min-width:0; }
+.vfp-task-status .ant-tag:not(.ant-tag-red) { color:var(--vfp-muted); background:transparent; border-color:transparent; }
+[data-dsh-vaspflow-panel] .vfp-task-status .ant-tag { font-size:11px!important; }
+.vfp-task-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:18px; cursor:grab; }
+.vfp-task-name .ant-typography { font-size:inherit; }
+.vfp-task-path { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--vfp-muted); font:10px/1.6 Consolas,monospace; margin-bottom:6px; }
+.vfp-task-facts { display:grid; grid-template-columns:minmax(0,.8fr) minmax(0,1.3fr); gap:8px 16px; }
+.vfp-task-facts > div { display:flex; align-items:baseline; gap:6px; min-width:0; max-width:100%; }
+.vfp-task-facts span { flex:none; color:var(--vfp-muted); font-size:11px; }
+.vfp-task-facts strong { font-size:12px; font-weight:400; overflow-wrap:anywhere; }
+.vfp-task-facts .vfp-number { font:12px/1.5 Consolas,monospace; font-variant-numeric:tabular-nums; }
+.vfp-task-facts small { color:var(--vfp-muted); font:11px sans-serif; }
+.vfp-task-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:7px; }
+.vfp-task-actions > .ant-dropdown-button { width:auto; }
+[data-dsh-vaspflow-panel] .vfp-task-actions .ant-btn { border-color:var(--vfp-line); background:transparent; box-shadow:none; font-size:12px!important; color:var(--vfp-muted); }
+[data-dsh-vaspflow-panel] .vfp-task-actions .ant-btn:hover { color:var(--vfp-accent); }
+.vfp-detail-tabs { flex:1; min-height:240px; }
+.vfp-detail-tabs > .ant-tabs-nav { flex:none; margin-bottom:12px; }
+.vfp-detail-tabs > .ant-tabs-nav .ant-tabs-tab { padding:9px 0; }
+.vfp-detail-tabs > .ant-tabs-content-holder { display:flex; min-height:0; }
+.vfp-detail-tabs > .ant-tabs-content-holder > .ant-tabs-content { flex:1; min-height:0; height:100%; }
+.vfp-detail-tabs > .ant-tabs-content-holder > .ant-tabs-content > .ant-tabs-tabpane-active { display:flex; flex-direction:column; height:100%; min-height:0; overflow:auto; }
+.vfp-convergence { min-width:0; }
+.vfp-convergence-source { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; font-size:10px; line-height:1.6; color:var(--vfp-muted, var(--dsw-alias-label-secondary, #66758a)); }
+.vfp-convergence-controls { display:flex; align-items:center; gap:8px; margin:4px 0 12px; font-size:11px; color:var(--vfp-muted, var(--dsw-alias-label-secondary, #66758a)); }
+.vfp-convergence-plot { width:100%; height:340px; }
+.vfp-convergence-plot > .recharts-responsive-container { display:block; }
+.vfp-convergence-plot .recharts-wrapper > .recharts-surface { display:block; }
+[data-dsh-vaspflow-panel] .vfp-convergence { display:flex; flex-direction:column; flex:1; min-height:0; }
+[data-dsh-vaspflow-panel] .vfp-convergence-source { order:1; margin-top:12px; flex:none; }
+[data-dsh-vaspflow-panel] .vfp-convergence-controls { flex:none; }
+[data-dsh-vaspflow-panel] .vfp-convergence-plot { flex:1; min-height:170px; height:0; }
+[data-dsh-vaspflow-panel] .vfp-structure-viewer { flex:1; min-height:240px; }
+[data-dsh-vaspflow-panel] .vfp-structure-viewer > [data-vasp-structure-mount] { flex:1; min-height:130px; height:0!important; }
+[data-dsh-vaspflow-panel] .vfp-structure-viewer > :not([data-vasp-structure-mount]) { flex:none; }
+.vfp-structure-toolbar .ant-tabs-nav { margin-bottom:4px; }
+.vfp-task-popup { width:min(380px,calc(100vw - 32px)); display:flex; flex-direction:column; gap:8px; }
+.vfp-task-search { display:flex; min-width:0; }
+.vfp-task-filters { display:flex; align-items:center; gap:6px; }
+.vfp-task-filters .ant-segmented { margin-left:auto; }
+.vfp-task-popup-list { max-height:min(55vh,480px); overflow:auto; min-height:120px; }
+.vaspflow-task-popover .ant-popover-inner { padding:12px!important; border-color:var(--vfp-line); box-shadow:0 12px 36px rgba(24,40,66,.14); }
+[data-dsh-vaspflow-panel] .ant-tree-node-content-wrapper, .vaspflow-task-popover .ant-tree-node-content-wrapper { min-height:24px!important; line-height:24px!important; border-radius:4px; }
+[data-dsh-vaspflow-panel] .ant-tree-title, .vaspflow-task-popover .ant-tree-title { font-size:12px!important; }
+.vaspflow-task-popover .ant-input-affix-wrapper, .vaspflow-task-popover .ant-select-selector, .vaspflow-task-popover .ant-segmented { font-size:12px!important; }
+.vfp-status-evidence { font-size:13px; line-height:1.6; display:flex; flex-direction:column; gap:12px; padding-top:4px; }
+.vfp-status-card { padding:12px 14px; border:1px solid var(--vfp-line); border-left:3px solid; border-radius:7px; background:var(--vfp-soft); }
+.vfp-status-card-head { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:6px; }
+.vfp-status-card-head .ant-typography { font-size:13px; }
+.vfp-status-card-head .ant-typography-secondary { font-size:11px; white-space:nowrap; }
+.vfp-status-reason { margin-top:6px; font-size:13px; }
+.vfp-status-source { display:block; margin-top:6px; font-size:11px; }
+.vfp-status-excerpt { margin-top:7px; padding:8px 10px; color:var(--vfp-text); background:var(--vfp-surface); border:1px solid var(--vfp-line); border-radius:5px; font:12px/1.6 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+.vfp-status-extra { margin-top:7px; color:var(--vfp-muted); font-size:12px; }
+[data-dsh-vaspflow-tool]:not([data-dsh-vaspflow-tool="vasp_say"]):not([data-dsh-vaspflow-tool="vasp_done"]) { border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); padding:12px 14px; }
+[data-dsh-vaspflow-tool] { --vfp-tree-folder-bg:transparent; --vfp-tree-leaf-bg:transparent; }
+body[data-ds-dark-theme] [data-dsh-vaspflow-tool] { --vfp-tree-folder-bg:transparent; --vfp-tree-leaf-bg:transparent; }
+[data-dsh-vaspflow-tool] .vfp-tree-task[data-selected], body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-task[data-selected],
+[data-dsh-vaspflow-tool] .vfp-inline-tree .vfp-visual-tree-leaf[aria-current="true"] { background:var(--vfp-selected); color:var(--vfp-accent); }
+[data-dsh-vaspflow-tool] .vfp-tree-task:hover, [data-dsh-vaspflow-tool] .vfp-result-row:hover { background:var(--vfp-soft); }
+[data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); font-size:14px; }
+body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); }
+[data-dsh-vaspflow-tool] .vfp-tree-group { font-size:12px; }
+/* Build inheritance ledger: batch distribution bars + one row per inherited input. */
+.vfp-build-inherit-line { display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin:6px 0 2px; font-size:11.5px; color:var(--vfp-muted); }
+.vfp-build-inherit-template { padding:0 6px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); color:var(--vfp-text); }
+.vfp-build-inherit-exception { padding:0 6px; border:1px solid rgba(149,104,23,.26); border-radius:8px; background:rgba(149,104,23,.12); color:var(--vfp-warning); }
+.vfp-build-inherit-missing { padding:0 6px; border:1px dashed var(--vfp-line); border-radius:8px; color:var(--vfp-muted); }
+.vfp-inherit-batch { display:grid; gap:7px; margin:10px 0 2px; padding:10px 12px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
+.vfp-inherit-batch-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:12px; color:var(--vfp-muted); }
+.vfp-inherit-templates { display:flex; flex-wrap:wrap; gap:5px; }
+.vfp-inherit-templates span { padding:1px 7px; border:1px solid var(--vfp-line); border-radius:9px; background:var(--vfp-surface); color:var(--vfp-text); font-size:11px; white-space:nowrap; }
+.vfp-inherit-bars { display:grid; gap:4px; }
+.vfp-inherit-bar { display:grid; grid-template-columns:64px minmax(0,1fr) auto; align-items:center; gap:8px; font-size:11px; color:var(--vfp-muted); }
+.vfp-inherit-bar-label { color:var(--vfp-text); }
+.vfp-inherit-bar-track { display:flex; height:6px; border-radius:3px; overflow:hidden; background:rgba(120,132,150,.18); }
+.vfp-inherit-bar-track i { display:block; height:100%; }
+.vfp-inherit-bar-track i[data-origin="inherit"] { background:var(--vfp-success); }
+.vfp-inherit-bar-track i[data-origin="override"] { background:var(--vfp-warning); }
+.vfp-inherit-bar-track i[data-origin="explicit"] { background:var(--vfp-accent); }
+.vfp-inherit-bar-track i[data-origin="missing"] { background:rgba(120,132,150,.55); }
+.vfp-inherit-bar-count { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.vfp-inherit-legend { display:flex; flex-wrap:wrap; gap:10px; font-size:11px; color:var(--vfp-muted); }
+.vfp-inherit-legend span::before { content:""; display:inline-block; width:7px; height:7px; margin-right:4px; border-radius:2px; vertical-align:baseline; background:rgba(120,132,150,.55); }
+.vfp-inherit-legend span[data-origin="inherit"]::before { background:var(--vfp-success); }
+.vfp-inherit-legend span[data-origin="override"]::before { background:var(--vfp-warning); }
+.vfp-inherit-legend span[data-origin="explicit"]::before { background:var(--vfp-accent); }
+.vfp-inherit-template { display:grid; grid-template-columns:64px minmax(0,1fr) auto; align-items:baseline; gap:8px; font-size:12px; }
+.vfp-inherit-rows { display:grid; gap:1px; margin:2px 0 0; padding:0; list-style:none; }
+.vfp-inherit-row { display:grid; grid-template-columns:64px 44px minmax(0,1fr) auto; align-items:baseline; gap:8px; padding:3px 0; border-bottom:1px dashed var(--vfp-line); }
+.vfp-inherit-row:last-child { border-bottom:0; }
+.vfp-inherit-name { color:var(--vfp-muted); font-size:11px; }
+.vfp-inherit-badge { justify-self:start; padding:0 5px; border:1px solid transparent; border-radius:3px; font-size:11px; line-height:16px; white-space:nowrap; }
+.vfp-inherit-badge[data-origin="inherit"] { color:var(--vfp-success); background:rgba(35,131,106,.11); border-color:rgba(35,131,106,.24); }
+.vfp-inherit-badge[data-origin="override"] { color:var(--vfp-warning); background:rgba(149,104,23,.12); border-color:rgba(149,104,23,.26); }
+.vfp-inherit-badge[data-origin="explicit"] { color:var(--vfp-accent); background:rgba(57,107,215,.10); border-color:rgba(57,107,215,.24); }
+.vfp-inherit-badge[data-origin="pending"], .vfp-inherit-badge[data-origin="missing"] { color:var(--vfp-muted); background:transparent; border-style:dashed; border-color:var(--vfp-line); }
+.vfp-inherit-path { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--vfp-text); font:11.5px/1.5 Consolas,"Cascadia Mono",monospace; }
+.vfp-inherit-row[data-origin="missing"] .vfp-inherit-path, .vfp-inherit-row[data-origin="pending"] .vfp-inherit-path { color:var(--vfp-muted); }
+.vfp-inherit-share { color:var(--vfp-muted); font-size:11px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.vfp-inherit-empty { color:var(--vfp-muted); font-size:12px; }
+.vfp-inherit-extras { display:grid; grid-template-columns:64px minmax(0,1fr); align-items:baseline; gap:8px; margin-top:3px; font-size:12px; }
+.vfp-inherit-extras code { margin-right:8px; color:var(--vfp-text); }
+/* The detail section styles any div holding a <span> as a two-column row; the
+   ledger needs its own columns (name / badge / path / share). */
+[data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-template,
+[data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-extras { grid-template-columns:64px minmax(0,1fr) auto; }
+@container vfp-panel (max-width:360px) {
+  .vfp-inherit-bar { grid-template-columns:52px minmax(0,1fr); }
+  .vfp-inherit-bar-count { grid-column:2; max-width:none; text-align:left; }
+  .vfp-inherit-row { grid-template-columns:56px 40px minmax(0,1fr) auto; gap:6px; }
+  .vfp-inherit-template { grid-template-columns:56px minmax(0,1fr) auto; gap:6px; }
+}
+[data-dsh-vaspflow-panel] button:focus-visible, [data-dsh-vaspflow-tool] button:focus-visible { outline:2px solid var(--vfp-accent); outline-offset:2px; }
+@media (max-height:740px) {
+  .vfp-panel-header { padding-top:7px; padding-bottom:7px; }
+  .vfp-panel-brand { margin-bottom:5px; }
+  .vfp-panel-body { padding-top:10px; padding-bottom:8px; }
+  .vfp-task-facts { gap:5px 16px; }
+  .vfp-detail-tabs > .ant-tabs-nav { margin-bottom:8px; }
+}
+@container vfp-panel (max-width:600px) {
+  .vfp-task-overview { grid-template-columns:minmax(0,1fr) auto; gap:10px; }
+  .vfp-task-identity { grid-column:1; grid-row:1; }
+  .vfp-task-status { grid-column:2; grid-row:1; }
+  .vfp-task-facts { grid-column:1 / -1; grid-row:2; }
+}
+@media (prefers-reduced-motion:reduce) {
+  [data-dsh-vaspflow-panel] *, [data-dsh-vaspflow-tool] *, .vaspflow-task-popover * { transition:none!important; animation:none!important; }
+}
+
+/* Host theme aliases that DSH provides at runtime; the plugin reads them with
+   light fallbacks, so the demo has to emulate both themes. */
+:root {
+  --dsw-alias-bg-base: #fff;
+  --dsw-alias-bg-elevated: #f5f7fa;
+  --dsw-alias-label-primary: #243247;
+  --dsw-alias-label-secondary: #66758a;
+  --dsw-alias-border-l2: #e2e7ee;
+}
+body[data-ds-dark-theme] {
+  --dsw-alias-bg-base: #1d212a;
+  --dsw-alias-bg-elevated: #263143;
+  --dsw-alias-label-primary: #d7dee9;
+  --dsw-alias-label-secondary: #93a1b4;
+  --dsw-alias-border-l2: #313b49;
+}
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 40px 32px 72px; background: #f3f5f8; color: #243247;
+  font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif; }
+body[data-ds-dark-theme] { background: #171a21; color: #d7dee9; }
+header { max-width: 1360px; margin: 0 auto 28px; }
+h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: -.01em; }
+.lede { margin: 0; max-width: 820px; color: #5d6b7e; }
+body[data-ds-dark-theme] .lede { color: #93a1b4; }
+.meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; font-size: 12px; color: #5d6b7e; }
+body[data-ds-dark-theme] .meta { color: #93a1b4; }
+.meta code { font: 12px/1.5 Consolas, "Cascadia Mono", monospace; background: rgba(120,132,150,.14); padding: 1px 6px; border-radius: 4px; }
+.toggle { margin-left: auto; align-self: center; border: 1px solid #cdd6e2; background: #fff; color: inherit;
+  border-radius: 7px; padding: 6px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+body[data-ds-dark-theme] .toggle { background: #232833; border-color: #333b49; }
+.grid { display: grid; align-items: start; grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)); gap: 26px; max-width: 1360px; margin: 0 auto; }
+.demo-scenario { background: #fff; border: 1px solid #e2e7ee; border-radius: 14px; padding: 18px 18px 22px;
+  box-shadow: 0 1px 2px rgba(24,39,64,.05), 0 10px 26px -20px rgba(24,39,64,.35); }
+body[data-ds-dark-theme] .demo-scenario { background: #1d212a; border-color: #2c3340; }
+.demo-scenario h2 { margin: 0 0 6px; font-size: 15px; }
+.demo-scenario p { margin: 0 0 14px; font-size: 12.5px; color: #5d6b7e; }
+body[data-ds-dark-theme] .demo-scenario p { color: #93a1b4; }
+.demo-card-label { margin: 12px 0 5px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #7b8899; }
+body[data-ds-dark-theme] .demo-card-label { color: #7f8ea3; }
+.demo-card { border: 1px solid #e2e7ee; border-radius: 9px; padding: 6px 10px; }
+body[data-ds-dark-theme] .demo-card { border-color: #2c3340; }
+.demo-panel { width: 100%; height: auto; max-width: 420px; border: 1px solid #e2e7ee; border-radius: 9px; background: #fff; }
+body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212a; }
+.demo-panel .vfp-panel-body { overflow: visible; padding: 14px 16px 16px; }
+/* Dock chrome that normally lives in index.tsx; values copied verbatim. */
+.vfp-build-detail { font-size: 14px; line-height: 1.55; }
+.vfp-build-detail-head { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.vfp-build-detail-path { margin: 5px 0 16px; overflow-wrap: anywhere; color: var(--vfp-muted); font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.vfp-build-detail-section { display: grid; gap: 7px; padding: 13px 0; border-top: 1px solid var(--vfp-line); overflow-wrap: anywhere; }
+.vfp-build-detail-section > b { font-size: 13px; }
+.vfp-build-detail-section > div:has(> span) { display: grid; grid-template-columns: 95px minmax(0,1fr); gap: 8px; }
+.vfp-build-detail-section > .vfp-inherit-template,
+.vfp-build-detail-section > .vfp-inherit-extras { grid-template-columns: 64px minmax(0,1fr) auto; }
+.demo-tag { margin-left: auto; padding: 0 8px; border-radius: 4px; font-size: 12px; line-height: 22px;
+  background: rgba(35,131,106,.12); color: #23836a; border: 1px solid rgba(35,131,106,.26); }
+.demo-tag[data-tone="warn"] { background: rgba(149,104,23,.12); color: #956817; border-color: rgba(149,104,23,.26); }
+.demo-tag[data-tone="error"] { background: rgba(188,80,91,.12); color: #bc505b; border-color: rgba(188,80,91,.26); }
+</style>
+</head>
+<body>
+<header>
+  <h1>构建继承账本 · 示例</h1>
+  <p class="lede">构建面板原来把每个来源打印成绝对路径，单个任务看不出继承链，整批任务看不出分布。现在路径按项目根相对显示，每个文件标注继承 / 覆盖 / 指定 / 缺失，批次层面用叠条给出分布，×N 表示有多少任务共用同一来源。</p>
+  <div class="meta">
+    <span>示例数据由 <code>src/client/inheritance.ts</code> 实时计算</span>
+    <span>样式取自 <code>src/client/presentation.ts</code></span>
+    <span>面板宽度 420px，与右侧 dock 一致</span>
+    <button class="toggle" type="button" onclick="document.body.toggleAttribute('data-ds-dark-theme')">切换深色</button>
+  </div>
+</header>
+<main class="grid">
+<section class="demo-scenario">
+    <h2>① 单模板批量 · 8 个任务</h2>
+    <p>最常见的形状：一个 relax 模板供给所有任务，只有 CO-fcc 换了 INCAR，CO-hollow 的提交脚本还没交。</p>
+    <div class="demo-card-label">对话卡片里的一行摘要</div>
+    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-build-inherit-line"><span class="vfp-build-inherit-label">继承</span><span class="vfp-build-inherit-template" title="templates/relax">relax ×8</span><span class="vfp-build-inherit-exception" title="1 个任务的 INCAR 改用其他来源">INCAR 覆盖 ×1</span><span class="vfp-build-inherit-missing" title="1 个任务未提供 提交脚本">提交脚本 缺失 ×1</span></div></div>
+    <div class="demo-card-label">右侧面板 · 点开 CO-fcc</div>
+    <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
+      <div class="vfp-panel-body vfp-panel-body-build"><div class="vfp-build-detail">
+    <div class="vfp-build-detail-head"><strong>relax</strong><span class="demo-tag" data-tone="ok">可构建</span></div>
+    <div class="vfp-build-detail-path" title="D:\Research\Bi-NO\calculations\CO-fcc\relax">Bi-NO › calculations › CO-fcc</div>
+    <div class="vfp-inherit-batch">
+    <div class="vfp-inherit-batch-head">
+      <span>本批次 · 8 个任务</span>
+      <span class="vfp-inherit-templates"><span title="templates/relax">relax ×8</span></span>
+    </div>
+    <div class="vfp-inherit-bars"><div class="vfp-inherit-bar" title="POSCAR：8 指定">
+      <span class="vfp-inherit-bar-label">POSCAR</span>
+      <span class="vfp-inherit-bar-track">
+        
+        
+        <i data-origin="explicit" style="width:100.0000%"></i>
+        
+      </span>
+      <span class="vfp-inherit-bar-count">8 指定</span>
+    </div><div class="vfp-inherit-bar" title="INCAR：7 继承 · 1 覆盖">
+      <span class="vfp-inherit-bar-label">INCAR</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:87.5000%"></i>
+        <i data-origin="override" style="width:12.5000%"></i>
+        
+        
+      </span>
+      <span class="vfp-inherit-bar-count">7 继承 · 1 覆盖</span>
+    </div><div class="vfp-inherit-bar" title="KPOINTS：8 继承">
+      <span class="vfp-inherit-bar-label">KPOINTS</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:100.0000%"></i>
+        
+        
+        
+      </span>
+      <span class="vfp-inherit-bar-count">8 继承</span>
+    </div><div class="vfp-inherit-bar" title="POTCAR：8 继承">
+      <span class="vfp-inherit-bar-label">POTCAR</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:100.0000%"></i>
+        
+        
+        
+      </span>
+      <span class="vfp-inherit-bar-count">8 继承</span>
+    </div><div class="vfp-inherit-bar" title="提交脚本：7 指定 · 1 缺失">
+      <span class="vfp-inherit-bar-label">提交脚本</span>
+      <span class="vfp-inherit-bar-track">
+        
+        
+        <i data-origin="explicit" style="width:87.5000%"></i>
+        <i data-origin="missing" style="width:12.5000%"></i>
+      </span>
+      <span class="vfp-inherit-bar-count">7 指定 · 1 缺失</span>
+    </div></div>
+    <div class="vfp-inherit-legend" aria-hidden="true">
+      <span data-origin="inherit">继承模板</span><span data-origin="override">覆盖模板</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
+    </div>
+  </div>
+    <div class="vfp-build-detail-section"><b>本任务来源</b>
+      <div class="vfp-inherit-template">
+        <span class="vfp-inherit-name">模板</span>
+        <code class="vfp-inherit-path" title="D:\Research\Bi-NO\templates\relax">templates/relax</code>
+        <span class="vfp-inherit-share">8 个任务共用</span>
+      </div>
+      <ul class="vfp-inherit-rows"><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\struc\CO-fcc.vasp">
+      <span class="vfp-inherit-name">POSCAR</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
+      <code class="vfp-inherit-path">struc/CO-fcc.vasp</code>
+      
+    </li><li class="vfp-inherit-row" data-origin="override" title="D:\Research\Bi-NO\overrides\incar-co-fcc">
+      <span class="vfp-inherit-name">INCAR</span>
+      <span class="vfp-inherit-badge" data-origin="override">覆盖</span>
+      <code class="vfp-inherit-path">overrides/incar-co-fcc</code>
+      
+    </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\KPOINTS">
+      <span class="vfp-inherit-name">KPOINTS</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <code class="vfp-inherit-path">templates/relax/KPOINTS</code>
+      <span class="vfp-inherit-share" title="8 个任务使用同一来源">×8</span>
+    </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\POTCAR">
+      <span class="vfp-inherit-name">POTCAR</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <code class="vfp-inherit-path">templates/relax/POTCAR</code>
+      <span class="vfp-inherit-share" title="8 个任务使用同一来源">×8</span>
+    </li><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\templates\relax\submit.sh">
+      <span class="vfp-inherit-name">提交脚本</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
+      <code class="vfp-inherit-path">templates/relax/submit.sh</code>
+      <span class="vfp-inherit-share" title="7 个任务使用同一来源">×7</span>
+    </li></ul>
+      
+    </div>
+  </div></div>
+    </div>
+  </section>
+<section class="demo-scenario">
+    <h2>② 两个模板 + 一个无模板任务</h2>
+    <p>relax ×5、freq ×3，外加一个 static-scf 完全自带文件。没有模板的任务只会显示「指定」，不会假装成「覆盖」。</p>
+    <div class="demo-card-label">对话卡片里的一行摘要</div>
+    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-build-inherit-line"><span class="vfp-build-inherit-label">继承</span><span class="vfp-build-inherit-template" title="templates/relax">relax ×5</span><span class="vfp-build-inherit-template" title="templates/freq">freq ×3</span><span class="vfp-build-inherit-template" title="这些任务没有模板，文件全部单独指定">无模板 ×1</span></div></div>
+    <div class="demo-card-label">右侧面板 · 点开最后一个 static-scf</div>
+    <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
+      <div class="vfp-panel-body vfp-panel-body-build"><div class="vfp-build-detail">
+    <div class="vfp-build-detail-head"><strong>static-scf</strong><span class="demo-tag" data-tone="ok">可构建</span></div>
+    <div class="vfp-build-detail-path" title="D:\Research\Bi-NO\calculations\NO-top\static-scf">Bi-NO › calculations › NO-top</div>
+    <div class="vfp-inherit-batch">
+    <div class="vfp-inherit-batch-head">
+      <span>本批次 · 9 个任务</span>
+      <span class="vfp-inherit-templates"><span title="templates/relax">relax ×5</span><span title="templates/freq">freq ×3</span><span title="无模板，文件全部按任务指定">无模板 ×1</span></span>
+    </div>
+    <div class="vfp-inherit-bars"><div class="vfp-inherit-bar" title="POSCAR：9 指定">
+      <span class="vfp-inherit-bar-label">POSCAR</span>
+      <span class="vfp-inherit-bar-track">
+        
+        
+        <i data-origin="explicit" style="width:100.0000%"></i>
+        
+      </span>
+      <span class="vfp-inherit-bar-count">9 指定</span>
+    </div><div class="vfp-inherit-bar" title="INCAR：8 继承 · 1 指定">
+      <span class="vfp-inherit-bar-label">INCAR</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:88.8889%"></i>
+        
+        <i data-origin="explicit" style="width:11.1111%"></i>
+        
+      </span>
+      <span class="vfp-inherit-bar-count">8 继承 · 1 指定</span>
+    </div><div class="vfp-inherit-bar" title="KPOINTS：8 继承 · 1 指定">
+      <span class="vfp-inherit-bar-label">KPOINTS</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:88.8889%"></i>
+        
+        <i data-origin="explicit" style="width:11.1111%"></i>
+        
+      </span>
+      <span class="vfp-inherit-bar-count">8 继承 · 1 指定</span>
+    </div><div class="vfp-inherit-bar" title="POTCAR：8 继承 · 1 指定">
+      <span class="vfp-inherit-bar-label">POTCAR</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:88.8889%"></i>
+        
+        <i data-origin="explicit" style="width:11.1111%"></i>
+        
+      </span>
+      <span class="vfp-inherit-bar-count">8 继承 · 1 指定</span>
+    </div><div class="vfp-inherit-bar" title="提交脚本：9 指定">
+      <span class="vfp-inherit-bar-label">提交脚本</span>
+      <span class="vfp-inherit-bar-track">
+        
+        
+        <i data-origin="explicit" style="width:100.0000%"></i>
+        
+      </span>
+      <span class="vfp-inherit-bar-count">9 指定</span>
+    </div></div>
+    <div class="vfp-inherit-legend" aria-hidden="true">
+      <span data-origin="inherit">继承模板</span><span data-origin="override">覆盖模板</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
+    </div>
+  </div>
+    <div class="vfp-build-detail-section"><b>本任务来源</b>
+      <div class="vfp-inherit-template">
+        <span class="vfp-inherit-name">模板</span>
+        <span class="vfp-inherit-empty">未指定模板</span>
+        
+      </div>
+      <ul class="vfp-inherit-rows"><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\struc\NO-top.vasp">
+      <span class="vfp-inherit-name">POSCAR</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
+      <code class="vfp-inherit-path">struc/NO-top.vasp</code>
+      <span class="vfp-inherit-share" title="3 个任务使用同一来源">×3</span>
+    </li><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\overrides\incar-scf">
+      <span class="vfp-inherit-name">INCAR</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
+      <code class="vfp-inherit-path">overrides/incar-scf</code>
+      
+    </li><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\kpoints\GAMMA-6x6x1">
+      <span class="vfp-inherit-name">KPOINTS</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
+      <code class="vfp-inherit-path">kpoints/GAMMA-6x6x1</code>
+      
+    </li><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\templates\freq\POTCAR">
+      <span class="vfp-inherit-name">POTCAR</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
+      <code class="vfp-inherit-path">templates/freq/POTCAR</code>
+      <span class="vfp-inherit-share" title="4 个任务使用同一来源">×4</span>
+    </li><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\scripts\submit-scf.slurm">
+      <span class="vfp-inherit-name">提交脚本</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
+      <code class="vfp-inherit-path">scripts/submit-scf.slurm</code>
+      
+    </li></ul>
+      
+    </div>
+  </div></div>
+    </div>
+  </section>
+<section class="demo-scenario">
+    <h2>③ 分段构建（staged）</h2>
+    <p>先只搭参数与赝势，POSCAR 和提交脚本后补。缺失项按灰色虚线列出，不会和错误混在一起。</p>
+    <div class="demo-card-label">对话卡片里的一行摘要</div>
+    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-build-inherit-line"><span class="vfp-build-inherit-label">继承</span><span class="vfp-build-inherit-template" title="templates/relax">relax ×4</span><span class="vfp-build-inherit-missing" title="4 个任务未提供 POSCAR">POSCAR 缺失 ×4</span><span class="vfp-build-inherit-missing" title="4 个任务未提供 提交脚本">提交脚本 缺失 ×4</span></div></div>
+    <div class="demo-card-label">右侧面板 · 点开第一个任务</div>
+    <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
+      <div class="vfp-panel-body vfp-panel-body-build"><div class="vfp-build-detail">
+    <div class="vfp-build-detail-head"><strong>relax</strong><span class="demo-tag" data-tone="warn">需注意</span></div>
+    <div class="vfp-build-detail-path" title="D:\Research\Bi-NO\calculations\NO-top\relax">Bi-NO › calculations › NO-top</div>
+    <div class="vfp-inherit-batch">
+    <div class="vfp-inherit-batch-head">
+      <span>本批次 · 4 个任务</span>
+      <span class="vfp-inherit-templates"><span title="templates/relax">relax ×4</span></span>
+    </div>
+    <div class="vfp-inherit-bars"><div class="vfp-inherit-bar" title="POSCAR：4 缺失">
+      <span class="vfp-inherit-bar-label">POSCAR</span>
+      <span class="vfp-inherit-bar-track">
+        
+        
+        
+        <i data-origin="missing" style="width:100.0000%"></i>
+      </span>
+      <span class="vfp-inherit-bar-count">4 缺失</span>
+    </div><div class="vfp-inherit-bar" title="INCAR：4 继承">
+      <span class="vfp-inherit-bar-label">INCAR</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:100.0000%"></i>
+        
+        
+        
+      </span>
+      <span class="vfp-inherit-bar-count">4 继承</span>
+    </div><div class="vfp-inherit-bar" title="KPOINTS：4 继承">
+      <span class="vfp-inherit-bar-label">KPOINTS</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:100.0000%"></i>
+        
+        
+        
+      </span>
+      <span class="vfp-inherit-bar-count">4 继承</span>
+    </div><div class="vfp-inherit-bar" title="POTCAR：4 继承">
+      <span class="vfp-inherit-bar-label">POTCAR</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:100.0000%"></i>
+        
+        
+        
+      </span>
+      <span class="vfp-inherit-bar-count">4 继承</span>
+    </div><div class="vfp-inherit-bar" title="提交脚本：4 缺失">
+      <span class="vfp-inherit-bar-label">提交脚本</span>
+      <span class="vfp-inherit-bar-track">
+        
+        
+        
+        <i data-origin="missing" style="width:100.0000%"></i>
+      </span>
+      <span class="vfp-inherit-bar-count">4 缺失</span>
+    </div></div>
+    <div class="vfp-inherit-legend" aria-hidden="true">
+      <span data-origin="inherit">继承模板</span><span data-origin="override">覆盖模板</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
+    </div>
+  </div>
+    <div class="vfp-build-detail-section"><b>本任务来源</b>
+      <div class="vfp-inherit-template">
+        <span class="vfp-inherit-name">模板</span>
+        <code class="vfp-inherit-path" title="D:\Research\Bi-NO\templates\relax">templates/relax</code>
+        <span class="vfp-inherit-share">4 个任务共用</span>
+      </div>
+      <ul class="vfp-inherit-rows"><li class="vfp-inherit-row" data-origin="missing" title="未提供">
+      <span class="vfp-inherit-name">POSCAR</span>
+      <span class="vfp-inherit-badge" data-origin="missing">缺失</span>
+      <code class="vfp-inherit-path">未提供</code>
+      
+    </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\INCAR">
+      <span class="vfp-inherit-name">INCAR</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <code class="vfp-inherit-path">templates/relax/INCAR</code>
+      <span class="vfp-inherit-share" title="4 个任务使用同一来源">×4</span>
+    </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\KPOINTS">
+      <span class="vfp-inherit-name">KPOINTS</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <code class="vfp-inherit-path">templates/relax/KPOINTS</code>
+      <span class="vfp-inherit-share" title="4 个任务使用同一来源">×4</span>
+    </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\POTCAR">
+      <span class="vfp-inherit-name">POTCAR</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <code class="vfp-inherit-path">templates/relax/POTCAR</code>
+      <span class="vfp-inherit-share" title="4 个任务使用同一来源">×4</span>
+    </li><li class="vfp-inherit-row" data-origin="missing" title="未提供">
+      <span class="vfp-inherit-name">提交脚本</span>
+      <span class="vfp-inherit-badge" data-origin="missing">缺失</span>
+      <code class="vfp-inherit-path">未提供</code>
+      
+    </li></ul>
+      
+    </div>
+  </div></div>
+    </div>
+  </section>
+<section class="demo-scenario">
+    <h2>④ 覆盖密集 · 共享自定义 INCAR</h2>
+    <p>5 个任务里有 4 个换成两种自定义 INCAR，×2 说明这两个文件各被两个任务共用。</p>
+    <div class="demo-card-label">对话卡片里的一行摘要</div>
+    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-build-inherit-line"><span class="vfp-build-inherit-label">继承</span><span class="vfp-build-inherit-template" title="templates/relax">relax ×5</span><span class="vfp-build-inherit-exception" title="4 个任务的 INCAR 改用其他来源">INCAR 覆盖 ×4</span></div></div>
+    <div class="demo-card-label">右侧面板 · 点开 NO-hollow</div>
+    <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
+      <div class="vfp-panel-body vfp-panel-body-build"><div class="vfp-build-detail">
+    <div class="vfp-build-detail-head"><strong>relax</strong><span class="demo-tag" data-tone="ok">可构建</span></div>
+    <div class="vfp-build-detail-path" title="D:\Research\Bi-NO\calculations\NO-hollow\relax">Bi-NO › calculations › NO-hollow</div>
+    <div class="vfp-inherit-batch">
+    <div class="vfp-inherit-batch-head">
+      <span>本批次 · 5 个任务</span>
+      <span class="vfp-inherit-templates"><span title="templates/relax">relax ×5</span></span>
+    </div>
+    <div class="vfp-inherit-bars"><div class="vfp-inherit-bar" title="POSCAR：5 指定">
+      <span class="vfp-inherit-bar-label">POSCAR</span>
+      <span class="vfp-inherit-bar-track">
+        
+        
+        <i data-origin="explicit" style="width:100.0000%"></i>
+        
+      </span>
+      <span class="vfp-inherit-bar-count">5 指定</span>
+    </div><div class="vfp-inherit-bar" title="INCAR：1 继承 · 4 覆盖">
+      <span class="vfp-inherit-bar-label">INCAR</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:20.0000%"></i>
+        <i data-origin="override" style="width:80.0000%"></i>
+        
+        
+      </span>
+      <span class="vfp-inherit-bar-count">1 继承 · 4 覆盖</span>
+    </div><div class="vfp-inherit-bar" title="KPOINTS：5 继承">
+      <span class="vfp-inherit-bar-label">KPOINTS</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:100.0000%"></i>
+        
+        
+        
+      </span>
+      <span class="vfp-inherit-bar-count">5 继承</span>
+    </div><div class="vfp-inherit-bar" title="POTCAR：5 继承">
+      <span class="vfp-inherit-bar-label">POTCAR</span>
+      <span class="vfp-inherit-bar-track">
+        <i data-origin="inherit" style="width:100.0000%"></i>
+        
+        
+        
+      </span>
+      <span class="vfp-inherit-bar-count">5 继承</span>
+    </div><div class="vfp-inherit-bar" title="提交脚本：5 指定">
+      <span class="vfp-inherit-bar-label">提交脚本</span>
+      <span class="vfp-inherit-bar-track">
+        
+        
+        <i data-origin="explicit" style="width:100.0000%"></i>
+        
+      </span>
+      <span class="vfp-inherit-bar-count">5 指定</span>
+    </div></div>
+    <div class="vfp-inherit-legend" aria-hidden="true">
+      <span data-origin="inherit">继承模板</span><span data-origin="override">覆盖模板</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
+    </div>
+  </div>
+    <div class="vfp-build-detail-section"><b>本任务来源</b>
+      <div class="vfp-inherit-template">
+        <span class="vfp-inherit-name">模板</span>
+        <code class="vfp-inherit-path" title="D:\Research\Bi-NO\templates\relax">templates/relax</code>
+        <span class="vfp-inherit-share">5 个任务共用</span>
+      </div>
+      <ul class="vfp-inherit-rows"><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\struc\NO-hollow.vasp">
+      <span class="vfp-inherit-name">POSCAR</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
+      <code class="vfp-inherit-path">struc/NO-hollow.vasp</code>
+      
+    </li><li class="vfp-inherit-row" data-origin="override" title="D:\Research\Bi-NO\overrides\incar-loose">
+      <span class="vfp-inherit-name">INCAR</span>
+      <span class="vfp-inherit-badge" data-origin="override">覆盖</span>
+      <code class="vfp-inherit-path">overrides/incar-loose</code>
+      <span class="vfp-inherit-share" title="2 个任务使用同一来源">×2</span>
+    </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\KPOINTS">
+      <span class="vfp-inherit-name">KPOINTS</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <code class="vfp-inherit-path">templates/relax/KPOINTS</code>
+      <span class="vfp-inherit-share" title="5 个任务使用同一来源">×5</span>
+    </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\POTCAR">
+      <span class="vfp-inherit-name">POTCAR</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <code class="vfp-inherit-path">templates/relax/POTCAR</code>
+      <span class="vfp-inherit-share" title="5 个任务使用同一来源">×5</span>
+    </li><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\templates\relax\submit.sh">
+      <span class="vfp-inherit-name">提交脚本</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
+      <code class="vfp-inherit-path">templates/relax/submit.sh</code>
+      <span class="vfp-inherit-share" title="5 个任务使用同一来源">×5</span>
+    </li></ul>
+      
+    </div>
+  </div></div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

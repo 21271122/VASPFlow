@@ -59427,8 +59427,9 @@ function slotDeclaredPath(task, slot) {
   return typeof value === "string" && value ? value : void 0;
 }
 function slotOrigin(task, slot, resolved) {
-  if (resolved) return slotExplicit(task, slot) ? "explicit" : "inherit";
-  return slotDeclaredPath(task, slot) ? "pending" : "missing";
+  if (!resolved) return slotDeclaredPath(task, slot) ? "pending" : "missing";
+  if (!slotExplicit(task, slot)) return "inherit";
+  return slot.fromTemplate && templateKeyOf(task) ? "override" : "explicit";
 }
 function templateKeyOf(task) {
   const template = typeof task?.template === "string" ? task.template.trim() : "";
@@ -59467,7 +59468,7 @@ function summarizeBatch(batch, projectRoot) {
   const tasks = batch?.tasks ?? [];
   if (tasks.length < 2) return null;
   const templates = /* @__PURE__ */ new Map();
-  const slots = BUILD_SLOTS.map((slot) => ({ key: slot.key, label: slot.label, fromTemplate: slot.fromTemplate, inherit: 0, explicit: 0, missing: 0 }));
+  const slots = BUILD_SLOTS.map((slot) => ({ key: slot.key, label: slot.label, fromTemplate: slot.fromTemplate, inherit: 0, override: 0, explicit: 0, missing: 0 }));
   for (let index2 = 0; index2 < tasks.length; index2 += 1) {
     const task = tasks[index2];
     const template = templateKeyOf(task);
@@ -59479,7 +59480,8 @@ function summarizeBatch(batch, projectRoot) {
     }
     const rows = describeSlots(task, batch?.results?.[index2], projectRoot, /* @__PURE__ */ new Map());
     rows.forEach((row, position3) => {
-      if (row.origin === "explicit") slots[position3].explicit += 1;
+      if (row.origin === "override") slots[position3].override += 1;
+      else if (row.origin === "explicit") slots[position3].explicit += 1;
       else if (row.origin === "inherit") slots[position3].inherit += 1;
       else if (row.origin === "missing") slots[position3].missing += 1;
       else slots[position3].explicit += 1;
@@ -59492,9 +59494,10 @@ function summarizeBatch(batch, projectRoot) {
     slots
   };
 }
-function originLabel(origin, fromTemplate) {
+function originLabel(origin) {
   if (origin === "inherit") return "\u7EE7\u627F";
-  if (origin === "explicit") return fromTemplate ? "\u8986\u76D6" : "\u6307\u5B9A";
+  if (origin === "override") return "\u8986\u76D6";
+  if (origin === "explicit") return "\u6307\u5B9A";
   if (origin === "pending") return "\u5F85\u9884\u89C8";
   return "\u7F3A\u5931";
 }
@@ -100741,7 +100744,8 @@ function BuildInheritanceSummary({ summary }) {
   const countsFor = (slot) => {
     const parts = [];
     if (slot.inherit) parts.push(`${slot.inherit} \u7EE7\u627F`);
-    if (slot.explicit) parts.push(`${slot.explicit} ${slot.fromTemplate ? "\u8986\u76D6" : "\u6307\u5B9A"}`);
+    if (slot.override) parts.push(`${slot.override} \u8986\u76D6`);
+    if (slot.explicit) parts.push(`${slot.explicit} \u6307\u5B9A`);
     if (slot.missing) parts.push(`${slot.missing} \u7F3A\u5931`);
     return parts.join(" \xB7 ") || "\u65E0\u6765\u6E90";
   };
@@ -100765,12 +100769,13 @@ function BuildInheritanceSummary({ summary }) {
       ] })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-inherit-bars", children: summary.slots.map((slot) => {
-      const total = slot.inherit + slot.explicit + slot.missing || 1;
+      const total = slot.inherit + slot.override + slot.explicit + slot.missing || 1;
       return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-inherit-bar", title: `${slot.label}\uFF1A${countsFor(slot)}`, children: [
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-bar-label", children: slot.label }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "vfp-inherit-bar-track", children: [
           slot.inherit ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("i", { "data-origin": "inherit", style: { width: `${slot.inherit / total * 100}%` } }) : null,
-          slot.explicit ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("i", { "data-origin": slot.fromTemplate ? "override" : "explicit", style: { width: `${slot.explicit / total * 100}%` } }) : null,
+          slot.override ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("i", { "data-origin": "override", style: { width: `${slot.override / total * 100}%` } }) : null,
+          slot.explicit ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("i", { "data-origin": "explicit", style: { width: `${slot.explicit / total * 100}%` } }) : null,
           slot.missing ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("i", { "data-origin": "missing", style: { width: `${slot.missing / total * 100}%` } }) : null
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-bar-count", children: countsFor(slot) })
@@ -100805,7 +100810,7 @@ function BuildPreviewDetail({ detail }) {
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("strong", { children: basenameOf(task.dir) || "\u672A\u547D\u540D\u4EFB\u52A1" }),
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tag_default, { color: result?.errors?.length ? "error" : result?.warnings?.length ? "warning" : "success", children: status })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-build-detail-path", title: target, children: crumbs.length > 1 ? `${crumbs.slice(0, -1).join(" \u203A ")} \u203A` : "\u9879\u76EE\u6839\u76EE\u5F55 \u203A" }),
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-build-detail-path", title: target, children: [basenameOf(projectRoot) || "\u9879\u76EE\u6839\u76EE\u5F55", ...crumbs.slice(0, -1)].join(" \u203A ") }),
     summary && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(BuildInheritanceSummary, { summary }),
     /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-build-detail-section", children: [
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("b", { children: "\u672C\u4EFB\u52A1\u6765\u6E90" }),
@@ -100818,10 +100823,9 @@ function BuildPreviewDetail({ detail }) {
         ] }) : null
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("ul", { className: "vfp-inherit-rows", children: slots.map((slot) => {
-        const badge = slot.origin === "explicit" && slot.fromTemplate ? "override" : slot.origin;
-        return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("li", { className: "vfp-inherit-row", "data-origin": badge, title: slot.path || slot.rel || "\u672A\u63D0\u4F9B", children: [
+        return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("li", { className: "vfp-inherit-row", "data-origin": slot.origin, title: slot.path || slot.rel || "\u672A\u63D0\u4F9B", children: [
           /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-name", children: slot.label }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-badge", "data-origin": badge, children: originLabel(slot.origin, slot.fromTemplate) }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-badge", "data-origin": slot.origin, children: originLabel(slot.origin) }),
           /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { className: "vfp-inherit-path", children: slot.rel || "\u672A\u63D0\u4F9B" }),
           slot.shared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "vfp-inherit-share", title: `${slot.shared} \u4E2A\u4EFB\u52A1\u4F7F\u7528\u540C\u4E00\u6765\u6E90`, children: [
             "\xD7",
@@ -101781,7 +101785,7 @@ body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:
 .vfp-inherit-templates { display:flex; flex-wrap:wrap; gap:5px; }
 .vfp-inherit-templates span { padding:1px 7px; border:1px solid var(--vfp-line); border-radius:9px; background:var(--vfp-surface); color:var(--vfp-text); font-size:11px; white-space:nowrap; }
 .vfp-inherit-bars { display:grid; gap:4px; }
-.vfp-inherit-bar { display:grid; grid-template-columns:56px minmax(0,1fr) auto; align-items:center; gap:8px; font-size:11px; color:var(--vfp-muted); }
+.vfp-inherit-bar { display:grid; grid-template-columns:64px minmax(0,1fr) auto; align-items:center; gap:8px; font-size:11px; color:var(--vfp-muted); }
 .vfp-inherit-bar-label { color:var(--vfp-text); }
 .vfp-inherit-bar-track { display:flex; height:6px; border-radius:3px; overflow:hidden; background:rgba(120,132,150,.18); }
 .vfp-inherit-bar-track i { display:block; height:100%; }
@@ -101789,15 +101793,15 @@ body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:
 .vfp-inherit-bar-track i[data-origin="override"] { background:var(--vfp-warning); }
 .vfp-inherit-bar-track i[data-origin="explicit"] { background:var(--vfp-accent); }
 .vfp-inherit-bar-track i[data-origin="missing"] { background:rgba(120,132,150,.55); }
-.vfp-inherit-bar-count { max-width:52%; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+.vfp-inherit-bar-count { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .vfp-inherit-legend { display:flex; flex-wrap:wrap; gap:10px; font-size:11px; color:var(--vfp-muted); }
 .vfp-inherit-legend span::before { content:""; display:inline-block; width:7px; height:7px; margin-right:4px; border-radius:2px; vertical-align:baseline; background:rgba(120,132,150,.55); }
 .vfp-inherit-legend span[data-origin="inherit"]::before { background:var(--vfp-success); }
 .vfp-inherit-legend span[data-origin="override"]::before { background:var(--vfp-warning); }
 .vfp-inherit-legend span[data-origin="explicit"]::before { background:var(--vfp-accent); }
-.vfp-inherit-template { display:grid; grid-template-columns:56px minmax(0,1fr) auto; align-items:baseline; gap:8px; font-size:12px; }
+.vfp-inherit-template { display:grid; grid-template-columns:64px minmax(0,1fr) auto; align-items:baseline; gap:8px; font-size:12px; }
 .vfp-inherit-rows { display:grid; gap:1px; margin:2px 0 0; padding:0; list-style:none; }
-.vfp-inherit-row { display:grid; grid-template-columns:56px 44px minmax(0,1fr) auto; align-items:baseline; gap:8px; padding:3px 0; border-bottom:1px dashed var(--vfp-line); }
+.vfp-inherit-row { display:grid; grid-template-columns:64px 44px minmax(0,1fr) auto; align-items:baseline; gap:8px; padding:3px 0; border-bottom:1px dashed var(--vfp-line); }
 .vfp-inherit-row:last-child { border-bottom:0; }
 .vfp-inherit-name { color:var(--vfp-muted); font-size:11px; }
 .vfp-inherit-badge { justify-self:start; padding:0 5px; border:1px solid transparent; border-radius:3px; font-size:11px; line-height:16px; white-space:nowrap; }
@@ -101809,17 +101813,17 @@ body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:
 .vfp-inherit-row[data-origin="missing"] .vfp-inherit-path, .vfp-inherit-row[data-origin="pending"] .vfp-inherit-path { color:var(--vfp-muted); }
 .vfp-inherit-share { color:var(--vfp-muted); font-size:11px; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .vfp-inherit-empty { color:var(--vfp-muted); font-size:12px; }
-.vfp-inherit-extras { display:grid; grid-template-columns:56px minmax(0,1fr); align-items:baseline; gap:8px; margin-top:3px; font-size:12px; }
+.vfp-inherit-extras { display:grid; grid-template-columns:64px minmax(0,1fr); align-items:baseline; gap:8px; margin-top:3px; font-size:12px; }
 .vfp-inherit-extras code { margin-right:8px; color:var(--vfp-text); }
 /* The detail section styles any div holding a <span> as a two-column row; the
    ledger needs its own columns (name / badge / path / share). */
 [data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-template,
-[data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-extras { grid-template-columns:56px minmax(0,1fr) auto; }
-@container vfp-panel (max-width:420px) {
-  .vfp-inherit-bar { grid-template-columns:48px minmax(0,1fr); }
+[data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-extras { grid-template-columns:64px minmax(0,1fr) auto; }
+@container vfp-panel (max-width:360px) {
+  .vfp-inherit-bar { grid-template-columns:52px minmax(0,1fr); }
   .vfp-inherit-bar-count { grid-column:2; max-width:none; text-align:left; }
-  .vfp-inherit-row { grid-template-columns:48px 40px minmax(0,1fr); }
-  .vfp-inherit-share { grid-column:3; justify-self:end; }
+  .vfp-inherit-row { grid-template-columns:56px 40px minmax(0,1fr) auto; gap:6px; }
+  .vfp-inherit-template { grid-template-columns:56px minmax(0,1fr) auto; gap:6px; }
 }
 [data-dsh-vaspflow-panel] button:focus-visible, [data-dsh-vaspflow-tool] button:focus-visible { outline:2px solid var(--vfp-accent); outline-offset:2px; }
 @media (max-height:740px) {
@@ -104005,10 +104009,10 @@ function BuildInputsToolRow({ block }) {
           "\u65E0\u6A21\u677F \xD7",
           inheritSummary.untemplated
         ] }) : null,
-        inheritSummary.slots.filter((slot) => slot.fromTemplate && slot.explicit > 0).map((slot) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-exception", title: `${slot.explicit} \u4E2A\u4EFB\u52A1\u7684 ${slot.label} \u6539\u7528\u5176\u4ED6\u6765\u6E90`, children: [
+        inheritSummary.slots.filter((slot) => slot.override > 0).map((slot) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-exception", title: `${slot.override} \u4E2A\u4EFB\u52A1\u7684 ${slot.label} \u6539\u7528\u5176\u4ED6\u6765\u6E90`, children: [
           slot.label,
           " \u8986\u76D6 \xD7",
-          slot.explicit
+          slot.override
         ] }, `override-${slot.key}`)),
         inheritSummary.slots.filter((slot) => slot.missing > 0).map((slot) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-missing", title: `${slot.missing} \u4E2A\u4EFB\u52A1\u672A\u63D0\u4F9B ${slot.label}`, children: [
           slot.label,
