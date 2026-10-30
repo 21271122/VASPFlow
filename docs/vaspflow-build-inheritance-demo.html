@@ -145,7 +145,87 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-inherit-empty { color:var(--vfp-muted); font-size:12px; }
 .vfp-inherit-extras { display:grid; grid-template-columns:64px minmax(0,1fr); align-items:baseline; gap:8px; margin-top:3px; font-size:12px; }
 .vfp-inherit-extras code { margin-right:8px; color:var(--vfp-text); }
-/* The detail section styles any div holding a <span> as a two-column row; the
+/* Hover drill-down: the two candidate files side by side, then where the
+   adopted file lives. */
+.vfp-cmp-popover .ant-popover-inner {
+  padding:0; border:1px solid var(--vfp-line); border-radius:10px; overflow:hidden;
+  box-shadow:0 16px 38px -12px rgba(20,32,52,.28), 0 2px 6px rgba(20,32,52,.06);
+  max-height:calc(100vh - 28px);
+}
+.vfp-cmp-popover .ant-popover-arrow { display:none; }
+.vfp-cmp {
+  display:grid; gap:12px; width:clamp(420px,46vw,560px); padding:13px 15px;
+  max-height:calc(100vh - 20px); overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; font-size:12px;
+  scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.38) transparent;
+}
+.vfp-cmp::-webkit-scrollbar,
+.vfp-cmp-side pre::-webkit-scrollbar,
+.vfp-cmp-address .ant-tree::-webkit-scrollbar { width:8px; height:8px; }
+.vfp-cmp::-webkit-scrollbar-track,
+.vfp-cmp-side pre::-webkit-scrollbar-track,
+.vfp-cmp-address .ant-tree::-webkit-scrollbar-track { background:transparent; }
+.vfp-cmp::-webkit-scrollbar-thumb,
+.vfp-cmp-side pre::-webkit-scrollbar-thumb,
+.vfp-cmp-address .ant-tree::-webkit-scrollbar-thumb {
+  background:rgba(120,132,150,.34); background-clip:padding-box; border:2px solid transparent; border-radius:99px;
+}
+.vfp-cmp::-webkit-scrollbar-thumb:hover,
+.vfp-cmp-side pre::-webkit-scrollbar-thumb:hover,
+.vfp-cmp-address .ant-tree::-webkit-scrollbar-thumb:hover { background:rgba(120,132,150,.55); background-clip:padding-box; }
+body[data-ds-dark-theme] .vfp-cmp { scrollbar-color:rgba(158,170,188,.42) transparent; }
+body[data-ds-dark-theme] .vfp-cmp::-webkit-scrollbar-thumb,
+body[data-ds-dark-theme] .vfp-cmp-side pre::-webkit-scrollbar-thumb,
+body[data-ds-dark-theme] .vfp-cmp-address .ant-tree::-webkit-scrollbar-thumb { background:rgba(158,170,188,.38); background-clip:padding-box; border:2px solid transparent; }
+body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.38) transparent; }
+.vfp-cmp-head { display:flex; align-items:center; gap:8px; padding-bottom:9px; border-bottom:1px solid var(--vfp-line); }
+.vfp-cmp-head strong { font-size:13px; letter-spacing:.01em; }
+.vfp-cmp-note { margin-left:auto; color:var(--vfp-muted); font-size:11px; }
+.vfp-cmp-delta { display:inline-flex; gap:7px; margin-left:7px; font-style:normal; font-variant-numeric:tabular-nums; }
+.vfp-cmp-delta b { font-weight:500; }
+.vfp-cmp-delta b:first-child { color:var(--vfp-success); }
+.vfp-cmp-delta b:last-child { color:var(--vfp-error); }
+.vfp-cmp-diff, .vfp-cmp-same { display:inline-flex; align-items:center; gap:5px; margin-left:auto; font-size:11px; }
+.vfp-cmp-diff::before, .vfp-cmp-same::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+.vfp-cmp-diff { color:var(--vfp-warning); }
+.vfp-cmp-same { color:var(--vfp-success); }
+.vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+.vfp-cmp-grid[data-single] { grid-template-columns:minmax(0,1fr); }
+.vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; background:var(--vfp-surface); }
+.vfp-cmp-side>header { display:flex; align-items:center; gap:6px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
+.vfp-cmp-step { flex:none; padding:0 5px; border:1px solid var(--vfp-line); border-radius:4px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }
+.vfp-cmp-side[data-side="write"] .vfp-cmp-step { color:var(--vfp-accent); border-color:rgba(57,107,215,.34); background:rgba(57,107,215,.08); }
+.vfp-cmp-role { flex:none; color:var(--vfp-muted); font-size:11px; }
+.vfp-cmp-dir { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; color:var(--vfp-muted); font:10.5px/1.4 Consolas,"Cascadia Mono",monospace; }
+.vfp-cmp-side pre {
+  margin:0; padding:6px 0; max-height:252px; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable;
+  font:11px/1.55 Consolas,"Cascadia Mono",monospace;
+  scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.32) transparent;
+}
+.vfp-cmp-line { display:block; padding:0 9px; white-space:pre; }
+.vfp-cmp-line i { display:inline-block; width:24px; margin-right:8px; color:var(--vfp-muted); opacity:.72; font-style:normal; text-align:right; user-select:none; font-variant-numeric:tabular-nums; }
+.vfp-cmp-line[data-changed] { background:rgba(149,104,23,.13); box-shadow:inset 2px 0 0 var(--vfp-warning); }
+.vfp-cmp-line[data-changed] i { opacity:1; color:var(--vfp-warning); }
+.vfp-cmp-empty { padding:16px 10px; text-align:center; color:var(--vfp-muted); font-size:11.5px; }
+.vfp-cmp-empty[data-error] { color:var(--vfp-warning); }
+.vfp-cmp-side[data-loading] { min-height:214px; }
+.vfp-cmp-side[data-loading] .vfp-cmp-empty { padding:0; height:212px; display:flex; align-items:center; justify-content:center; }
+.vfp-cmp-more { padding:5px 9px 6px; color:var(--vfp-muted); font-size:11px; border-top:1px dashed var(--vfp-line); }
+.vfp-cmp-address { border-top:1px solid var(--vfp-line); padding-top:9px; }
+.vfp-cmp-address-head { display:flex; align-items:center; gap:6px; margin-bottom:4px; color:var(--vfp-muted); font-size:11px; }
+.vfp-cmp-address .ant-tree { max-height:200px; overflow:auto; overscroll-behavior:contain; background:transparent; }
+.vfp-cmp-address .ant-tree-list, .vfp-cmp-address .ant-tree-list-holder-inner { background:transparent; }
+/* Same tree language as the task list, at popover scale. */
+.vfp-cmp-address .ant-tree .ant-tree-treenode { padding:0!important; line-height:22px; }
+.vfp-cmp-address .ant-tree-indent-unit { width:10px!important; }
+.vfp-cmp-address .ant-tree-switcher { width:12px!important; margin-right:0!important; }
+.vfp-cmp-address .ant-tree-title { font-size:12px!important; }
+.vfp-cmp-address .ant-tree-iconEle { color:var(--vfp-muted); }
+.vfp-cmp-address .ant-tree-node-content-wrapper { padding:0 4px!important; min-height:22px!important; line-height:22px!important; border-radius:4px; }
+.vfp-cmp-address .ant-tree-node-content-wrapper:hover { background:var(--vfp-soft); }
+.vfp-cmp-file { color:var(--vfp-text); font-weight:500; }
+.vfp-cmp-ellipsis { color:var(--vfp-muted); }
+.vfp-inherit-row { cursor:pointer; }
+.vfp-inherit-row[data-pinned] { background:var(--vfp-selected); }/* The detail section styles any div holding a <span> as a two-column row; the
    ledger needs its own columns (name / badge / path / share). */
 [data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-template,
 [data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-extras { grid-template-columns:64px minmax(0,1fr) auto; }
@@ -240,7 +320,7 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
 <body>
 <header>
   <h1>构建继承账本 · 示例</h1>
-  <p class="lede">构建面板原来把每个来源打印成绝对路径，单个任务看不出继承链，整批任务看不出分布。现在路径按项目根相对显示，每个文件标注继承 / 覆盖 / 指定 / 缺失，批次层面用叠条给出分布，×N 表示有多少任务共用同一来源。</p>
+  <p class="lede">构建面板原来把每个来源打印成绝对路径，单个任务看不出继承链，整批任务看不出分布。现在路径按项目根相对显示，每个文件标注模板提供 / 本任务指定 / 缺失，批次层面用叠条给出分布，×N 表示有多少任务共用同一来源。</p>
   <div class="meta">
     <span>示例数据由 <code>src/client/inheritance.ts</code> 实时计算</span>
     <span>样式取自 <code>src/client/presentation.ts</code></span>
@@ -255,7 +335,7 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
     <div class="demo-card-label">对话卡片标题行（信息并入原有那行，不再额外占一行）</div>
     <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-tree-head">
     <button type="button" class="vfp-card-toggle"><span aria-hidden="true">▾</span><strong>构建任务</strong></button>
-    <span class="vfp-tree-muted">待确认预览 · 8 个任务 · INCAR覆盖1 · 提交脚本缺失1</span>
+    <span class="vfp-tree-muted">待确认预览 · 8 个任务 · 提交脚本缺失1</span>
   </div></div>
     <div class="demo-card-label">右侧面板 · 点开 CO-fcc</div>
     <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
@@ -271,42 +351,37 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       <span class="vfp-inherit-bar-label">POSCAR</span>
       <span class="vfp-inherit-bar-track">
         
-        
         <i data-origin="explicit" style="width:100.0000%"></i>
         
       </span>
       <span class="vfp-inherit-bar-count">8 指定</span>
-    </div><div class="vfp-inherit-bar" title="INCAR：7 继承 · 1 覆盖">
+    </div><div class="vfp-inherit-bar" title="INCAR：7 模板 · 1 指定">
       <span class="vfp-inherit-bar-label">INCAR</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:87.5000%"></i>
-        <i data-origin="override" style="width:12.5000%"></i>
-        
+        <i data-origin="explicit" style="width:12.5000%"></i>
         
       </span>
-      <span class="vfp-inherit-bar-count">7 继承 · 1 覆盖</span>
-    </div><div class="vfp-inherit-bar" title="KPOINTS：8 继承">
+      <span class="vfp-inherit-bar-count">7 模板 · 1 指定</span>
+    </div><div class="vfp-inherit-bar" title="KPOINTS：8 模板">
       <span class="vfp-inherit-bar-label">KPOINTS</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:100.0000%"></i>
         
         
-        
       </span>
-      <span class="vfp-inherit-bar-count">8 继承</span>
-    </div><div class="vfp-inherit-bar" title="POTCAR：8 继承">
+      <span class="vfp-inherit-bar-count">8 模板</span>
+    </div><div class="vfp-inherit-bar" title="POTCAR：8 模板">
       <span class="vfp-inherit-bar-label">POTCAR</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:100.0000%"></i>
         
         
-        
       </span>
-      <span class="vfp-inherit-bar-count">8 继承</span>
+      <span class="vfp-inherit-bar-count">8 模板</span>
     </div><div class="vfp-inherit-bar" title="提交脚本：7 指定 · 1 缺失">
       <span class="vfp-inherit-bar-label">提交脚本</span>
       <span class="vfp-inherit-bar-track">
-        
         
         <i data-origin="explicit" style="width:87.5000%"></i>
         <i data-origin="missing" style="width:12.5000%"></i>
@@ -314,7 +389,7 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       <span class="vfp-inherit-bar-count">7 指定 · 1 缺失</span>
     </div></div>
     <div class="vfp-inherit-legend" aria-hidden="true">
-      <span data-origin="inherit">继承模板</span><span data-origin="override">覆盖模板</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
+      <span data-origin="inherit">模板提供</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
     </div>
   </div>
     <div class="vfp-build-detail-section"><b>本任务来源</b>
@@ -328,19 +403,19 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
       <code class="vfp-inherit-path">struc/CO-fcc.vasp</code>
       
-    </li><li class="vfp-inherit-row" data-origin="override" title="D:\Research\Bi-NO\overrides\incar-co-fcc">
+    </li><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\overrides\incar-co-fcc">
       <span class="vfp-inherit-name">INCAR</span>
-      <span class="vfp-inherit-badge" data-origin="override">覆盖</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
       <code class="vfp-inherit-path">overrides/incar-co-fcc</code>
       
     </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\KPOINTS">
       <span class="vfp-inherit-name">KPOINTS</span>
-      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">模板</span>
       <code class="vfp-inherit-path">templates/relax/KPOINTS</code>
       <span class="vfp-inherit-share" title="8 个任务使用同一来源">×8</span>
     </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\POTCAR">
       <span class="vfp-inherit-name">POTCAR</span>
-      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">模板</span>
       <code class="vfp-inherit-path">templates/relax/POTCAR</code>
       <span class="vfp-inherit-share" title="8 个任务使用同一来源">×8</span>
     </li><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\templates\relax\submit.sh">
@@ -356,11 +431,11 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
   </section>
 <section class="demo-scenario">
     <h2>② 两个模板 + 一个无模板任务</h2>
-    <p>relax ×5、freq ×3，外加一个 static-scf 完全自带文件。没有模板的任务只会显示「指定」，不会假装成「覆盖」。</p>
+    <p>relax ×5、freq ×3，外加一个 static-scf 完全自带文件。没有模板的任务只会显示「指定」。</p>
     <div class="demo-card-label">对话卡片标题行（信息并入原有那行，不再额外占一行）</div>
     <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-tree-head">
     <button type="button" class="vfp-card-toggle"><span aria-hidden="true">▾</span><strong>构建任务</strong></button>
-    <span class="vfp-tree-muted">待确认预览 · 9 个任务 · 继承 relax×5 freq×3 无模板×1</span>
+    <span class="vfp-tree-muted">待确认预览 · 9 个任务 · 模板 relax×5 freq×3 无模板×1</span>
   </div></div>
     <div class="demo-card-label">右侧面板 · 点开最后一个 static-scf</div>
     <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
@@ -376,42 +451,37 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       <span class="vfp-inherit-bar-label">POSCAR</span>
       <span class="vfp-inherit-bar-track">
         
-        
         <i data-origin="explicit" style="width:100.0000%"></i>
         
       </span>
       <span class="vfp-inherit-bar-count">9 指定</span>
-    </div><div class="vfp-inherit-bar" title="INCAR：8 继承 · 1 指定">
+    </div><div class="vfp-inherit-bar" title="INCAR：8 模板 · 1 指定">
       <span class="vfp-inherit-bar-label">INCAR</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:88.8889%"></i>
-        
         <i data-origin="explicit" style="width:11.1111%"></i>
         
       </span>
-      <span class="vfp-inherit-bar-count">8 继承 · 1 指定</span>
-    </div><div class="vfp-inherit-bar" title="KPOINTS：8 继承 · 1 指定">
+      <span class="vfp-inherit-bar-count">8 模板 · 1 指定</span>
+    </div><div class="vfp-inherit-bar" title="KPOINTS：8 模板 · 1 指定">
       <span class="vfp-inherit-bar-label">KPOINTS</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:88.8889%"></i>
-        
         <i data-origin="explicit" style="width:11.1111%"></i>
         
       </span>
-      <span class="vfp-inherit-bar-count">8 继承 · 1 指定</span>
-    </div><div class="vfp-inherit-bar" title="POTCAR：8 继承 · 1 指定">
+      <span class="vfp-inherit-bar-count">8 模板 · 1 指定</span>
+    </div><div class="vfp-inherit-bar" title="POTCAR：8 模板 · 1 指定">
       <span class="vfp-inherit-bar-label">POTCAR</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:88.8889%"></i>
-        
         <i data-origin="explicit" style="width:11.1111%"></i>
         
       </span>
-      <span class="vfp-inherit-bar-count">8 继承 · 1 指定</span>
+      <span class="vfp-inherit-bar-count">8 模板 · 1 指定</span>
     </div><div class="vfp-inherit-bar" title="提交脚本：9 指定">
       <span class="vfp-inherit-bar-label">提交脚本</span>
       <span class="vfp-inherit-bar-track">
-        
         
         <i data-origin="explicit" style="width:100.0000%"></i>
         
@@ -419,7 +489,7 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       <span class="vfp-inherit-bar-count">9 指定</span>
     </div></div>
     <div class="vfp-inherit-legend" aria-hidden="true">
-      <span data-origin="inherit">继承模板</span><span data-origin="override">覆盖模板</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
+      <span data-origin="inherit">模板提供</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
     </div>
   </div>
     <div class="vfp-build-detail-section"><b>本任务来源</b>
@@ -482,41 +552,36 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       <span class="vfp-inherit-bar-track">
         
         
-        
         <i data-origin="missing" style="width:100.0000%"></i>
       </span>
       <span class="vfp-inherit-bar-count">4 缺失</span>
-    </div><div class="vfp-inherit-bar" title="INCAR：4 继承">
+    </div><div class="vfp-inherit-bar" title="INCAR：4 模板">
       <span class="vfp-inherit-bar-label">INCAR</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:100.0000%"></i>
         
         
-        
       </span>
-      <span class="vfp-inherit-bar-count">4 继承</span>
-    </div><div class="vfp-inherit-bar" title="KPOINTS：4 继承">
+      <span class="vfp-inherit-bar-count">4 模板</span>
+    </div><div class="vfp-inherit-bar" title="KPOINTS：4 模板">
       <span class="vfp-inherit-bar-label">KPOINTS</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:100.0000%"></i>
         
         
-        
       </span>
-      <span class="vfp-inherit-bar-count">4 继承</span>
-    </div><div class="vfp-inherit-bar" title="POTCAR：4 继承">
+      <span class="vfp-inherit-bar-count">4 模板</span>
+    </div><div class="vfp-inherit-bar" title="POTCAR：4 模板">
       <span class="vfp-inherit-bar-label">POTCAR</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:100.0000%"></i>
         
         
-        
       </span>
-      <span class="vfp-inherit-bar-count">4 继承</span>
+      <span class="vfp-inherit-bar-count">4 模板</span>
     </div><div class="vfp-inherit-bar" title="提交脚本：4 缺失">
       <span class="vfp-inherit-bar-label">提交脚本</span>
       <span class="vfp-inherit-bar-track">
-        
         
         
         <i data-origin="missing" style="width:100.0000%"></i>
@@ -524,7 +589,7 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       <span class="vfp-inherit-bar-count">4 缺失</span>
     </div></div>
     <div class="vfp-inherit-legend" aria-hidden="true">
-      <span data-origin="inherit">继承模板</span><span data-origin="override">覆盖模板</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
+      <span data-origin="inherit">模板提供</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
     </div>
   </div>
     <div class="vfp-build-detail-section"><b>本任务来源</b>
@@ -540,17 +605,17 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       
     </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\INCAR">
       <span class="vfp-inherit-name">INCAR</span>
-      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">模板</span>
       <code class="vfp-inherit-path">templates/relax/INCAR</code>
       <span class="vfp-inherit-share" title="4 个任务使用同一来源">×4</span>
     </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\KPOINTS">
       <span class="vfp-inherit-name">KPOINTS</span>
-      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">模板</span>
       <code class="vfp-inherit-path">templates/relax/KPOINTS</code>
       <span class="vfp-inherit-share" title="4 个任务使用同一来源">×4</span>
     </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\POTCAR">
       <span class="vfp-inherit-name">POTCAR</span>
-      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">模板</span>
       <code class="vfp-inherit-path">templates/relax/POTCAR</code>
       <span class="vfp-inherit-share" title="4 个任务使用同一来源">×4</span>
     </li><li class="vfp-inherit-row" data-origin="missing" title="未提供">
@@ -565,12 +630,12 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
     </div>
   </section>
 <section class="demo-scenario">
-    <h2>④ 覆盖密集 · 共享自定义 INCAR</h2>
-    <p>5 个任务里有 4 个换成两种自定义 INCAR，×2 说明这两个文件各被两个任务共用。</p>
+    <h2>④ 指定密集 · 共享自定义 INCAR</h2>
+    <p>5 个任务里有 4 个指定了两种自定义 INCAR，×2 说明这两个文件各被两个任务共用。</p>
     <div class="demo-card-label">对话卡片标题行（信息并入原有那行，不再额外占一行）</div>
     <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-tree-head">
     <button type="button" class="vfp-card-toggle"><span aria-hidden="true">▾</span><strong>构建任务</strong></button>
-    <span class="vfp-tree-muted">待确认预览 · 5 个任务 · INCAR覆盖4</span>
+    <span class="vfp-tree-muted">待确认预览 · 5 个任务</span>
   </div></div>
     <div class="demo-card-label">右侧面板 · 点开 NO-hollow</div>
     <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
@@ -586,42 +651,37 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       <span class="vfp-inherit-bar-label">POSCAR</span>
       <span class="vfp-inherit-bar-track">
         
-        
         <i data-origin="explicit" style="width:100.0000%"></i>
         
       </span>
       <span class="vfp-inherit-bar-count">5 指定</span>
-    </div><div class="vfp-inherit-bar" title="INCAR：1 继承 · 4 覆盖">
+    </div><div class="vfp-inherit-bar" title="INCAR：1 模板 · 4 指定">
       <span class="vfp-inherit-bar-label">INCAR</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:20.0000%"></i>
-        <i data-origin="override" style="width:80.0000%"></i>
-        
+        <i data-origin="explicit" style="width:80.0000%"></i>
         
       </span>
-      <span class="vfp-inherit-bar-count">1 继承 · 4 覆盖</span>
-    </div><div class="vfp-inherit-bar" title="KPOINTS：5 继承">
+      <span class="vfp-inherit-bar-count">1 模板 · 4 指定</span>
+    </div><div class="vfp-inherit-bar" title="KPOINTS：5 模板">
       <span class="vfp-inherit-bar-label">KPOINTS</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:100.0000%"></i>
         
         
-        
       </span>
-      <span class="vfp-inherit-bar-count">5 继承</span>
-    </div><div class="vfp-inherit-bar" title="POTCAR：5 继承">
+      <span class="vfp-inherit-bar-count">5 模板</span>
+    </div><div class="vfp-inherit-bar" title="POTCAR：5 模板">
       <span class="vfp-inherit-bar-label">POTCAR</span>
       <span class="vfp-inherit-bar-track">
         <i data-origin="inherit" style="width:100.0000%"></i>
         
         
-        
       </span>
-      <span class="vfp-inherit-bar-count">5 继承</span>
+      <span class="vfp-inherit-bar-count">5 模板</span>
     </div><div class="vfp-inherit-bar" title="提交脚本：5 指定">
       <span class="vfp-inherit-bar-label">提交脚本</span>
       <span class="vfp-inherit-bar-track">
-        
         
         <i data-origin="explicit" style="width:100.0000%"></i>
         
@@ -629,7 +689,7 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       <span class="vfp-inherit-bar-count">5 指定</span>
     </div></div>
     <div class="vfp-inherit-legend" aria-hidden="true">
-      <span data-origin="inherit">继承模板</span><span data-origin="override">覆盖模板</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
+      <span data-origin="inherit">模板提供</span><span data-origin="explicit">本任务指定</span><span data-origin="missing">缺失</span>
     </div>
   </div>
     <div class="vfp-build-detail-section"><b>本任务来源</b>
@@ -643,19 +703,19 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
       <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
       <code class="vfp-inherit-path">struc/NO-hollow.vasp</code>
       
-    </li><li class="vfp-inherit-row" data-origin="override" title="D:\Research\Bi-NO\overrides\incar-loose">
+    </li><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\overrides\incar-loose">
       <span class="vfp-inherit-name">INCAR</span>
-      <span class="vfp-inherit-badge" data-origin="override">覆盖</span>
+      <span class="vfp-inherit-badge" data-origin="explicit">指定</span>
       <code class="vfp-inherit-path">overrides/incar-loose</code>
       <span class="vfp-inherit-share" title="2 个任务使用同一来源">×2</span>
     </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\KPOINTS">
       <span class="vfp-inherit-name">KPOINTS</span>
-      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">模板</span>
       <code class="vfp-inherit-path">templates/relax/KPOINTS</code>
       <span class="vfp-inherit-share" title="5 个任务使用同一来源">×5</span>
     </li><li class="vfp-inherit-row" data-origin="inherit" title="D:\Research\Bi-NO\templates\relax\POTCAR">
       <span class="vfp-inherit-name">POTCAR</span>
-      <span class="vfp-inherit-badge" data-origin="inherit">继承</span>
+      <span class="vfp-inherit-badge" data-origin="inherit">模板</span>
       <code class="vfp-inherit-path">templates/relax/POTCAR</code>
       <span class="vfp-inherit-share" title="5 个任务使用同一来源">×5</span>
     </li><li class="vfp-inherit-row" data-origin="explicit" title="D:\Research\Bi-NO\templates\relax\submit.sh">

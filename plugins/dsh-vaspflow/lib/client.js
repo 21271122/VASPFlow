@@ -59428,8 +59428,7 @@ function slotDeclaredPath(task, slot) {
 }
 function slotOrigin(task, slot, resolved) {
   if (!resolved) return slotDeclaredPath(task, slot) ? "pending" : "missing";
-  if (!slotExplicit(task, slot)) return "inherit";
-  return slot.fromTemplate && templateKeyOf(task) ? "override" : "explicit";
+  return slotExplicit(task, slot) ? "explicit" : "inherit";
 }
 function templateKeyOf(task) {
   const template = typeof task?.template === "string" ? task.template.trim() : "";
@@ -59468,7 +59467,7 @@ function summarizeBatch(batch, projectRoot) {
   const tasks = batch?.tasks ?? [];
   if (tasks.length < 2) return null;
   const templates = /* @__PURE__ */ new Map();
-  const slots = BUILD_SLOTS.map((slot) => ({ key: slot.key, label: slot.label, fromTemplate: slot.fromTemplate, inherit: 0, override: 0, explicit: 0, missing: 0 }));
+  const slots = BUILD_SLOTS.map((slot) => ({ key: slot.key, label: slot.label, fromTemplate: slot.fromTemplate, inherit: 0, explicit: 0, missing: 0 }));
   for (let index2 = 0; index2 < tasks.length; index2 += 1) {
     const task = tasks[index2];
     const template = templateKeyOf(task);
@@ -59480,8 +59479,7 @@ function summarizeBatch(batch, projectRoot) {
     }
     const rows = describeSlots(task, batch?.results?.[index2], projectRoot, /* @__PURE__ */ new Map());
     rows.forEach((row, position3) => {
-      if (row.origin === "override") slots[position3].override += 1;
-      else if (row.origin === "explicit") slots[position3].explicit += 1;
+      if (row.origin === "explicit") slots[position3].explicit += 1;
       else if (row.origin === "inherit") slots[position3].inherit += 1;
       else if (row.origin === "missing") slots[position3].missing += 1;
       else slots[position3].explicit += 1;
@@ -59495,8 +59493,7 @@ function summarizeBatch(batch, projectRoot) {
   };
 }
 function originLabel(origin) {
-  if (origin === "inherit") return "\u7EE7\u627F";
-  if (origin === "override") return "\u8986\u76D6";
+  if (origin === "inherit") return "\u6A21\u677F";
   if (origin === "explicit") return "\u6307\u5B9A";
   if (origin === "pending") return "\u5F85\u9884\u89C8";
   return "\u7F3A\u5931";
@@ -100962,8 +100959,7 @@ function immediateParent(relPath) {
 function BuildInheritanceSummary({ summary }) {
   const countsFor = (slot) => {
     const parts = [];
-    if (slot.inherit) parts.push(`${slot.inherit} \u7EE7\u627F`);
-    if (slot.override) parts.push(`${slot.override} \u8986\u76D6`);
+    if (slot.inherit) parts.push(`${slot.inherit} \u6A21\u677F`);
     if (slot.explicit) parts.push(`${slot.explicit} \u6307\u5B9A`);
     if (slot.missing) parts.push(`${slot.missing} \u7F3A\u5931`);
     return parts.join(" \xB7 ") || "\u65E0\u6765\u6E90";
@@ -100988,12 +100984,11 @@ function BuildInheritanceSummary({ summary }) {
       ] })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "vfp-inherit-bars", children: summary.slots.map((slot) => {
-      const total = slot.inherit + slot.override + slot.explicit + slot.missing || 1;
+      const total = slot.inherit + slot.explicit + slot.missing || 1;
       return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-inherit-bar", title: `${slot.label}\uFF1A${countsFor(slot)}`, children: [
         /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-bar-label", children: slot.label }),
         /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "vfp-inherit-bar-track", children: [
           slot.inherit ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("i", { "data-origin": "inherit", style: { width: `${slot.inherit / total * 100}%` } }) : null,
-          slot.override ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("i", { "data-origin": "override", style: { width: `${slot.override / total * 100}%` } }) : null,
           slot.explicit ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("i", { "data-origin": "explicit", style: { width: `${slot.explicit / total * 100}%` } }) : null,
           slot.missing ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("i", { "data-origin": "missing", style: { width: `${slot.missing / total * 100}%` } }) : null
         ] }),
@@ -101001,8 +100996,7 @@ function BuildInheritanceSummary({ summary }) {
       ] }, slot.key);
     }) }),
     /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-inherit-legend", "aria-hidden": "true", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { "data-origin": "inherit", children: "\u7EE7\u627F\u6A21\u677F" }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { "data-origin": "override", children: "\u8986\u76D6\u6A21\u677F" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { "data-origin": "inherit", children: "\u6A21\u677F\u63D0\u4F9B" }),
       /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { "data-origin": "explicit", children: "\u672C\u4EFB\u52A1\u6307\u5B9A" }),
       /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { "data-origin": "missing", children: "\u7F3A\u5931" })
     ] })
@@ -101085,7 +101079,7 @@ function BuildPreviewDetail({ detail }) {
     /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-build-detail-section", children: [
       /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("b", { children: "\u672C\u4EFB\u52A1\u6765\u6E90" }),
       /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-inherit-template", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-name", children: "\u6A21\u677F" }),
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-name", title: "\u6A21\u677F\u53EA\u63D0\u4F9B INCAR / KPOINTS / POTCAR\uFF1BPOSCAR \u4E0E\u63D0\u4EA4\u811A\u672C\u59CB\u7EC8\u7531\u672C\u4EFB\u52A1\u6307\u5B9A", children: "\u6A21\u677F" }),
         task.template ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("code", { className: "vfp-inherit-path", title: absoluteTaskPath(projectRoot, task.template), children: templateRel }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { className: "vfp-inherit-empty", children: "\u672A\u6307\u5B9A\u6A21\u677F" }),
         templateShared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { className: "vfp-inherit-share", children: [
           templateShared,
@@ -101115,7 +101109,7 @@ function BuildPreviewDetail({ detail }) {
         if (!slot.path) return row;
         const destination = slot.key === "submit" ? basenameOf(task.submitSrc) : slot.key;
         const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || ".")}/${destination}`);
-        const templateCopy = slot.fromTemplate && task.template ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`) : void 0;
+        const templateCopy = slot.origin === "explicit" && slot.fromTemplate && task.template ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`) : void 0;
         const open = hoverSlot === slot.key || pinnedSlot === slot.key;
         return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           popover_default,
@@ -104096,7 +104090,6 @@ function BuildInputsToolRow({ block }) {
       parts.push(`\u7EE7\u627F ${groups.join(" ")}`);
     }
     for (const slot of inheritSummary.slots) {
-      if (slot.override) parts.push(`${slot.label}\u8986\u76D6${slot.override}`);
       if (slot.missing) parts.push(`${slot.label}\u7F3A\u5931${slot.missing}`);
     }
     return parts.join(" \xB7 ");

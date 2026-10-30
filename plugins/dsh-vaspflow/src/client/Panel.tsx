@@ -45,8 +45,7 @@ function immediateParent(relPath: string): string {
 function BuildInheritanceSummary({ summary }: { summary: BuildBatchSummary }) {
   const countsFor = (slot: BuildBatchSummary['slots'][number]) => {
     const parts: string[] = [];
-    if (slot.inherit) parts.push(`${slot.inherit} 继承`);
-    if (slot.override) parts.push(`${slot.override} 覆盖`);
+    if (slot.inherit) parts.push(`${slot.inherit} 模板`);
     if (slot.explicit) parts.push(`${slot.explicit} 指定`);
     if (slot.missing) parts.push(`${slot.missing} 缺失`);
     return parts.join(' · ') || '无来源';
@@ -62,12 +61,11 @@ function BuildInheritanceSummary({ summary }: { summary: BuildBatchSummary }) {
       </div>
       <div className="vfp-inherit-bars">
         {summary.slots.map((slot) => {
-          const total = slot.inherit + slot.override + slot.explicit + slot.missing || 1;
+          const total = slot.inherit + slot.explicit + slot.missing || 1;
           return <div className="vfp-inherit-bar" key={slot.key} title={`${slot.label}：${countsFor(slot)}`}>
             <span className="vfp-inherit-bar-label">{slot.label}</span>
             <span className="vfp-inherit-bar-track">
               {slot.inherit ? <i data-origin="inherit" style={{ width: `${(slot.inherit / total) * 100}%` }} /> : null}
-              {slot.override ? <i data-origin="override" style={{ width: `${(slot.override / total) * 100}%` }} /> : null}
               {slot.explicit ? <i data-origin="explicit" style={{ width: `${(slot.explicit / total) * 100}%` }} /> : null}
               {slot.missing ? <i data-origin="missing" style={{ width: `${(slot.missing / total) * 100}%` }} /> : null}
             </span>
@@ -76,8 +74,7 @@ function BuildInheritanceSummary({ summary }: { summary: BuildBatchSummary }) {
         })}
       </div>
       <div className="vfp-inherit-legend" aria-hidden="true">
-        <span data-origin="inherit">继承模板</span>
-        <span data-origin="override">覆盖模板</span>
+        <span data-origin="inherit">模板提供</span>
         <span data-origin="explicit">本任务指定</span>
         <span data-origin="missing">缺失</span>
       </div>
@@ -158,7 +155,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
       {summary && <BuildInheritanceSummary summary={summary} />}
       <div className="vfp-build-detail-section"><b>本任务来源</b>
         <div className="vfp-inherit-template">
-          <span className="vfp-inherit-name">模板</span>
+          <span className="vfp-inherit-name" title="模板只提供 INCAR / KPOINTS / POTCAR；POSCAR 与提交脚本始终由本任务指定">模板</span>
           {task.template
             ? <code className="vfp-inherit-path" title={absoluteTaskPath(projectRoot, task.template)}>{templateRel}</code>
             : <span className="vfp-inherit-empty">未指定模板</span>}
@@ -176,7 +173,8 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
             if (!slot.path) return row;
             const destination = slot.key === 'submit' ? basenameOf(task.submitSrc) : slot.key;
             const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || '.')}/${destination}`);
-            const templateCopy = slot.fromTemplate && task.template
+            // Only a named file can deviate from the template; an inherited one *is* the template copy.
+            const templateCopy = slot.origin === 'explicit' && slot.fromTemplate && task.template
               ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`)
               : undefined;
             const open = hoverSlot === slot.key || pinnedSlot === slot.key;

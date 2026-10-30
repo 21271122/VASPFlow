@@ -595,7 +595,6 @@ function BuildInputsToolRow({ block }: { block: any }) {
       parts.push(`继承 ${groups.join(' ')}`);
     }
     for (const slot of inheritSummary.slots) {
-      if (slot.override) parts.push(`${slot.label}覆盖${slot.override}`);
       if (slot.missing) parts.push(`${slot.label}缺失${slot.missing}`);
     }
     return parts.join(' · ');
