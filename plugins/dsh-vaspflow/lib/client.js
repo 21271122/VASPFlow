@@ -79101,20 +79101,21 @@ var ConvergenceChart = ({ taskId, series }) => {
   if (errorMsg) return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(empty_default2, { description: `\u65E0\u6536\u655B\u6570\u636E: ${errorMsg}` });
   if (!data || data.length === 0) return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(empty_default2, { description: "\u65E0\u6536\u655B\u6570\u636E\uFF08\u9700 OSZICAR + OUTCAR\uFF09" });
   const energyLabel = logEnergy ? "\u7EDD\u5BF9\u80FD\u91CF (eV)" : "\u76F8\u5BF9\u80FD\u91CF \u0394E (eV)";
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { title: `\u6570\u636E\u6765\u6E90: ${source}`, style: { marginBottom: 2, fontSize: 11, color: "var(--dsw-alias-label-tertiary, #999)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-convergence", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-convergence-source", title: `\u6570\u636E\u6765\u6E90: ${source}`, children: [
       "\u6570\u636E\u6765\u6E90: ",
       source
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { marginBottom: 4 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(switch_default, { size: "small", checked: logEnergy, onChange: setLogEnergy }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { marginLeft: 8, fontSize: 12, color: "var(--dsw-alias-label-secondary, #888)" }, children: logEnergy ? "\u7EDD\u5BF9\u80FD\u91CF" : "\u76F8\u5BF9\u80FD\u91CF\uFF08\u76F8\u5BF9\u6700\u540E\u4E00\u6B65\uFF09" })
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-convergence-controls", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(switch_default, { size: "small", checked: logEnergy, onChange: setLogEnergy, "aria-label": "\u663E\u793A\u7EDD\u5BF9\u80FD\u91CF" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: logEnergy ? "\u7EDD\u5BF9\u80FD\u91CF" : "\u76F8\u5BF9\u80FD\u91CF\uFF08\u76F8\u5BF9\u6700\u540E\u4E00\u6B65\uFF09" })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { width: "100%", height: 340 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ResponsiveContainer, { width: "100%", height: "100%", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(LineChart, { data: relData ?? void 0, margin: { top: 8, right: 24, left: 16, bottom: 8 }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-convergence-plot", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(ResponsiveContainer, { width: "100%", height: "100%", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(LineChart, { data: relData ?? void 0, margin: { top: 8, right: 24, left: 16, bottom: 8 }, children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(CartesianGrid, { strokeDasharray: "3 3", stroke: "var(--dsw-alias-border-l2, #f0f0f0)" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         XAxis,
         {
+          tick: { fill: "var(--dsw-alias-label-secondary, #66758a)", fontSize: 11 },
           dataKey: "step",
           type: "number",
           domain: ["dataMin", "dataMax"],
@@ -79124,6 +79125,7 @@ var ConvergenceChart = ({ taskId, series }) => {
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         YAxis,
         {
+          tick: { fill: "var(--dsw-alias-label-secondary, #66758a)", fontSize: 11 },
           yAxisId: "energy",
           label: { value: energyLabel, angle: -90, position: "insideLeft" },
           tickFormatter: (v) => logEnergy ? v.toFixed(2) : v.toExponential(1)
@@ -79132,6 +79134,7 @@ var ConvergenceChart = ({ taskId, series }) => {
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         YAxis,
         {
+          tick: { fill: "var(--dsw-alias-label-secondary, #66758a)", fontSize: 11 },
           yAxisId: "force",
           orientation: "right",
           label: { value: "\u6700\u5927\u529B (eV/\xC5)", angle: 90, position: "insideRight" },
@@ -79141,6 +79144,8 @@ var ConvergenceChart = ({ taskId, series }) => {
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         Tooltip4,
         {
+          contentStyle: { background: "var(--dsw-alias-bg-base, #fff)", border: "1px solid var(--dsw-alias-border-l2, #e2e7ee)", borderRadius: 6, fontSize: 12 },
+          labelStyle: { color: "var(--dsw-alias-label-primary, #243247)" },
           formatter: (value, name) => {
             const num = Number(value);
             const isEnergy = name.includes("\u80FD\u91CF");
@@ -79148,16 +79153,16 @@ var ConvergenceChart = ({ taskId, series }) => {
           }
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Legend, {}),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Legend, { wrapperStyle: { fontSize: 11 } }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         Line,
         {
           yAxisId: "energy",
           type: "monotone",
           dataKey: "energy",
-          stroke: "#8884d8",
+          stroke: "var(--vfp-accent, #396bd7)",
           strokeWidth: 2,
-          dot: { r: 3 },
+          dot: { r: 1.5 },
           name: energyLabel
         }
       ),
@@ -79167,9 +79172,9 @@ var ConvergenceChart = ({ taskId, series }) => {
           yAxisId: "force",
           type: "monotone",
           dataKey: "force",
-          stroke: "#82ca9d",
+          stroke: "var(--vfp-success, #23836a)",
           strokeWidth: 2,
-          dot: { r: 3 },
+          dot: { r: 1.5 },
           name: "\u6700\u5927\u529B"
         }
       )
@@ -100286,7 +100291,7 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
     if (loading) return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(spin_default, { style: { display: "block", margin: "60px auto" } });
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(empty_default2, { description: error || "\u65E0\u53EF\u67E5\u770B\u7684\u7ED3\u6784\u6587\u4EF6\uFF08\u9700 POSCAR/CONTCAR/.vasp\uFF09" });
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { width: "100%", display: "flex", flexDirection: "column", gap: 4 }, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-structure-viewer", style: { width: "100%", display: "flex", flexDirection: "column", gap: 4 }, children: [
     /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-structure-toolbar", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
       inlineScene && sourcePath && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-source-location", title: sourcePath, children: [
         "\u6587\u4EF6\uFF1A",
@@ -101024,48 +101029,164 @@ ${instruction}`;
 ${instructions[key]}`);
   };
   const hasTree = tasks.length > 0 || directories.length > 0 || Boolean(scanProgress);
-  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, position: "relative" }, children: [
+  const taskListControl = hasTree ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+    popover_default,
+    {
+      trigger: "click",
+      placement: "bottomRight",
+      open: listOpen,
+      onOpenChange: setListOpen,
+      overlayClassName: "vaspflow-task-popover",
+      content: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-task-popup", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-task-search", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+          input_default,
+          {
+            size: "small",
+            placeholder: "\u641C\u7D22...",
+            "aria-label": "\u641C\u7D22\u4EFB\u52A1",
+            prefix: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(SearchOutlined_default2, {}),
+            value: searchText,
+            onChange: (e) => panelStore.setSearchText(e.target.value),
+            allowClear: true,
+            style: { flex: 1, minWidth: 0 }
+          }
+        ) }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-task-filters", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            select_default,
+            {
+              size: "small",
+              placeholder: "\u72B6\u6001",
+              "aria-label": "\u72B6\u6001\u7B5B\u9009",
+              style: { width: 94 },
+              allowClear: true,
+              value: filterStatus,
+              onChange: (v) => panelStore.setFilterStatus(v ?? null),
+              options: [
+                { value: "NO_OUTPUT_EVIDENCE", label: "\u672A\u8F93\u51FA" },
+                { value: "TASK_COMPLETED", label: "\u5B8C\u6210" },
+                { value: "RUNNING", label: "\u8FD0\u884C\u4E2D" },
+                { value: "ERROR_DETECTED", label: "\u9519\u8BEF" },
+                { value: "UNKNOWN", label: "\u5F85\u68C0\u67E5" }
+              ]
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            select_default,
+            {
+              size: "small",
+              placeholder: "\u6536\u655B",
+              "aria-label": "\u6536\u655B\u7B5B\u9009",
+              style: { width: 94 },
+              allowClear: true,
+              value: filterConverged,
+              onChange: (v) => panelStore.setFilterConverged(v ?? null),
+              options: [
+                { value: true, label: "\u6536\u655B" },
+                { value: false, label: "\u672A\u6536\u655B" }
+              ]
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            segmented_default,
+            {
+              size: "small",
+              value: viewMode,
+              onChange: (v) => setViewMode(v),
+              options: [
+                { value: "tree", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(AppstoreOutlined_default2, {}), title: "\u6811\u89C6\u56FE" },
+                { value: "table", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(UnorderedListOutlined_default2, {}), title: "\u8868\u89C6\u56FE" }
+              ]
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-task-popup-list", children: viewMode === "tree" ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TreeView, { onTaskSelected: () => setListOpen(false) }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TaskTable, { onTaskSelected: () => setListOpen(false) }) })
+      ] }),
+      children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", className: "vfp-task-list-trigger", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(MenuOutlined_default2, {}), "aria-expanded": listOpen, children: "\u4EFB\u52A1\u5217\u8868" })
+    }
+  ) : null;
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-panel", children: [
     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(PanelResizeHandle, { onResize: props.onResizeWidth, getWidth: props.getPanelWidth }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: {
-      flex: "none",
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      padding: "0 10px",
-      height: 44,
-      borderBottom: "1px solid var(--dsw-alias-border-l2, #e5e6eb)"
-    }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontSize: 16, fontWeight: 600, whiteSpace: "nowrap" }, children: "VASP" }),
-      workspaceItems.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-        select_default,
-        {
-          size: "small",
-          placeholder: "\u4ECE\u5DE5\u4F5C\u533A",
-          style: { width: 92, flexShrink: 0 },
-          open: workspaceOpen,
-          onDropdownVisibleChange: setWorkspaceOpen,
-          onChange: (id) => {
-            setWorkspaceOpen(false);
-            props.onPickWorkspace?.(String(id));
-          },
-          options: workspaceItems
-        }
-      ),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-        input_default,
-        {
-          size: "small",
-          placeholder: "\u9879\u76EE\u6839\u76EE\u5F55\u8DEF\u5F84...",
-          value: projectPath,
-          onChange: (e) => panelStore.setProjectPath(e.target.value),
-          onPressEnter: handleOpen,
-          prefix: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FolderOpenOutlined_default2, {}),
-          style: { flex: 1, minWidth: 0 }
-        }
-      ),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { title: "\u6253\u5F00\u9879\u76EE", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", type: "primary", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FolderOpenOutlined_default2, {}), onClick: handleOpen, loading }) }),
-      projectId && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { title: "\u5237\u65B0", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(ReloadOutlined_default2, {}), onClick: handleRefresh, loading }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { title: open ? "\u6536\u8D77\u9762\u677F" : "\u5C55\u5F00\u9762\u677F", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(CloseOutlined_default2, {}), onClick: () => panelStore.toggleOpen() }) })
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("header", { className: "vfp-panel-header", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-panel-brand", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "VASP" }),
+        hasTree && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-header-statistics", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "vfp-stat-total", children: [
+            "\u4EFB\u52A1 ",
+            stats.total
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "vfp-stat-directory", children: [
+            "\u76EE\u5F55 ",
+            directories.length
+          ] }),
+          scanProgress && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "vfp-scan-progress", children: [
+            "\u5DF2\u626B\u63CF ",
+            stats.total,
+            " \u4E2A\u4EFB\u52A1\uFF0C\u4ECD\u5728\u68C0\u67E5 ",
+            Math.max(0, scanProgress.discoveredDirectories - scanProgress.scannedDirectories),
+            " \u4E2A\u76EE\u5F55"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-stat-states", children: [
+            ["NO_OUTPUT_EVIDENCE", "\u672A\u8F93\u51FA", "var(--vfp-warning)"],
+            ["TASK_COMPLETED", "\u5B8C\u6210", "var(--vfp-success)"],
+            ["RUNNING", "\u8FD0\u884C\u4E2D", "var(--vfp-accent)"],
+            ["ERROR_DETECTED", "\u9519\u8BEF", "var(--vfp-error)"],
+            ["UNKNOWN", "\u5F85\u68C0\u67E5", "var(--vfp-muted)"]
+          ].map(([code, label, color2]) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+            button_default2,
+            {
+              className: "vfp-stat-filter",
+              type: "text",
+              size: "small",
+              style: { color: color2 },
+              "data-status": code,
+              "data-count": stats[code],
+              "aria-pressed": filterStatus === code,
+              onClick: () => panelStore.setFilterStatus(filterStatus === code ? null : code),
+              children: [
+                label,
+                " ",
+                stats[code]
+              ]
+            },
+            code
+          )) })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { title: open ? "\u6536\u8D77\u9762\u677F" : "\u5C55\u5F00\u9762\u677F", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", type: "text", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(CloseOutlined_default2, {}), "aria-label": "\u6536\u8D77\u9762\u677F", onClick: () => panelStore.toggleOpen() }) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-project-controls", children: [
+        workspaceItems.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+          select_default,
+          {
+            size: "small",
+            placeholder: "\u4ECE\u5DE5\u4F5C\u533A",
+            className: "vfp-workspace-picker",
+            "aria-label": "\u4ECE\u5DE5\u4F5C\u533A\u9009\u62E9",
+            open: workspaceOpen,
+            onDropdownVisibleChange: setWorkspaceOpen,
+            onChange: (id) => {
+              setWorkspaceOpen(false);
+              props.onPickWorkspace?.(String(id));
+            },
+            options: workspaceItems
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+          input_default,
+          {
+            size: "small",
+            placeholder: "\u9879\u76EE\u6839\u76EE\u5F55\u8DEF\u5F84...",
+            "aria-label": "\u9879\u76EE\u6839\u76EE\u5F55\u8DEF\u5F84",
+            value: projectPath,
+            onChange: (e) => panelStore.setProjectPath(e.target.value),
+            onPressEnter: handleOpen,
+            prefix: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FolderOpenOutlined_default2, {}),
+            style: { flex: 1, minWidth: 0 }
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { title: "\u6253\u5F00\u9879\u76EE", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", type: "primary", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(FolderOpenOutlined_default2, {}), "aria-label": "\u6253\u5F00\u9879\u76EE", onClick: handleOpen, loading }) }),
+        projectId && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { title: "\u5237\u65B0", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(ReloadOutlined_default2, {}), "aria-label": "\u5237\u65B0\u9879\u76EE", onClick: handleRefresh, loading }) })
+      ] })
     ] }),
     buildModeError && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { flex: "none", padding: "6px 10px", background: "rgba(196,65,54,.11)", color: "#c44136", fontSize: 12 }, children: buildModeError }),
     buildDryRun === false && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { flex: "none", display: "flex", alignItems: "center", gap: 8, padding: "3px 10px", background: "rgba(38,151,102,.09)", fontSize: 12 }, children: [
@@ -101087,165 +101208,75 @@ ${instructions[key]}`);
       }, children: "\u6062\u590D\u9884\u89C8\u786E\u8BA4" }),
       modeActionError && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "#c44136" }, children: modeActionError })
     ] }),
-    hasTree && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: {
-      flex: "none",
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      flexWrap: "wrap",
-      padding: "7px 10px",
-      borderBottom: "1px solid var(--dsw-alias-border-l2, #e5e6eb)",
-      fontSize: 14
-    }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "#1677ff", fontWeight: 600 }, children: [
-        "\u4EFB\u52A1 ",
-        stats.total
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "#8c8c8c" }, children: [
-        "\u76EE\u5F55 ",
-        directories.length
-      ] }),
-      scanProgress && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "#1677ff", fontSize: 13 }, children: [
-        "\u5DF2\u626B\u63CF ",
-        stats.total,
-        " \u4E2A\u4EFB\u52A1\uFF0C\u4ECD\u5728\u68C0\u67E5 ",
-        Math.max(0, scanProgress.discoveredDirectories - scanProgress.scannedDirectories),
-        " \u4E2A\u76EE\u5F55"
-      ] }),
-      [
-        ["NO_OUTPUT_EVIDENCE", "\u672A\u8F93\u51FA", "#faad14"],
-        ["TASK_COMPLETED", "\u5B8C\u6210", "#52c41a"],
-        ["RUNNING", "\u8FD0\u884C\u4E2D", "#1677ff"],
-        ["ERROR_DETECTED", "\u9519\u8BEF", "#ff4d4f"],
-        ["UNKNOWN", "\u5F85\u68C0\u67E5", "#8c8c8c"]
-      ].map(([code, label, color2]) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
-        button_default2,
-        {
-          type: "text",
-          size: "small",
-          style: { color: color2, padding: 0, height: 22, fontSize: 14 },
-          onClick: () => panelStore.setFilterStatus(filterStatus === code ? null : code),
-          children: [
-            label,
-            " ",
-            stats[code]
-          ]
-        },
-        code
-      )),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { flex: 1 } }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-        popover_default,
-        {
-          trigger: "click",
-          placement: "bottomRight",
-          open: listOpen,
-          onOpenChange: setListOpen,
-          overlayClassName: "vaspflow-task-popover",
-          content: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { width: 320, display: "flex", flexDirection: "column", gap: 4 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 4 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-                input_default,
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: `vfp-panel-body${selectedBuildTask ? " vfp-panel-body-build" : ""}`, children: [
+      (selectedBuildTask || !selectedTask) && taskListControl && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-task-navigation-standby", children: taskListControl }),
+      selectedBuildTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(BuildPreviewDetail, { detail: selectedBuildTask }) : !selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(empty_default2, { style: { marginTop: 30 }, description: scanError ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "#ff4d4f" }, children: scanError }) : loading ? "\u6B63\u5728\u626B\u63CF\u76EE\u5F55\u2026" : projectId !== null && tasks.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+        "\u672A\u53D1\u73B0 VASP \u4EFB\u52A1",
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("br", {}),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { type: "secondary", style: { fontSize: 12 }, children: "\u5DF2\u68C0\u67E5\u5F53\u524D\u76EE\u5F55\u53CA\u5176\u5B50\u76EE\u5F55\u3002\u8BF7\u9009\u62E9\u5305\u542B POSCAR\u3001INCAR\u3001KPOINTS\u3001POTCAR \u7684\u8BA1\u7B97\u76EE\u5F55\u3002" })
+      ] }) : hasTree ? "\u70B9\u51FB\u300C\u4EFB\u52A1\u5217\u8868\u300D\u9009\u62E9\u4EFB\u52A1" : "\u8F93\u5165\u76EE\u5F55\u8DEF\u5F84\u5E76\u70B9\u51FB\u84DD\u8272\u6309\u94AE\u626B\u63CF" }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-task-summary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-task-overview", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-task-identity", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-task-path", title: selectedPath, children: selectedPath }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-task-title", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { placement: "top", title: copiedPath === selectedPath ? "\u5DF2\u590D\u5236\u7EDD\u5BF9\u8DEF\u5F84" : `${selectedPath} \xB7 \u53EF\u62D6\u81F3\u7ED3\u6784\u5361\u7247`, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                "span",
                 {
-                  size: "small",
-                  placeholder: "\u641C\u7D22...",
-                  prefix: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(SearchOutlined_default2, {}),
-                  value: searchText,
-                  onChange: (e) => panelStore.setSearchText(e.target.value),
-                  allowClear: true,
-                  style: { flex: 1, minWidth: 0 }
-                }
-              ),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-                select_default,
-                {
-                  size: "small",
-                  placeholder: "\u72B6\u6001",
-                  style: { width: 68 },
-                  allowClear: true,
-                  value: filterStatus,
-                  onChange: (v) => panelStore.setFilterStatus(v ?? null),
-                  options: [
-                    { value: "NO_OUTPUT_EVIDENCE", label: "\u672A\u8F93\u51FA" },
-                    { value: "TASK_COMPLETED", label: "\u5B8C\u6210" },
-                    { value: "RUNNING", label: "\u8FD0\u884C\u4E2D" },
-                    { value: "ERROR_DETECTED", label: "\u9519\u8BEF" },
-                    { value: "UNKNOWN", label: "\u5F85\u68C0\u67E5" }
+                  role: "button",
+                  tabIndex: 0,
+                  draggable: true,
+                  "aria-label": "\u590D\u5236\u4EFB\u52A1\u7EDD\u5BF9\u8DEF\u5F84",
+                  onDragStart: (event) => {
+                    startStructureDrag(event.dataTransfer, { kind: "task", rootPath: projectPath, relPath: selectedTask.rel_path });
+                  },
+                  onClick: () => {
+                    void copySelectedPath();
+                  },
+                  onKeyDown: (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      void copySelectedPath();
+                    }
+                  },
+                  className: "vfp-task-name",
+                  children: [
+                    selectedParent && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
+                      selectedParent,
+                      " / "
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { strong: true, children: selectedTask.label })
                   ]
                 }
-              ),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-                select_default,
-                {
-                  size: "small",
-                  placeholder: "\u6536\u655B",
-                  style: { width: 68 },
-                  allowClear: true,
-                  value: filterConverged,
-                  onChange: (v) => panelStore.setFilterConverged(v ?? null),
-                  options: [
-                    { value: true, label: "\u6536\u655B" },
-                    { value: false, label: "\u672A\u6536\u655B" }
-                  ]
-                }
-              ),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-                segmented_default,
-                {
-                  size: "small",
-                  value: viewMode,
-                  onChange: (v) => setViewMode(v),
-                  options: [
-                    { value: "tree", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(AppstoreOutlined_default2, {}), title: "\u6811\u89C6\u56FE" },
-                    { value: "table", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(UnorderedListOutlined_default2, {}), title: "\u8868\u89C6\u56FE" }
-                  ]
-                }
-              )
+              ) }) })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { maxHeight: "min(55vh, 480px)", overflowY: "auto", minHeight: 120 }, children: viewMode === "tree" ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TreeView, { onTaskSelected: () => setListOpen(false) }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TaskTable, { onTaskSelected: () => setListOpen(false) }) })
+            selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-task-facts", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u4F53\u7CFB" }),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("strong", { children: selectedTask.system || "\u2014" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u7C7B\u578B" }),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("strong", { children: selectedTask.task_type?.label ?? "\u2014" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u79BB\u5B50\u6B65" }),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("strong", { className: "vfp-number", children: selectedTask.n_ion_steps })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u6700\u7EC8\u80FD\u91CF" }),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("strong", { className: "vfp-number", children: [
+                  selectedTask.final_energy?.toFixed(6) ?? "\u2014",
+                  " ",
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("small", { children: "eV" })
+                ] })
+              ] })
+            ] }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { type: "secondary", children: "\u666E\u901A\u76EE\u5F55" }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-task-status", children: [
+              taskListControl,
+              selectedIsVaspTask && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StatusBadge, { task: selectedTask })
+            ] })
           ] }),
-          children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(MenuOutlined_default2, {}), children: "\u4EFB\u52A1\u5217\u8868" })
-        }
-      )
-    ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { flex: 1, minHeight: 0, overflow: "auto", padding: "8px 10px" }, children: selectedBuildTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(BuildPreviewDetail, { detail: selectedBuildTask }) : !selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(empty_default2, { style: { marginTop: 30 }, description: scanError ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "#ff4d4f" }, children: scanError }) : loading ? "\u6B63\u5728\u626B\u63CF\u76EE\u5F55\u2026" : projectId !== null && tasks.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
-      "\u672A\u53D1\u73B0 VASP \u4EFB\u52A1",
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("br", {}),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { type: "secondary", style: { fontSize: 12 }, children: "\u5DF2\u68C0\u67E5\u5F53\u524D\u76EE\u5F55\u53CA\u5176\u5B50\u76EE\u5F55\u3002\u8BF7\u9009\u62E9\u5305\u542B POSCAR\u3001INCAR\u3001KPOINTS\u3001POTCAR \u7684\u8BA1\u7B97\u76EE\u5F55\u3002" })
-    ] }) : hasTree ? "\u70B9\u51FB\u300C\u4EFB\u52A1\u5217\u8868\u300D\u9009\u62E9\u4EFB\u52A1" : "\u8F93\u5165\u76EE\u5F55\u8DEF\u5F84\u5E76\u70B9\u51FB\u84DD\u8272\u6309\u94AE\u626B\u63CF" }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginBottom: 8 }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, minWidth: 0 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { placement: "top", title: copiedPath === selectedPath ? "\u5DF2\u590D\u5236\u7EDD\u5BF9\u8DEF\u5F84" : `${selectedPath} \xB7 \u53EF\u62D6\u81F3\u7ED3\u6784\u5361\u7247`, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
-            "span",
-            {
-              role: "button",
-              tabIndex: 0,
-              draggable: true,
-              "aria-label": "\u590D\u5236\u4EFB\u52A1\u7EDD\u5BF9\u8DEF\u5F84",
-              onDragStart: (event) => {
-                startStructureDrag(event.dataTransfer, { kind: "task", rootPath: projectPath, relPath: selectedTask.rel_path });
-              },
-              onClick: () => {
-                void copySelectedPath();
-              },
-              onKeyDown: (event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  void copySelectedPath();
-                }
-              },
-              style: { fontSize: 16, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "1 1 160px", cursor: "grab" },
-              children: [
-                selectedParent && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
-                  selectedParent,
-                  " / "
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { strong: true, children: selectedTask.label })
-              ]
-            }
-          ) }),
-          selectedIsVaspTask && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StatusBadge, { task: selectedTask }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { display: "flex", gap: 6, marginLeft: "auto" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-task-actions", children: [
             selectedIsVaspTask && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { title: selectedTask.input_check?.profileId ? `\u4E0A\u6B21\u6309\u201C${inputProfileLabel(selectedTask.input_check.profileId)}\u201D\u68C0\u67E5` : `${inputProfileIsAutomatic ? "\u6309\u8F93\u5165\u7279\u5F81\u81EA\u52A8\u9009\u62E9" : selectedInputTarget?.scope === "folder" ? "\u7EE7\u627F\u76EE\u5F55\u9ED8\u8BA4\u7C7B\u578B" : "\u672C\u4EFB\u52A1\u8BBE\u7F6E"}\uFF1A${inputProfileLabel(activeInputProfile)}`, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
               dropdown_default3.Button,
               {
@@ -101263,43 +101294,25 @@ ${instructions[key]}`);
               "AI ",
               /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(DownOutlined_default2, {})
             ] }) })
+          ] }),
+          inputCheckError && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginTop: 6, color: "#ff4d4f", fontSize: 14 }, children: [
+            "\u8F93\u5165\u68C0\u67E5\u672A\u5B8C\u6210\uFF1A",
+            inputCheckError
           ] })
         ] }),
-        selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", gap: "4px 10px", flexWrap: "wrap", marginTop: 6, fontSize: 14 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
-            "\u4F53\u7CFB\uFF1A",
-            selectedTask.system
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
-            "\u7C7B\u578B\uFF1A",
-            selectedTask.task_type?.label ?? "\u2014"
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
-            "\u79BB\u5B50\u6B65\uFF1A",
-            selectedTask.n_ion_steps
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
-            "\u6700\u7EC8\u80FD\u91CF\uFF1A",
-            selectedTask.final_energy?.toFixed(6) ?? "\u2014",
-            " eV"
-          ] })
-        ] }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { type: "secondary", children: "\u666E\u901A\u76EE\u5F55" }),
-        inputCheckError && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginTop: 6, color: "#ff4d4f", fontSize: 14 }, children: [
-          "\u8F93\u5165\u68C0\u67E5\u672A\u5B8C\u6210\uFF1A",
-          inputCheckError
-        ] })
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-        tabs_default,
-        {
-          size: "small",
-          activeKey: viewTab,
-          onChange: (key) => panelStore.setViewTab(key),
-          items: tabItems,
-          style: { marginBottom: 0 }
-        }
-      )
-    ] }) })
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+          tabs_default,
+          {
+            className: "vfp-detail-tabs",
+            size: "small",
+            activeKey: viewTab,
+            onChange: (key) => panelStore.setViewTab(key),
+            items: tabItems,
+            style: { marginBottom: 0 }
+          }
+        )
+      ] })
+    ] })
   ] });
 }
 var INPUT_CHECK_OPTIONS = [
@@ -101400,23 +101413,23 @@ function TaskStatusEvidence({ task }) {
   const statusEvidence = status?.evidence ?? [];
   const primaryEvidence = statusEvidence.find((item) => item.severity === "error") ?? statusEvidence[0];
   const extraEvidence = statusEvidence.filter((item) => item !== primaryEvidence && item.message !== status?.reason);
-  const statusColor = status?.code === "ERROR_DETECTED" ? "#ff4d4f" : status?.code === "TASK_COMPLETED" ? "#52c41a" : status?.code === "RUNNING" ? "#1677ff" : status?.code === "NO_OUTPUT_EVIDENCE" ? "#faad14" : "#8c8c8c";
-  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { fontSize: 15, lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 }, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { padding: "12px 14px", border: "1px solid var(--dsw-alias-border-l2,#e5e6eb)", borderLeft: `4px solid ${statusColor}`, borderRadius: 8, background: "var(--dsw-alias-bg-elevated,#f5f5f5)" }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { strong: true, style: { fontSize: 16 }, children: status?.label ?? "\u5F85\u68C0\u67E5" }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", style: { fontSize: 13, whiteSpace: "nowrap" }, children: [
+  const statusColor = status?.code === "ERROR_DETECTED" ? "var(--vfp-error)" : status?.code === "TASK_COMPLETED" ? "var(--vfp-success)" : status?.code === "RUNNING" ? "var(--vfp-accent)" : status?.code === "NO_OUTPUT_EVIDENCE" ? "var(--vfp-warning)" : "var(--vfp-muted)";
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-status-evidence", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-status-card", style: { borderLeftColor: statusColor }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-status-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Text5, { strong: true, children: status?.label ?? "\u5F85\u68C0\u67E5" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", children: [
           "\u626B\u63CF\u4E8E ",
           formatDateTime(status?.observedAt)
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { marginTop: 5, fontSize: 16 }, children: status?.reason ?? "\u65E7\u7248\u4EFB\u52A1\u8BB0\u5F55\u5C1A\u65E0\u72B6\u6001\u7406\u7531\uFF1B\u8BF7\u5237\u65B0\u9879\u76EE\u3002" }),
-      primaryEvidence?.file ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", style: { display: "block", marginTop: 5, fontSize: 13 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-status-reason", children: status?.reason ?? "\u65E7\u7248\u4EFB\u52A1\u8BB0\u5F55\u5C1A\u65E0\u72B6\u6001\u7406\u7531\uFF1B\u8BF7\u5237\u65B0\u9879\u76EE\u3002" }),
+      primaryEvidence?.file ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(Text5, { type: "secondary", className: "vfp-status-source", children: [
         "\u4F9D\u636E\uFF1A",
         primaryEvidence.file
       ] }) : null,
-      primaryEvidence?.excerpt ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { marginTop: 5, padding: "5px 8px", color: "var(--dsw-alias-label-primary,#1f2329)", background: "var(--dsw-alias-bg-base,#fff)", borderRadius: 4, fontFamily: "monospace", fontSize: 13, whiteSpace: "pre-wrap" }, children: primaryEvidence.excerpt }) : null,
-      extraEvidence.length ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { marginTop: 7, color: "var(--dsw-alias-label-secondary,#65746b)", fontSize: 13 }, children: [
+      primaryEvidence?.excerpt ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-status-excerpt", children: primaryEvidence.excerpt }) : null,
+      extraEvidence.length ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-status-extra", children: [
         "\u5176\u4ED6\u53D1\u73B0\uFF1A",
         extraEvidence.map((item) => item.message).join("\uFF1B")
       ] }) : null
@@ -101451,6 +101464,136 @@ function buildTaskContext(task, projectPath) {
     "\u8BF7\u5728 VASP \u8BA1\u7B97\u52A9\u624B\u9884\u8BBE\u4E2D\u4F7F\u7528 vasp_* \u5DE5\u5177\u5206\u6790\u3002"
   ].join("\n");
 }
+
+// src/client/presentation.ts
+var PRESENTATION_CSS = `
+[data-dsh-vaspflow-panel], [data-dsh-vaspflow-tool], .vaspflow-task-popover {
+  --vfp-surface: var(--dsw-alias-bg-base, #fff);
+  --vfp-soft: var(--dsw-alias-bg-elevated, #f5f7fa);
+  --vfp-text: var(--dsw-alias-label-primary, #243247);
+  --vfp-muted: var(--dsw-alias-label-secondary, #66758a);
+  --vfp-line: var(--dsw-alias-border-l2, #e2e7ee);
+  --vfp-accent: #396bd7;
+  --vfp-selected: #edf3ff;
+  --vfp-success: #23836a;
+  --vfp-warning: #956817;
+  --vfp-error: #bc505b;
+}
+body[data-ds-dark-theme] [data-dsh-vaspflow-panel],
+body[data-ds-dark-theme] [data-dsh-vaspflow-tool],
+body[data-ds-dark-theme] .vaspflow-task-popover {
+  --vfp-soft: var(--dsw-alias-bg-elevated, #263143);
+  --vfp-accent: #99baff;
+  --vfp-selected: #283957;
+  --vfp-success: #89d5b9;
+  --vfp-warning: #edc783;
+  --vfp-error: #ef9fa7;
+}
+.vfp-panel { display:flex; flex-direction:column; height:100%; min-height:0; position:relative; color:var(--vfp-text); container:vfp-panel / inline-size; }
+.vfp-panel-header { flex:none; padding:10px 16px 12px; border-bottom:1px solid var(--vfp-line); }
+.vfp-panel-brand { display:flex; align-items:center; gap:12px; margin-bottom:8px; font-size:13px; font-weight:500; color:var(--vfp-muted); }
+.vfp-panel-brand > span { flex:none; }
+.vfp-panel-brand > .ant-btn { margin-left:auto; flex:none; }
+.vfp-header-statistics { display:flex; flex:1; min-width:0; align-items:center; flex-wrap:wrap; gap:0 8px; font-size:11px; }
+.vfp-project-controls { display:flex; align-items:center; gap:6px; min-width:0; }
+.vfp-workspace-picker { width:90px; flex:none; }
+.vfp-stat-states { display:flex; align-items:center; gap:2px; flex-wrap:wrap; flex-basis:100%; order:1; }
+.vfp-stat-total { font-weight:500; white-space:nowrap; }
+.vfp-stat-directory { color:var(--vfp-muted); white-space:nowrap; }
+.vfp-scan-progress { flex-basis:100%; color:var(--vfp-accent); font-size:11px; }
+[data-dsh-vaspflow-panel] .vfp-stat-filter.ant-btn { height:24px; min-height:24px; padding:0 4px; font-size:11px!important; border-radius:4px; }
+[data-dsh-vaspflow-panel] .vfp-stat-filter[aria-pressed="false"] { color:var(--vfp-muted)!important; }
+[data-dsh-vaspflow-panel] .vfp-stat-filter[data-status="ERROR_DETECTED"]:not([data-count="0"]) { color:var(--vfp-error)!important; }
+.vfp-stat-filter[aria-pressed="true"] { background:var(--vfp-selected); box-shadow:inset 0 0 0 1px var(--vfp-line); }
+[data-dsh-vaspflow-panel] .vfp-task-list-trigger.ant-btn { margin-left:auto; font-size:11px!important; height:26px; min-height:26px; padding:0 7px; border-color:transparent; box-shadow:none; color:var(--vfp-muted); background:transparent; }
+.vfp-panel-body { flex:1; min-height:0; display:flex; flex-direction:column; padding:22px 20px 12px; overflow:auto; }
+.vfp-panel-body-build { display:block; }
+.vfp-task-summary { flex:none; margin-bottom:4px; }
+.vfp-task-overview { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,340px) auto; align-items:center; gap:16px; margin-bottom:14px; }
+.vfp-task-identity { min-width:0; }
+.vfp-task-status { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+.vfp-task-navigation-standby { display:flex; justify-content:flex-end; flex:none; margin-bottom:8px; }
+.vfp-task-title { display:flex; align-items:center; gap:8px; min-width:0; }
+.vfp-task-status .ant-tag:not(.ant-tag-red) { color:var(--vfp-muted); background:transparent; border-color:transparent; }
+[data-dsh-vaspflow-panel] .vfp-task-status .ant-tag { font-size:11px!important; }
+.vfp-task-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:18px; cursor:grab; }
+.vfp-task-name .ant-typography { font-size:inherit; }
+.vfp-task-path { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--vfp-muted); font:10px/1.6 Consolas,monospace; margin-bottom:6px; }
+.vfp-task-facts { display:grid; grid-template-columns:minmax(0,.8fr) minmax(0,1.3fr); gap:8px 16px; }
+.vfp-task-facts > div { display:flex; align-items:baseline; gap:6px; min-width:0; max-width:100%; }
+.vfp-task-facts span { flex:none; color:var(--vfp-muted); font-size:11px; }
+.vfp-task-facts strong { font-size:12px; font-weight:400; overflow-wrap:anywhere; }
+.vfp-task-facts .vfp-number { font:12px/1.5 Consolas,monospace; font-variant-numeric:tabular-nums; }
+.vfp-task-facts small { color:var(--vfp-muted); font:11px sans-serif; }
+.vfp-task-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:7px; }
+.vfp-task-actions > .ant-dropdown-button { width:auto; }
+[data-dsh-vaspflow-panel] .vfp-task-actions .ant-btn { border-color:var(--vfp-line); background:transparent; box-shadow:none; font-size:12px!important; color:var(--vfp-muted); }
+[data-dsh-vaspflow-panel] .vfp-task-actions .ant-btn:hover { color:var(--vfp-accent); }
+.vfp-detail-tabs { flex:1; min-height:240px; }
+.vfp-detail-tabs > .ant-tabs-nav { flex:none; margin-bottom:12px; }
+.vfp-detail-tabs > .ant-tabs-nav .ant-tabs-tab { padding:9px 0; }
+.vfp-detail-tabs > .ant-tabs-content-holder { display:flex; min-height:0; }
+.vfp-detail-tabs > .ant-tabs-content-holder > .ant-tabs-content { flex:1; min-height:0; height:100%; }
+.vfp-detail-tabs > .ant-tabs-content-holder > .ant-tabs-content > .ant-tabs-tabpane-active { display:flex; flex-direction:column; height:100%; min-height:0; overflow:auto; }
+.vfp-convergence { min-width:0; }
+.vfp-convergence-source { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; font-size:10px; line-height:1.6; color:var(--vfp-muted, var(--dsw-alias-label-secondary, #66758a)); }
+.vfp-convergence-controls { display:flex; align-items:center; gap:8px; margin:4px 0 12px; font-size:11px; color:var(--vfp-muted, var(--dsw-alias-label-secondary, #66758a)); }
+.vfp-convergence-plot { width:100%; height:340px; }
+.vfp-convergence-plot > .recharts-responsive-container { display:block; }
+.vfp-convergence-plot .recharts-wrapper > .recharts-surface { display:block; }
+[data-dsh-vaspflow-panel] .vfp-convergence { display:flex; flex-direction:column; flex:1; min-height:0; }
+[data-dsh-vaspflow-panel] .vfp-convergence-source { order:1; margin-top:12px; flex:none; }
+[data-dsh-vaspflow-panel] .vfp-convergence-controls { flex:none; }
+[data-dsh-vaspflow-panel] .vfp-convergence-plot { flex:1; min-height:170px; height:0; }
+[data-dsh-vaspflow-panel] .vfp-structure-viewer { flex:1; min-height:240px; }
+[data-dsh-vaspflow-panel] .vfp-structure-viewer > [data-vasp-structure-mount] { flex:1; min-height:130px; height:0!important; }
+[data-dsh-vaspflow-panel] .vfp-structure-viewer > :not([data-vasp-structure-mount]) { flex:none; }
+.vfp-structure-toolbar .ant-tabs-nav { margin-bottom:4px; }
+.vfp-task-popup { width:min(380px,calc(100vw - 32px)); display:flex; flex-direction:column; gap:8px; }
+.vfp-task-search { display:flex; min-width:0; }
+.vfp-task-filters { display:flex; align-items:center; gap:6px; }
+.vfp-task-filters .ant-segmented { margin-left:auto; }
+.vfp-task-popup-list { max-height:min(55vh,480px); overflow:auto; min-height:120px; }
+.vaspflow-task-popover .ant-popover-inner { padding:12px!important; border-color:var(--vfp-line); box-shadow:0 12px 36px rgba(24,40,66,.14); }
+[data-dsh-vaspflow-panel] .ant-tree-node-content-wrapper, .vaspflow-task-popover .ant-tree-node-content-wrapper { min-height:24px!important; line-height:24px!important; border-radius:4px; }
+[data-dsh-vaspflow-panel] .ant-tree-title, .vaspflow-task-popover .ant-tree-title { font-size:12px!important; }
+.vaspflow-task-popover .ant-input-affix-wrapper, .vaspflow-task-popover .ant-select-selector, .vaspflow-task-popover .ant-segmented { font-size:12px!important; }
+.vfp-status-evidence { font-size:13px; line-height:1.6; display:flex; flex-direction:column; gap:12px; padding-top:4px; }
+.vfp-status-card { padding:12px 14px; border:1px solid var(--vfp-line); border-left:3px solid; border-radius:7px; background:var(--vfp-soft); }
+.vfp-status-card-head { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:6px; }
+.vfp-status-card-head .ant-typography { font-size:13px; }
+.vfp-status-card-head .ant-typography-secondary { font-size:11px; white-space:nowrap; }
+.vfp-status-reason { margin-top:6px; font-size:13px; }
+.vfp-status-source { display:block; margin-top:6px; font-size:11px; }
+.vfp-status-excerpt { margin-top:7px; padding:8px 10px; color:var(--vfp-text); background:var(--vfp-surface); border:1px solid var(--vfp-line); border-radius:5px; font:12px/1.6 Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+.vfp-status-extra { margin-top:7px; color:var(--vfp-muted); font-size:12px; }
+[data-dsh-vaspflow-tool]:not([data-dsh-vaspflow-tool="vasp_say"]):not([data-dsh-vaspflow-tool="vasp_done"]) { border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); padding:12px 14px; }
+[data-dsh-vaspflow-tool] { --vfp-tree-folder-bg:transparent; --vfp-tree-leaf-bg:transparent; }
+body[data-ds-dark-theme] [data-dsh-vaspflow-tool] { --vfp-tree-folder-bg:transparent; --vfp-tree-leaf-bg:transparent; }
+[data-dsh-vaspflow-tool] .vfp-tree-task[data-selected], body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-task[data-selected],
+[data-dsh-vaspflow-tool] .vfp-inline-tree .vfp-visual-tree-leaf[aria-current="true"] { background:var(--vfp-selected); color:var(--vfp-accent); }
+[data-dsh-vaspflow-tool] .vfp-tree-task:hover, [data-dsh-vaspflow-tool] .vfp-result-row:hover { background:var(--vfp-soft); }
+[data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); font-size:14px; }
+body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); }
+[data-dsh-vaspflow-tool] .vfp-tree-group { font-size:12px; }
+[data-dsh-vaspflow-panel] button:focus-visible, [data-dsh-vaspflow-tool] button:focus-visible { outline:2px solid var(--vfp-accent); outline-offset:2px; }
+@media (max-height:740px) {
+  .vfp-panel-header { padding-top:7px; padding-bottom:7px; }
+  .vfp-panel-brand { margin-bottom:5px; }
+  .vfp-panel-body { padding-top:10px; padding-bottom:8px; }
+  .vfp-task-facts { gap:5px 16px; }
+  .vfp-detail-tabs > .ant-tabs-nav { margin-bottom:8px; }
+}
+@container vfp-panel (max-width:600px) {
+  .vfp-task-overview { grid-template-columns:minmax(0,1fr) auto; gap:10px; }
+  .vfp-task-identity { grid-column:1; grid-row:1; }
+  .vfp-task-status { grid-column:2; grid-row:1; }
+  .vfp-task-facts { grid-column:1 / -1; grid-row:2; }
+}
+@media (prefers-reduced-motion:reduce) {
+  [data-dsh-vaspflow-panel] *, [data-dsh-vaspflow-tool] *, .vaspflow-task-popover * { transition:none!important; animation:none!important; }
+}
+`;
 
 // src/client/layout.ts
 var import_client = require("react-dom/client");
@@ -102803,9 +102946,8 @@ var CSS = [
   // Task-list popup: menu-like floating surface with theme-adaptive colors.
   ".vaspflow-task-popover .ant-popover-inner{background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);border:1px solid var(--dsw-alias-border-l2,#e5e6eb);box-shadow:0 6px 24px rgba(0,0,0,.18);border-radius:10px}",
   ".vaspflow-task-popover .ant-popover-arrow{display:none}",
-  // The host panel is intentionally readable at the same scale as a normal
-  // conversation reply. Ant Design controls otherwise keep their 14px default.
-  `[${PANEL_ATTR}] .ant-btn,[${PANEL_ATTR}] .ant-input,[${PANEL_ATTR}] .ant-input-affix-wrapper input,[${PANEL_ATTR}] .ant-select-selection-item,[${PANEL_ATTR}] .ant-select-selection-placeholder,[${PANEL_ATTR}] .ant-tabs-tab,[${PANEL_ATTR}] .ant-tag{font-size:15px!important}`,
+  // Keep the narrow dock readable without expanding every small control.
+  `[${PANEL_ATTR}] .ant-btn,[${PANEL_ATTR}] .ant-input,[${PANEL_ATTR}] .ant-input-affix-wrapper input,[${PANEL_ATTR}] .ant-select-selection-item,[${PANEL_ATTR}] .ant-select-selection-placeholder,[${PANEL_ATTR}] .ant-tabs-tab,[${PANEL_ATTR}] .ant-tag{font-size:13px!important}`,
   `[${PANEL_ATTR}] .ant-btn-sm{min-height:28px}`,
   // Build tasks sit directly in the conversation. Details live in the dock.
   "[data-dsh-vaspflow-tool]{container-type:inline-size;margin:12px 0;color:var(--dsw-alias-label-primary,#1f2329);font-size:13px;--vfp-tree-folder-bg:rgba(79,143,210,.08);--vfp-tree-leaf-bg:rgba(38,151,102,.09)}",
@@ -103042,7 +103184,8 @@ var CSS = [
   `[${PANEL_ATTR}] .vfp-build-detail-section>b{font-size:13px}`,
   `[${PANEL_ATTR}] .vfp-build-detail-section>div:has(>span){display:grid;grid-template-columns:95px minmax(0,1fr);gap:8px}`,
   `[${PANEL_ATTR}] .vfp-build-warning{color:#ae7412}`,
-  `[${PANEL_ATTR}] .vfp-build-error{color:#c44136}`
+  `[${PANEL_ATTR}] .vfp-build-error{color:#c44136}`,
+  PRESENTATION_CSS
 ].join("\n");
 var cssInjected = false;
 function injectCss() {
@@ -103708,7 +103851,10 @@ function PanelRoot(props) {
     config_provider_default,
     {
       locale: import_zh_CN2.default,
-      theme: { algorithm: dark ? theme_default3.darkAlgorithm : theme_default3.defaultAlgorithm },
+      theme: {
+        algorithm: dark ? theme_default3.darkAlgorithm : theme_default3.defaultAlgorithm,
+        token: { colorPrimary: dark ? "#99baff" : "#396bd7", borderRadius: 6, fontSize: 13, controlHeightSM: 28 }
+      },
       children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
         Panel3,
         {

@@ -1,7 +1,5 @@
 /**
- * dsh-vaspflow client: right-dock panel — header (path/open/refresh/stat
- * badges/search/filters/view toggle/collapse) + vertical split (task list on
- * top ~45%, detail tabs below ~55%).
+ * dsh-vaspflow client: right-dock task detail with a popup task tree/table.
  */
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
@@ -452,51 +450,149 @@ export function Panel(props: PanelProps) {
   };
 
   const hasTree = tasks.length > 0 || directories.length > 0 || Boolean(scanProgress);
+  const taskListControl = hasTree ? (
+    <Popover
+      trigger="click"
+      placement="bottomRight"
+      open={listOpen}
+      onOpenChange={setListOpen}
+      overlayClassName="vaspflow-task-popover"
+      content={
+        <div className="vfp-task-popup">
+          <div className="vfp-task-search">
+            <Input
+              size="small"
+              placeholder="搜索..."
+              aria-label="搜索任务"
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => panelStore.setSearchText(e.target.value)}
+              allowClear
+              style={{ flex: 1, minWidth: 0 }}
+            />
+          </div>
+          <div className="vfp-task-filters">
+            <Select
+              size="small"
+              placeholder="状态"
+              aria-label="状态筛选"
+              style={{ width: 94 }}
+              allowClear
+              value={filterStatus}
+              onChange={(v) => panelStore.setFilterStatus(v ?? null)}
+              options={[
+                { value: 'NO_OUTPUT_EVIDENCE', label: '未输出' },
+                { value: 'TASK_COMPLETED', label: '完成' },
+                { value: 'RUNNING', label: '运行中' },
+                { value: 'ERROR_DETECTED', label: '错误' },
+                { value: 'UNKNOWN', label: '待检查' },
+              ]}
+            />
+            <Select
+              size="small"
+              placeholder="收敛"
+              aria-label="收敛筛选"
+              style={{ width: 94 }}
+              allowClear
+              value={filterConverged}
+              onChange={(v) => panelStore.setFilterConverged(v ?? null)}
+              options={[
+                { value: true, label: '收敛' },
+                { value: false, label: '未收敛' },
+              ]}
+            />
+            <Segmented
+              size="small"
+              value={viewMode}
+              onChange={(v) => setViewMode(v as 'tree' | 'table')}
+              options={[
+                { value: 'tree', icon: <AppstoreOutlined />, title: '树视图' },
+                { value: 'table', icon: <UnorderedListOutlined />, title: '表视图' },
+              ]}
+            />
+          </div>
+          <div className="vfp-task-popup-list">
+            {viewMode === 'tree'
+              ? <TreeView onTaskSelected={() => setListOpen(false)} />
+              : <TaskTable onTaskSelected={() => setListOpen(false)} />}
+          </div>
+        </div>
+      }
+    >
+      <Button size="small" className="vfp-task-list-trigger" icon={<MenuOutlined />} aria-expanded={listOpen}>任务列表</Button>
+    </Popover>
+  ) : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
+    <div className="vfp-panel">
       <PanelResizeHandle onResize={props.onResizeWidth} getWidth={props.getPanelWidth} />
       {/* header */}
-      <div style={{
-        flex: 'none', display: 'flex', alignItems: 'center', gap: 6,
-        padding: '0 10px', height: 44, borderBottom: '1px solid var(--dsw-alias-border-l2, #e5e6eb)',
-      }}>
-        <span style={{ fontSize: 16, fontWeight: 600, whiteSpace: 'nowrap' }}>VASP</span>
-        {workspaceItems.length > 0 && (
-          <Select
-            size="small"
-            placeholder="从工作区"
-            style={{ width: 92, flexShrink: 0 }}
-            open={workspaceOpen}
-            onDropdownVisibleChange={setWorkspaceOpen}
-            onChange={(id) => {
-              setWorkspaceOpen(false);
-              props.onPickWorkspace?.(String(id));
-            }}
-            options={workspaceItems}
-          />
-        )}
-        <Input
-          size="small"
-          placeholder="项目根目录路径..."
-          value={projectPath}
-          onChange={(e) => panelStore.setProjectPath(e.target.value)}
-          onPressEnter={handleOpen}
-          prefix={<FolderOpenOutlined />}
-          style={{ flex: 1, minWidth: 0 }}
-        />
-        <Tooltip title="打开项目">
-          <Button size="small" type="primary" icon={<FolderOpenOutlined />} onClick={handleOpen} loading={loading} />
-        </Tooltip>
-        {projectId && (
-          <Tooltip title="刷新">
-            <Button size="small" icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading} />
+      <header className="vfp-panel-header">
+        <div className="vfp-panel-brand">
+          <span>VASP</span>
+          {hasTree && (
+            <div className="vfp-header-statistics">
+              <span className="vfp-stat-total">任务 {stats.total}</span>
+              <span className="vfp-stat-directory">目录 {directories.length}</span>
+              {scanProgress && <span className="vfp-scan-progress">已扫描 {stats.total} 个任务，仍在检查 {Math.max(0, scanProgress.discoveredDirectories - scanProgress.scannedDirectories)} 个目录</span>}
+              <div className="vfp-stat-states">
+                {[
+                  ['NO_OUTPUT_EVIDENCE', '未输出', 'var(--vfp-warning)'],
+                  ['TASK_COMPLETED', '完成', 'var(--vfp-success)'],
+                  ['RUNNING', '运行中', 'var(--vfp-accent)'],
+                  ['ERROR_DETECTED', '错误', 'var(--vfp-error)'],
+                  ['UNKNOWN', '待检查', 'var(--vfp-muted)'],
+                ].map(([code, label, color]) => (
+                  <Button key={code} className="vfp-stat-filter" type="text" size="small" style={{ color }}
+                    data-status={code} data-count={stats[code as keyof typeof stats]}
+                    aria-pressed={filterStatus === code}
+                    onClick={() => panelStore.setFilterStatus(filterStatus === code ? null : code)}>
+                    {label} {stats[code as keyof typeof stats]}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+          <Tooltip title={open ? '收起面板' : '展开面板'}>
+            <Button size="small" type="text" icon={<CloseOutlined />} aria-label="收起面板" onClick={() => panelStore.toggleOpen()} />
           </Tooltip>
-        )}
-        <Tooltip title={open ? '收起面板' : '展开面板'}>
-          <Button size="small" icon={<CloseOutlined />} onClick={() => panelStore.toggleOpen()} />
-        </Tooltip>
-      </div>
+        </div>
+        <div className="vfp-project-controls">
+          {workspaceItems.length > 0 && (
+            <Select
+              size="small"
+              placeholder="从工作区"
+              className="vfp-workspace-picker"
+              aria-label="从工作区选择"
+              open={workspaceOpen}
+              onDropdownVisibleChange={setWorkspaceOpen}
+              onChange={(id) => {
+                setWorkspaceOpen(false);
+                props.onPickWorkspace?.(String(id));
+              }}
+              options={workspaceItems}
+            />
+          )}
+          <Input
+            size="small"
+            placeholder="项目根目录路径..."
+            aria-label="项目根目录路径"
+            value={projectPath}
+            onChange={(e) => panelStore.setProjectPath(e.target.value)}
+            onPressEnter={handleOpen}
+            prefix={<FolderOpenOutlined />}
+            style={{ flex: 1, minWidth: 0 }}
+          />
+          <Tooltip title="打开项目">
+            <Button size="small" type="primary" icon={<FolderOpenOutlined />} aria-label="打开项目" onClick={handleOpen} loading={loading} />
+          </Tooltip>
+          {projectId && (
+            <Tooltip title="刷新">
+              <Button size="small" icon={<ReloadOutlined />} aria-label="刷新项目" onClick={handleRefresh} loading={loading} />
+            </Tooltip>
+          )}
+        </div>
+      </header>
 
       {buildModeError && <div style={{ flex: 'none', padding: '6px 10px', background: 'rgba(196,65,54,.11)', color: '#c44136', fontSize: 12 }}>{buildModeError}</div>}
 
@@ -518,98 +614,9 @@ export function Panel(props: PanelProps) {
         {modeActionError && <span style={{ color: '#c44136' }}>{modeActionError}</span>}
       </div>}
 
-      {/* toolbar: stats + list popup trigger */}
-      {hasTree && (
-        <div style={{
-          flex: 'none', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
-          padding: '7px 10px', borderBottom: '1px solid var(--dsw-alias-border-l2, #e5e6eb)', fontSize: 14,
-        }}>
-          <span style={{ color: '#1677ff', fontWeight: 600 }}>任务 {stats.total}</span>
-          <span style={{ color: '#8c8c8c' }}>目录 {directories.length}</span>
-          {scanProgress && <span style={{ color: '#1677ff', fontSize: 13 }}>已扫描 {stats.total} 个任务，仍在检查 {Math.max(0, scanProgress.discoveredDirectories - scanProgress.scannedDirectories)} 个目录</span>}
-          {[
-            ['NO_OUTPUT_EVIDENCE', '未输出', '#faad14'],
-            ['TASK_COMPLETED', '完成', '#52c41a'],
-            ['RUNNING', '运行中', '#1677ff'],
-            ['ERROR_DETECTED', '错误', '#ff4d4f'],
-            ['UNKNOWN', '待检查', '#8c8c8c'],
-          ].map(([code, label, color]) => (
-            <Button key={code} type="text" size="small" style={{ color, padding: 0, height: 22, fontSize: 14 }}
-              onClick={() => panelStore.setFilterStatus(filterStatus === code ? null : code)}>
-              {label} {stats[code as keyof typeof stats]}
-            </Button>
-          ))}
-          <span style={{ flex: 1 }} />
-          <Popover
-            trigger="click"
-            placement="bottomRight"
-            open={listOpen}
-            onOpenChange={setListOpen}
-            overlayClassName="vaspflow-task-popover"
-            content={
-              <div style={{ width: 320, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <Input
-                    size="small"
-                    placeholder="搜索..."
-                    prefix={<SearchOutlined />}
-                    value={searchText}
-                    onChange={(e) => panelStore.setSearchText(e.target.value)}
-                    allowClear
-                    style={{ flex: 1, minWidth: 0 }}
-                  />
-                  <Select
-                    size="small"
-                    placeholder="状态"
-                    style={{ width: 68 }}
-                    allowClear
-                    value={filterStatus}
-                    onChange={(v) => panelStore.setFilterStatus(v ?? null)}
-                    options={[
-                      { value: 'NO_OUTPUT_EVIDENCE', label: '未输出' },
-                      { value: 'TASK_COMPLETED', label: '完成' },
-                      { value: 'RUNNING', label: '运行中' },
-                      { value: 'ERROR_DETECTED', label: '错误' },
-                      { value: 'UNKNOWN', label: '待检查' },
-                    ]}
-                  />
-                  <Select
-                    size="small"
-                    placeholder="收敛"
-                    style={{ width: 68 }}
-                    allowClear
-                    value={filterConverged}
-                    onChange={(v) => panelStore.setFilterConverged(v ?? null)}
-                    options={[
-                      { value: true, label: '收敛' },
-                      { value: false, label: '未收敛' },
-                    ]}
-                  />
-                  <Segmented
-                    size="small"
-                    value={viewMode}
-                    onChange={(v) => setViewMode(v as 'tree' | 'table')}
-                    options={[
-                      { value: 'tree', icon: <AppstoreOutlined />, title: '树视图' },
-                      { value: 'table', icon: <UnorderedListOutlined />, title: '表视图' },
-                    ]}
-                  />
-                </div>
-                <div style={{ maxHeight: 'min(55vh, 480px)', overflowY: 'auto', minHeight: 120 }}>
-                  {viewMode === 'tree'
-                    ? <TreeView onTaskSelected={() => setListOpen(false)} />
-                    : <TaskTable onTaskSelected={() => setListOpen(false)} />}
-                </div>
-              </div>
-            }
-          >
-            <Button size="small" icon={<MenuOutlined />}>任务列表</Button>
-          </Popover>
-        </div>
-      )}
-
       {/* body: detail fills the whole panel; the task list lives in the popup */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 10px' }}>
+      <div className={`vfp-panel-body${selectedBuildTask ? ' vfp-panel-body-build' : ''}`}>
+        {(selectedBuildTask || !selectedTask) && taskListControl && <div className="vfp-task-navigation-standby">{taskListControl}</div>}
         {selectedBuildTask ? (
           <BuildPreviewDetail detail={selectedBuildTask} />
         ) : !selectedTask ? (
@@ -625,65 +632,74 @@ export function Panel(props: PanelProps) {
           } />
         ) : (
           <>
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <Tooltip placement="top" title={copiedPath === selectedPath ? '已复制绝对路径' : `${selectedPath} · 可拖至结构卡片`}>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    draggable
-                    aria-label="复制任务绝对路径"
-                    onDragStart={(event) => { startStructureDrag(event.dataTransfer, { kind: 'task', rootPath: projectPath, relPath: selectedTask.rel_path }); }}
-                    onClick={() => { void copySelectedPath(); }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        void copySelectedPath();
-                      }
-                    }}
-                    style={{ fontSize: 16, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1 1 160px', cursor: 'grab' }}
-                  >
-                    {selectedParent && <Text type="secondary">{selectedParent} / </Text>}
-                    <Text strong>{selectedTask.label}</Text>
-                  </span>
-                </Tooltip>
-                {selectedIsVaspTask && <StatusBadge task={selectedTask} />}
-                <span style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
-                  {selectedIsVaspTask && (
-                    <Tooltip title={selectedTask.input_check?.profileId
-                      ? `上次按“${inputProfileLabel(selectedTask.input_check.profileId)}”检查`
-                      : `${inputProfileIsAutomatic ? '按输入特征自动选择' : selectedInputTarget?.scope === 'folder' ? '继承目录默认类型' : '本任务设置'}：${inputProfileLabel(activeInputProfile)}`}>
-                      <Dropdown.Button
-                        size="small"
-                        icon={<DownOutlined />}
-                        loading={checkingInput}
-                        menu={{ items: inputMenuItems, onClick: ({ key }) => handleInputMenu(String(key)) }}
-                        onClick={() => { void runInputCheck(activeInputProfile); }}
+            <div className="vfp-task-summary">
+              <div className="vfp-task-overview">
+                <div className="vfp-task-identity">
+                <div className="vfp-task-path" title={selectedPath}>{selectedPath}</div>
+                  <div className="vfp-task-title">
+                    <Tooltip placement="top" title={copiedPath === selectedPath ? '已复制绝对路径' : `${selectedPath} · 可拖至结构卡片`}>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        draggable
+                        aria-label="复制任务绝对路径"
+                        onDragStart={(event) => { startStructureDrag(event.dataTransfer, { kind: 'task', rootPath: projectPath, relPath: selectedTask.rel_path }); }}
+                        onClick={() => { void copySelectedPath(); }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            void copySelectedPath();
+                          }
+                        }}
+                        className="vfp-task-name"
                       >
-                        {selectedTask.input_check?.profileId
-                          ? `输入检查 · ${compactInputCheckLabel(selectedTask.input_check.code)}`
-                          : `输入检查 · ${inputProfileLabel(activeInputProfile)}`}
-                      </Dropdown.Button>
+                        {selectedParent && <Text type="secondary">{selectedParent} / </Text>}
+                        <Text strong>{selectedTask.label}</Text>
+                      </span>
                     </Tooltip>
-                  )}
-                  <Dropdown menu={{ items: aiMenuItems, onClick: ({ key }) => handleAiMenu(String(key)) }}>
-                    <Button size="small" type="primary" ghost icon={<MessageOutlined />} aria-label="AI 操作">
-                      AI <DownOutlined />
-                    </Button>
-                  </Dropdown>
-                </span>
-              </div>
-              {selectedIsVaspTask ? (
-                <div style={{ display: 'flex', gap: '4px 10px', flexWrap: 'wrap', marginTop: 6, fontSize: 14 }}>
-                  <Text type="secondary">体系：{selectedTask.system}</Text>
-                  <Text type="secondary">类型：{selectedTask.task_type?.label ?? '—'}</Text>
-                  <Text type="secondary">离子步：{selectedTask.n_ion_steps}</Text>
-                  <Text type="secondary">最终能量：{selectedTask.final_energy?.toFixed(6) ?? '—'} eV</Text>
+                  </div>
                 </div>
-              ) : <Text type="secondary">普通目录</Text>}
+                {selectedIsVaspTask ? (
+                  <div className="vfp-task-facts">
+                    <div><span>体系</span><strong>{selectedTask.system || '—'}</strong></div>
+                    <div><span>类型</span><strong>{selectedTask.task_type?.label ?? '—'}</strong></div>
+                    <div><span>离子步</span><strong className="vfp-number">{selectedTask.n_ion_steps}</strong></div>
+                    <div><span>最终能量</span><strong className="vfp-number">{selectedTask.final_energy?.toFixed(6) ?? '—'} <small>eV</small></strong></div>
+                  </div>
+                ) : <Text type="secondary">普通目录</Text>}
+                <div className="vfp-task-status">
+                  {taskListControl}
+                  {selectedIsVaspTask && <StatusBadge task={selectedTask} />}
+                </div>
+              </div>
+              <div className="vfp-task-actions">
+                {selectedIsVaspTask && (
+                  <Tooltip title={selectedTask.input_check?.profileId
+                    ? `上次按“${inputProfileLabel(selectedTask.input_check.profileId)}”检查`
+                    : `${inputProfileIsAutomatic ? '按输入特征自动选择' : selectedInputTarget?.scope === 'folder' ? '继承目录默认类型' : '本任务设置'}：${inputProfileLabel(activeInputProfile)}`}>
+                    <Dropdown.Button
+                      size="small"
+                      icon={<DownOutlined />}
+                      loading={checkingInput}
+                      menu={{ items: inputMenuItems, onClick: ({ key }) => handleInputMenu(String(key)) }}
+                      onClick={() => { void runInputCheck(activeInputProfile); }}
+                    >
+                      {selectedTask.input_check?.profileId
+                        ? `输入检查 · ${compactInputCheckLabel(selectedTask.input_check.code)}`
+                        : `输入检查 · ${inputProfileLabel(activeInputProfile)}`}
+                    </Dropdown.Button>
+                  </Tooltip>
+                )}
+                <Dropdown menu={{ items: aiMenuItems, onClick: ({ key }) => handleAiMenu(String(key)) }}>
+                  <Button size="small" type="primary" ghost icon={<MessageOutlined />} aria-label="AI 操作">
+                    AI <DownOutlined />
+                  </Button>
+                </Dropdown>
+              </div>
               {inputCheckError && <div style={{ marginTop: 6, color: '#ff4d4f', fontSize: 14 }}>输入检查未完成：{inputCheckError}</div>}
             </div>
             <Tabs
+              className="vfp-detail-tabs"
               size="small"
               activeKey={viewTab}
               onChange={(key) => panelStore.setViewTab(key as any)}
@@ -798,25 +814,25 @@ function TaskStatusEvidence({ task }: { task: Task }) {
   const primaryEvidence = statusEvidence.find((item) => item.severity === 'error') ?? statusEvidence[0];
   const extraEvidence = statusEvidence.filter((item) => item !== primaryEvidence && item.message !== status?.reason);
   const statusColor = status?.code === 'ERROR_DETECTED'
-    ? '#ff4d4f'
+    ? 'var(--vfp-error)'
     : status?.code === 'TASK_COMPLETED'
-      ? '#52c41a'
+      ? 'var(--vfp-success)'
       : status?.code === 'RUNNING'
-        ? '#1677ff'
+        ? 'var(--vfp-accent)'
         : status?.code === 'NO_OUTPUT_EVIDENCE'
-          ? '#faad14'
-          : '#8c8c8c';
+          ? 'var(--vfp-warning)'
+          : 'var(--vfp-muted)';
   return (
-    <div style={{ fontSize: 15, lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
-      <div style={{ padding: '12px 14px', border: '1px solid var(--dsw-alias-border-l2,#e5e6eb)', borderLeft: `4px solid ${statusColor}`, borderRadius: 8, background: 'var(--dsw-alias-bg-elevated,#f5f5f5)' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-          <Text strong style={{ fontSize: 16 }}>{status?.label ?? '待检查'}</Text>
-          <Text type="secondary" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>扫描于 {formatDateTime(status?.observedAt)}</Text>
+    <div className="vfp-status-evidence">
+      <div className="vfp-status-card" style={{ borderLeftColor: statusColor }}>
+        <div className="vfp-status-card-head">
+          <Text strong>{status?.label ?? '待检查'}</Text>
+          <Text type="secondary">扫描于 {formatDateTime(status?.observedAt)}</Text>
         </div>
-        <div style={{ marginTop: 5, fontSize: 16 }}>{status?.reason ?? '旧版任务记录尚无状态理由；请刷新项目。'}</div>
-        {primaryEvidence?.file ? <Text type="secondary" style={{ display: 'block', marginTop: 5, fontSize: 13 }}>依据：{primaryEvidence.file}</Text> : null}
-        {primaryEvidence?.excerpt ? <div style={{ marginTop: 5, padding: '5px 8px', color: 'var(--dsw-alias-label-primary,#1f2329)', background: 'var(--dsw-alias-bg-base,#fff)', borderRadius: 4, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap' }}>{primaryEvidence.excerpt}</div> : null}
-        {extraEvidence.length ? <div style={{ marginTop: 7, color: 'var(--dsw-alias-label-secondary,#65746b)', fontSize: 13 }}>其他发现：{extraEvidence.map((item) => item.message).join('；')}</div> : null}
+        <div className="vfp-status-reason">{status?.reason ?? '旧版任务记录尚无状态理由；请刷新项目。'}</div>
+        {primaryEvidence?.file ? <Text type="secondary" className="vfp-status-source">依据：{primaryEvidence.file}</Text> : null}
+        {primaryEvidence?.excerpt ? <div className="vfp-status-excerpt">{primaryEvidence.excerpt}</div> : null}
+        {extraEvidence.length ? <div className="vfp-status-extra">其他发现：{extraEvidence.map((item) => item.message).join('；')}</div> : null}
       </div>
       {input?.profileId ? (
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 8px', padding: '2px 2px 0' }}>

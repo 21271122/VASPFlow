@@ -749,7 +749,7 @@ const StructureViewer: React.FC<{ taskId?: number; rootPath?: string; relPath?: 
   }
 
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div className="vfp-structure-viewer" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div className="vfp-structure-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         {inlineScene && sourcePath && <div className="vfp-source-location" title={sourcePath}>文件：{sourcePath}</div>}
         {!inlineScene && <div

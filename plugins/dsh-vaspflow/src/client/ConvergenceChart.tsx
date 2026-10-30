@@ -71,61 +71,66 @@ const ConvergenceChart: React.FC<{ taskId?: number; series?: ConvergenceResponse
   const energyLabel = logEnergy ? '绝对能量 (eV)' : '相对能量 ΔE (eV)';
 
   return (
-    <div>
-      <div title={`数据来源: ${source}`} style={{ marginBottom: 2, fontSize: 11, color: 'var(--dsw-alias-label-tertiary, #999)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+    <div className="vfp-convergence">
+      <div className="vfp-convergence-source" title={`数据来源: ${source}`}>
         数据来源: {source}
       </div>
-      <div style={{ marginBottom: 4 }}>
-        <Switch size="small" checked={logEnergy} onChange={setLogEnergy} />
-        <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--dsw-alias-label-secondary, #888)' }}>
+      <div className="vfp-convergence-controls">
+        <Switch size="small" checked={logEnergy} onChange={setLogEnergy} aria-label="显示绝对能量" />
+        <span>
           {logEnergy ? '绝对能量' : '相对能量（相对最后一步）'}
         </span>
       </div>
-      <div style={{ width: '100%', height: 340 }}>
+      <div className="vfp-convergence-plot">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={relData ?? undefined} margin={{ top: 8, right: 24, left: 16, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--dsw-alias-border-l2, #f0f0f0)" />
             <XAxis
+              tick={{ fill: 'var(--dsw-alias-label-secondary, #66758a)', fontSize: 11 }}
               dataKey="step"
               type="number"
               domain={['dataMin', 'dataMax']}
               label={{ value: '离子步', position: 'insideBottomRight', offset: -4 }}
             />
             <YAxis
+              tick={{ fill: 'var(--dsw-alias-label-secondary, #66758a)', fontSize: 11 }}
               yAxisId="energy"
               label={{ value: energyLabel, angle: -90, position: 'insideLeft' }}
               tickFormatter={(v) => (logEnergy ? v.toFixed(2) : v.toExponential(1))}
             />
             <YAxis
+              tick={{ fill: 'var(--dsw-alias-label-secondary, #66758a)', fontSize: 11 }}
               yAxisId="force"
               orientation="right"
               label={{ value: '最大力 (eV/Å)', angle: 90, position: 'insideRight' }}
               tickFormatter={(v) => v.toFixed(3)}
             />
             <Tooltip
+              contentStyle={{ background: 'var(--dsw-alias-bg-base, #fff)', border: '1px solid var(--dsw-alias-border-l2, #e2e7ee)', borderRadius: 6, fontSize: 12 }}
+              labelStyle={{ color: 'var(--dsw-alias-label-primary, #243247)' }}
               formatter={(value: any, name: string) => {
                 const num = Number(value);
                 const isEnergy = name.includes('能量');
                 return [num.toFixed(6), isEnergy ? name : '最大力 (eV/Å)'];
               }}
             />
-            <Legend />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
             <Line
               yAxisId="energy"
               type="monotone"
               dataKey="energy"
-              stroke="#8884d8"
+              stroke="var(--vfp-accent, #396bd7)"
               strokeWidth={2}
-              dot={{ r: 3 }}
+              dot={{ r: 1.5 }}
               name={energyLabel}
             />
             <Line
               yAxisId="force"
               type="monotone"
               dataKey="force"
-              stroke="#82ca9d"
+              stroke="var(--vfp-success, #23836a)"
               strokeWidth={2}
-              dot={{ r: 3 }}
+              dot={{ r: 1.5 }}
               name="最大力"
             />
           </LineChart>

@@ -12,6 +12,7 @@ import { createRoot, Root } from 'react-dom/client';
 import { ConfigProvider, theme as antdTheme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { Panel, buildTaskContext } from './Panel';
+import { PRESENTATION_CSS } from './presentation';
 import type { PanelProps } from './Panel';
 import { mountPanelLayout } from './layout';
 import { panelStore, usePanelStore } from './store';
@@ -64,9 +65,8 @@ const CSS = [
   // Task-list popup: menu-like floating surface with theme-adaptive colors.
   '.vaspflow-task-popover .ant-popover-inner{background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);border:1px solid var(--dsw-alias-border-l2,#e5e6eb);box-shadow:0 6px 24px rgba(0,0,0,.18);border-radius:10px}',
   '.vaspflow-task-popover .ant-popover-arrow{display:none}',
-  // The host panel is intentionally readable at the same scale as a normal
-  // conversation reply. Ant Design controls otherwise keep their 14px default.
-  `[${PANEL_ATTR}] .ant-btn,[${PANEL_ATTR}] .ant-input,[${PANEL_ATTR}] .ant-input-affix-wrapper input,[${PANEL_ATTR}] .ant-select-selection-item,[${PANEL_ATTR}] .ant-select-selection-placeholder,[${PANEL_ATTR}] .ant-tabs-tab,[${PANEL_ATTR}] .ant-tag{font-size:15px!important}`,
+  // Keep the narrow dock readable without expanding every small control.
+  `[${PANEL_ATTR}] .ant-btn,[${PANEL_ATTR}] .ant-input,[${PANEL_ATTR}] .ant-input-affix-wrapper input,[${PANEL_ATTR}] .ant-select-selection-item,[${PANEL_ATTR}] .ant-select-selection-placeholder,[${PANEL_ATTR}] .ant-tabs-tab,[${PANEL_ATTR}] .ant-tag{font-size:13px!important}`,
   `[${PANEL_ATTR}] .ant-btn-sm{min-height:28px}`,
   // Build tasks sit directly in the conversation. Details live in the dock.
   '[data-dsh-vaspflow-tool]{container-type:inline-size;margin:12px 0;color:var(--dsw-alias-label-primary,#1f2329);font-size:13px;--vfp-tree-folder-bg:rgba(79,143,210,.08);--vfp-tree-leaf-bg:rgba(38,151,102,.09)}',
@@ -304,6 +304,7 @@ const CSS = [
   `[${PANEL_ATTR}] .vfp-build-detail-section>div:has(>span){display:grid;grid-template-columns:95px minmax(0,1fr);gap:8px}`,
   `[${PANEL_ATTR}] .vfp-build-warning{color:#ae7412}`,
   `[${PANEL_ATTR}] .vfp-build-error{color:#c44136}`,
+  PRESENTATION_CSS,
 ].join('\n');
 
 let cssInjected = false;
@@ -893,7 +894,10 @@ function PanelRoot(props: PanelProps) {
   return (
     <ConfigProvider
       locale={zhCN}
-      theme={{ algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm }}
+      theme={{
+        algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+        token: { colorPrimary: dark ? '#99baff' : '#396bd7', borderRadius: 6, fontSize: 13, controlHeightSM: 28 },
+      }}
     >
       <Panel
         {...props}
