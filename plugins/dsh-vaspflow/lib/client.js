@@ -59375,6 +59375,130 @@ function usePanelStore() {
   return (0, import_react128.useSyncExternalStore)(panelStore.subscribe, panelStore.getSnapshot);
 }
 
+// src/client/inheritance.ts
+var BUILD_SLOTS = [
+  { key: "POSCAR", short: "poscar", field: "poscarSrc", label: "POSCAR", fromTemplate: false },
+  { key: "INCAR", short: "incar", field: "incarSrc", label: "INCAR", fromTemplate: true },
+  { key: "KPOINTS", short: "kpoints", field: "kpointsSrc", label: "KPOINTS", fromTemplate: true },
+  { key: "POTCAR", short: "potcar", field: "potcarSrc", label: "POTCAR", fromTemplate: true },
+  { key: "submit", short: "submit", field: "submitSrc", label: "\u63D0\u4EA4\u811A\u672C", fromTemplate: false }
+];
+function toPosix(value) {
+  return value.replace(/[\\/]+/g, "/").replace(/\/+$/, "");
+}
+function basenameOf(value) {
+  if (!value) return "";
+  const parts = toPosix(value).split("/").filter(Boolean);
+  return parts[parts.length - 1] ?? "";
+}
+function absoluteTaskPath(rootPath, relPath) {
+  const root = rootPath.replace(/[\\/]+$/, "");
+  const relative = (relPath || ".").replace(/^[\\/]+/, "");
+  return !relative || relative === "." ? root : `${root}\\${relative.replace(/[\\/]+/g, "\\")}`;
+}
+function projectRelative(projectRoot, absolute) {
+  if (!absolute) return "";
+  const root = toPosix(projectRoot);
+  const target = toPosix(absolute);
+  if (!root) return target;
+  if (target.toLowerCase() === root.toLowerCase()) return ".";
+  if (target.toLowerCase().startsWith(`${root.toLowerCase()}/`)) return target.slice(root.length + 1);
+  return target;
+}
+function shortenPath(relPath) {
+  const parts = relPath.split("/").filter((part) => part && part !== ".");
+  if (parts.length <= 3) return parts.join("/") || relPath;
+  return `${parts[0]}/\u2026/${parts.slice(-2).join("/")}`;
+}
+function slotExplicit(task, slot) {
+  const alias = task?.sources?.[slot.short];
+  return Boolean(alias || task?.[slot.field]);
+}
+function slotResolvedPath(task, result, slot) {
+  const sources = result?.sources ?? {};
+  if (slot.key !== "submit") return sources[slot.key] || void 0;
+  const name = basenameOf(task?.submitSrc);
+  if (name && sources[name]) return sources[name];
+  return void 0;
+}
+function slotDeclaredPath(task, slot) {
+  const alias = task?.sources?.[slot.short];
+  const value = task?.[slot.field] || alias;
+  return typeof value === "string" && value ? value : void 0;
+}
+function slotOrigin(task, slot, resolved) {
+  if (resolved) return slotExplicit(task, slot) ? "explicit" : "inherit";
+  return slotDeclaredPath(task, slot) ? "pending" : "missing";
+}
+function templateKeyOf(task) {
+  const template = typeof task?.template === "string" ? task.template.trim() : "";
+  return template || "";
+}
+function describeSlots(task, result, projectRoot, share) {
+  return BUILD_SLOTS.map((slot) => {
+    const resolved = slotResolvedPath(task, result, slot);
+    const origin = slotOrigin(task, slot, resolved);
+    const rel = resolved ? shortenPath(projectRelative(projectRoot, resolved)) : origin === "pending" ? shortenPath(toPosix(slotDeclaredPath(task, slot) || "")) : "";
+    return {
+      key: slot.key,
+      label: slot.label,
+      fromTemplate: slot.fromTemplate,
+      origin,
+      path: resolved,
+      rel,
+      shared: resolved ? share.get(`${slot.key}|${resolved.toLowerCase()}`) ?? 0 : 0
+    };
+  });
+}
+function buildShareIndex(batch, projectRoot) {
+  const share = /* @__PURE__ */ new Map();
+  (batch?.tasks ?? []).forEach((entry, index2) => {
+    const result = batch?.results?.[index2];
+    for (const slot of BUILD_SLOTS) {
+      const resolved = slotResolvedPath(entry, result, slot);
+      if (!resolved) continue;
+      const key = `${slot.key}|${resolved.toLowerCase()}`;
+      share.set(key, (share.get(key) ?? 0) + 1);
+    }
+  });
+  return share;
+}
+function summarizeBatch(batch, projectRoot) {
+  const tasks = batch?.tasks ?? [];
+  if (tasks.length < 2) return null;
+  const templates = /* @__PURE__ */ new Map();
+  const slots = BUILD_SLOTS.map((slot) => ({ key: slot.key, label: slot.label, fromTemplate: slot.fromTemplate, inherit: 0, explicit: 0, missing: 0 }));
+  for (let index2 = 0; index2 < tasks.length; index2 += 1) {
+    const task = tasks[index2];
+    const template = templateKeyOf(task);
+    if (template) {
+      const rel = projectRelative(projectRoot, absoluteTaskPath(projectRoot, template));
+      const entry = templates.get(template.toLowerCase()) ?? { name: basenameOf(template) || template, rel, count: 0 };
+      entry.count += 1;
+      templates.set(template.toLowerCase(), entry);
+    }
+    const rows = describeSlots(task, batch?.results?.[index2], projectRoot, /* @__PURE__ */ new Map());
+    rows.forEach((row, position3) => {
+      if (row.origin === "explicit") slots[position3].explicit += 1;
+      else if (row.origin === "inherit") slots[position3].inherit += 1;
+      else if (row.origin === "missing") slots[position3].missing += 1;
+      else slots[position3].explicit += 1;
+    });
+  }
+  return {
+    total: tasks.length,
+    templates: [...templates.values()].sort((a2, b) => b.count - a2.count),
+    untemplated: tasks.filter((task) => !templateKeyOf(task)).length,
+    slots
+  };
+}
+function originLabel(origin, fromTemplate) {
+  if (origin === "inherit") return "\u7EE7\u627F";
+  if (origin === "explicit") return fromTemplate ? "\u8986\u76D6" : "\u6307\u5B9A";
+  if (origin === "pending") return "\u5F85\u9884\u89C8";
+  return "\u7F3A\u5931";
+}
+
 // src/client/structure-drag.ts
 var STRUCTURE_DRAG_TYPE = "application/x-dsh-vaspflow-structure";
 function isStructureFile(name) {
@@ -100609,36 +100733,107 @@ function formatDateTime(value) {
     minute: "2-digit"
   });
 }
-function absoluteTaskPath(rootPath, relPath) {
-  const root = rootPath.replace(/[\\/]+$/, "");
-  const relative = (relPath || ".").replace(/^[\\/]+/, "");
-  return !relative || relative === "." ? root : `${root}\\${relative.replace(/[\\/]+/g, "\\")}`;
-}
 function immediateParent(relPath) {
   const parts = relPath.split(/[\\/]+/).filter((part) => part && part !== ".");
   return parts.length > 1 ? parts[parts.length - 2] : "";
 }
+function BuildInheritanceSummary({ summary }) {
+  const countsFor = (slot) => {
+    const parts = [];
+    if (slot.inherit) parts.push(`${slot.inherit} \u7EE7\u627F`);
+    if (slot.explicit) parts.push(`${slot.explicit} ${slot.fromTemplate ? "\u8986\u76D6" : "\u6307\u5B9A"}`);
+    if (slot.missing) parts.push(`${slot.missing} \u7F3A\u5931`);
+    return parts.join(" \xB7 ") || "\u65E0\u6765\u6E90";
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-inherit-batch", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-inherit-batch-head", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+        "\u672C\u6279\u6B21 \xB7 ",
+        summary.total,
+        " \u4E2A\u4EFB\u52A1"
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "vfp-inherit-templates", children: [
+        summary.templates.map((template) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { title: template.rel, children: [
+          template.name,
+          " \xD7",
+          template.count
+        ] }, template.rel)),
+        summary.untemplated ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { title: "\u65E0\u6A21\u677F\uFF0C\u6587\u4EF6\u5168\u90E8\u6309\u4EFB\u52A1\u6307\u5B9A", children: [
+          "\u65E0\u6A21\u677F \xD7",
+          summary.untemplated
+        ] }) : null
+      ] })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-inherit-bars", children: summary.slots.map((slot) => {
+      const total = slot.inherit + slot.explicit + slot.missing || 1;
+      return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-inherit-bar", title: `${slot.label}\uFF1A${countsFor(slot)}`, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-bar-label", children: slot.label }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "vfp-inherit-bar-track", children: [
+          slot.inherit ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("i", { "data-origin": "inherit", style: { width: `${slot.inherit / total * 100}%` } }) : null,
+          slot.explicit ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("i", { "data-origin": slot.fromTemplate ? "override" : "explicit", style: { width: `${slot.explicit / total * 100}%` } }) : null,
+          slot.missing ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("i", { "data-origin": "missing", style: { width: `${slot.missing / total * 100}%` } }) : null
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-bar-count", children: countsFor(slot) })
+      ] }, slot.key);
+    }) }),
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-inherit-legend", "aria-hidden": "true", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { "data-origin": "inherit", children: "\u7EE7\u627F\u6A21\u677F" }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { "data-origin": "override", children: "\u8986\u76D6\u6A21\u677F" }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { "data-origin": "explicit", children: "\u672C\u4EFB\u52A1\u6307\u5B9A" }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { "data-origin": "missing", children: "\u7F3A\u5931" })
+    ] })
+  ] });
+}
 function BuildPreviewDetail({ detail }) {
-  const { task, result } = detail;
+  const { task, result, batch } = detail;
+  const projectRoot = detail.projectRoot || "";
   const status = result?.errors?.length ? "\u9519\u8BEF" : detail.phase === "done" && result?.wrote ? "\u5DF2\u5199\u5165" : result?.warnings?.length ? "\u9700\u6CE8\u610F" : detail.phase === "building" ? "\u6784\u5EFA\u4E2D" : "\u53EF\u6784\u5EFA";
-  const sources = Object.entries(result?.sources ?? {}).length > 0 ? Object.entries(result?.sources ?? {}) : [["POSCAR", task.poscarSrc], ["INCAR", task.incarSrc], ["KPOINTS", task.kpointsSrc], ["POTCAR", task.potcarSrc], ["\u63D0\u4EA4\u811A\u672C", task.submitSrc]].filter(([, src]) => Boolean(src));
-  const target = detail.projectRoot ? absoluteTaskPath(detail.projectRoot, task.dir || ".") : task.dir || "\u672A\u6307\u5B9A";
+  const target = projectRoot ? absoluteTaskPath(projectRoot, task.dir || ".") : task.dir || "\u672A\u6307\u5B9A";
+  const crumbs = toPosix(task.dir || ".").split("/").filter((part) => part && part !== ".");
+  const share = (0, import_react168.useMemo)(() => buildShareIndex(batch, projectRoot), [batch, projectRoot]);
+  const summary = (0, import_react168.useMemo)(() => summarizeBatch(batch, projectRoot), [batch, projectRoot]);
+  const slots = (0, import_react168.useMemo)(() => describeSlots(task, result, projectRoot, share), [task, result, projectRoot, share]);
+  const templateFullRel = task.template ? projectRelative(projectRoot, absoluteTaskPath(projectRoot, task.template)) : "";
+  const templateRel = templateFullRel ? shortenPath(templateFullRel) : "";
+  const templateShared = templateFullRel ? summary?.templates.find((entry) => entry.rel === templateFullRel)?.count ?? 0 : 0;
+  const extras = (task.extraFiles ?? []).map((item, index2) => ({
+    name: item.dest || item.fromTemplate || basenameOf(item.src) || `\u989D\u5916\u6587\u4EF6 ${index2 + 1}`,
+    path: (result?.sources ?? {})[item.dest || item.fromTemplate || basenameOf(item.src) || ""]
+  }));
   return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-build-detail", children: [
     /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-build-detail-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("strong", { children: task.dir || "\u672A\u547D\u540D\u4EFB\u52A1" }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("strong", { children: basenameOf(task.dir) || "\u672A\u547D\u540D\u4EFB\u52A1" }),
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tag_default, { color: result?.errors?.length ? "error" : result?.warnings?.length ? "warning" : "success", children: status })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-build-detail-path", children: target }),
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-build-detail-path", title: target, children: crumbs.length > 1 ? `${crumbs.slice(0, -1).join(" \u203A ")} \u203A` : "\u9879\u76EE\u6839\u76EE\u5F55 \u203A" }),
+    summary && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(BuildInheritanceSummary, { summary }),
     /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-build-detail-section", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("b", { children: "\u6765\u6E90\u6620\u5C04" }),
-      task.template && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { children: [
-        "\u6A21\u677F\uFF1A",
-        task.template
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("b", { children: "\u672C\u4EFB\u52A1\u6765\u6E90" }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-inherit-template", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-name", children: "\u6A21\u677F" }),
+        task.template ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { className: "vfp-inherit-path", title: absoluteTaskPath(projectRoot, task.template), children: templateRel }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-empty", children: "\u672A\u6307\u5B9A\u6A21\u677F" }),
+        templateShared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "vfp-inherit-share", children: [
+          templateShared,
+          " \u4E2A\u4EFB\u52A1\u5171\u7528"
+        ] }) : null
       ] }),
-      sources.length ? sources.map(([name, src]) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: name }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: src })
-      ] }, name)) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { children: "\u672A\u6307\u5B9A\u6587\u4EF6\u6765\u6E90" })
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("ul", { className: "vfp-inherit-rows", children: slots.map((slot) => {
+        const badge = slot.origin === "explicit" && slot.fromTemplate ? "override" : slot.origin;
+        return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("li", { className: "vfp-inherit-row", "data-origin": badge, title: slot.path || slot.rel || "\u672A\u63D0\u4F9B", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-name", children: slot.label }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-badge", "data-origin": badge, children: originLabel(slot.origin, slot.fromTemplate) }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { className: "vfp-inherit-path", children: slot.rel || "\u672A\u63D0\u4F9B" }),
+          slot.shared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "vfp-inherit-share", title: `${slot.shared} \u4E2A\u4EFB\u52A1\u4F7F\u7528\u540C\u4E00\u6765\u6E90`, children: [
+            "\xD7",
+            slot.shared
+          ] }) : null
+        ] }, slot.key);
+      }) }),
+      extras.length ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-inherit-extras", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "vfp-inherit-name", children: "\u989D\u5916\u6587\u4EF6" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: extras.map((extra) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { title: extra.path || "", children: extra.name }, extra.name)) })
+      ] }) : null,
+      !result && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-inherit-empty", children: "\u5C1A\u672A\u751F\u6210\u9884\u89C8\uFF0C\u6765\u6E90\u4E3A\u4EFB\u52A1\u58F0\u660E\u503C\uFF0C\u672A\u7ECF\u89E3\u6790\u6821\u9A8C\u3002" })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-build-detail-section", children: [
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("b", { children: "\u6784\u5EFA\u8BBE\u7F6E\u4E0E\u68C0\u67E5" }),
@@ -101576,6 +101771,56 @@ body[data-ds-dark-theme] [data-dsh-vaspflow-tool] { --vfp-tree-folder-bg:transpa
 [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); font-size:14px; }
 body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); }
 [data-dsh-vaspflow-tool] .vfp-tree-group { font-size:12px; }
+/* Build inheritance ledger: batch distribution bars + one row per inherited input. */
+.vfp-build-inherit-line { display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin:6px 0 2px; font-size:11.5px; color:var(--vfp-muted); }
+.vfp-build-inherit-template { padding:0 6px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); color:var(--vfp-text); }
+.vfp-build-inherit-exception { padding:0 6px; border:1px solid rgba(149,104,23,.26); border-radius:8px; background:rgba(149,104,23,.12); color:var(--vfp-warning); }
+.vfp-build-inherit-missing { padding:0 6px; border:1px dashed var(--vfp-line); border-radius:8px; color:var(--vfp-muted); }
+.vfp-inherit-batch { display:grid; gap:7px; margin:10px 0 2px; padding:10px 12px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
+.vfp-inherit-batch-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:12px; color:var(--vfp-muted); }
+.vfp-inherit-templates { display:flex; flex-wrap:wrap; gap:5px; }
+.vfp-inherit-templates span { padding:1px 7px; border:1px solid var(--vfp-line); border-radius:9px; background:var(--vfp-surface); color:var(--vfp-text); font-size:11px; white-space:nowrap; }
+.vfp-inherit-bars { display:grid; gap:4px; }
+.vfp-inherit-bar { display:grid; grid-template-columns:56px minmax(0,1fr) auto; align-items:center; gap:8px; font-size:11px; color:var(--vfp-muted); }
+.vfp-inherit-bar-label { color:var(--vfp-text); }
+.vfp-inherit-bar-track { display:flex; height:6px; border-radius:3px; overflow:hidden; background:rgba(120,132,150,.18); }
+.vfp-inherit-bar-track i { display:block; height:100%; }
+.vfp-inherit-bar-track i[data-origin="inherit"] { background:var(--vfp-success); }
+.vfp-inherit-bar-track i[data-origin="override"] { background:var(--vfp-warning); }
+.vfp-inherit-bar-track i[data-origin="explicit"] { background:var(--vfp-accent); }
+.vfp-inherit-bar-track i[data-origin="missing"] { background:rgba(120,132,150,.55); }
+.vfp-inherit-bar-count { max-width:52%; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+.vfp-inherit-legend { display:flex; flex-wrap:wrap; gap:10px; font-size:11px; color:var(--vfp-muted); }
+.vfp-inherit-legend span::before { content:""; display:inline-block; width:7px; height:7px; margin-right:4px; border-radius:2px; vertical-align:baseline; background:rgba(120,132,150,.55); }
+.vfp-inherit-legend span[data-origin="inherit"]::before { background:var(--vfp-success); }
+.vfp-inherit-legend span[data-origin="override"]::before { background:var(--vfp-warning); }
+.vfp-inherit-legend span[data-origin="explicit"]::before { background:var(--vfp-accent); }
+.vfp-inherit-template { display:grid; grid-template-columns:56px minmax(0,1fr) auto; align-items:baseline; gap:8px; font-size:12px; }
+.vfp-inherit-rows { display:grid; gap:1px; margin:2px 0 0; padding:0; list-style:none; }
+.vfp-inherit-row { display:grid; grid-template-columns:56px 44px minmax(0,1fr) auto; align-items:baseline; gap:8px; padding:3px 0; border-bottom:1px dashed var(--vfp-line); }
+.vfp-inherit-row:last-child { border-bottom:0; }
+.vfp-inherit-name { color:var(--vfp-muted); font-size:11px; }
+.vfp-inherit-badge { justify-self:start; padding:0 5px; border:1px solid transparent; border-radius:3px; font-size:11px; line-height:16px; white-space:nowrap; }
+.vfp-inherit-badge[data-origin="inherit"] { color:var(--vfp-success); background:rgba(35,131,106,.11); border-color:rgba(35,131,106,.24); }
+.vfp-inherit-badge[data-origin="override"] { color:var(--vfp-warning); background:rgba(149,104,23,.12); border-color:rgba(149,104,23,.26); }
+.vfp-inherit-badge[data-origin="explicit"] { color:var(--vfp-accent); background:rgba(57,107,215,.10); border-color:rgba(57,107,215,.24); }
+.vfp-inherit-badge[data-origin="pending"], .vfp-inherit-badge[data-origin="missing"] { color:var(--vfp-muted); background:transparent; border-style:dashed; border-color:var(--vfp-line); }
+.vfp-inherit-path { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--vfp-text); font:11.5px/1.5 Consolas,"Cascadia Mono",monospace; }
+.vfp-inherit-row[data-origin="missing"] .vfp-inherit-path, .vfp-inherit-row[data-origin="pending"] .vfp-inherit-path { color:var(--vfp-muted); }
+.vfp-inherit-share { color:var(--vfp-muted); font-size:11px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.vfp-inherit-empty { color:var(--vfp-muted); font-size:12px; }
+.vfp-inherit-extras { display:grid; grid-template-columns:56px minmax(0,1fr); align-items:baseline; gap:8px; margin-top:3px; font-size:12px; }
+.vfp-inherit-extras code { margin-right:8px; color:var(--vfp-text); }
+/* The detail section styles any div holding a <span> as a two-column row; the
+   ledger needs its own columns (name / badge / path / share). */
+[data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-template,
+[data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-extras { grid-template-columns:56px minmax(0,1fr) auto; }
+@container vfp-panel (max-width:420px) {
+  .vfp-inherit-bar { grid-template-columns:48px minmax(0,1fr); }
+  .vfp-inherit-bar-count { grid-column:2; max-width:none; text-align:left; }
+  .vfp-inherit-row { grid-template-columns:48px 40px minmax(0,1fr); }
+  .vfp-inherit-share { grid-column:3; justify-self:end; }
+}
 [data-dsh-vaspflow-panel] button:focus-visible, [data-dsh-vaspflow-tool] button:focus-visible { outline:2px solid var(--vfp-accent); outline-offset:2px; }
 @media (max-height:740px) {
   .vfp-panel-header { padding-top:7px; padding-bottom:7px; }
@@ -103422,6 +103667,10 @@ function BuildInputsToolRow({ block }) {
   };
   const tasks = revision?.tasks ?? (Array.isArray(args.tasks) ? args.tasks : []);
   const preview = revision?.preview ?? originalPreview;
+  const inheritSummary = import_react170.default.useMemo(
+    () => summarizeBatch({ tasks, results: preview.results ?? [] }, preview.projectRoot || args.projectRoot || ""),
+    [tasks, preview, args.projectRoot]
+  );
   const [selectedState, setSelected] = import_react170.default.useState(() => new Set(tasks.map((_, index2) => index2)));
   const [focused, setFocused] = import_react170.default.useState(null);
   const [openDirectory, setOpenDirectory] = import_react170.default.useState("");
@@ -103542,7 +103791,7 @@ function BuildInputsToolRow({ block }) {
       const sourceName = item.kind === "file" ? item.file : item.relPath;
       setMessage(`\u4EFB\u52A1 ${tasks[index2].dir} \u5DF2\u6539\u7528 ${sourceName}\uFF1B\u9884\u89C8\u5DF2\u66F4\u65B0\uFF0C\u5C1A\u672A\u5199\u5165\u78C1\u76D8`);
       recordAction(`${tasks[index2].dir}\uFF1A${item.kind === "file" ? "POSCAR" : "INCAR/KPOINTS/POTCAR"} \u6765\u6E90\u6539\u4E3A ${sourceName}\uFF0C\u9884\u89C8\u5DF2\u66F4\u65B0`);
-      if (focused === index2) panelStore.setSelectedBuildTask({ task: result.tasks[index2], result: result.results?.[index2], projectRoot: result.projectRoot || args.projectRoot || "", linkPotcar: !!args.linkPotcar, phase: "preview" });
+      if (focused === index2) panelStore.setSelectedBuildTask({ task: result.tasks[index2], result: result.results?.[index2], projectRoot: result.projectRoot || args.projectRoot || "", linkPotcar: !!args.linkPotcar, phase: "preview", batch: { tasks: result.tasks ?? [], results: result.results ?? [] } });
     } catch (caught) {
       setRequestError(true);
       setMessage(caught instanceof Error ? caught.message : String(caught));
@@ -103558,7 +103807,8 @@ function BuildInputsToolRow({ block }) {
       result: row ?? writeRows[index2] ?? preview.results?.[index2],
       projectRoot: preview.projectRoot || args.projectRoot || "",
       linkPotcar: !!args.linkPotcar,
-      phase: nextPhase
+      phase: nextPhase,
+      batch: { tasks, results: preview.results ?? [] }
     });
     panelStore.setOpen(true);
   };
@@ -103744,6 +103994,28 @@ function BuildInputsToolRow({ block }) {
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { hidden: collapsed, children: [
       (preview.projectRoot || args.projectRoot) && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-scan-path", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("code", { children: preview.projectRoot || args.projectRoot }) }),
+      inheritSummary && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-inherit-line", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-build-inherit-label", children: "\u7EE7\u627F" }),
+        inheritSummary.templates.map((template) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-template", title: template.rel, children: [
+          template.name,
+          " \xD7",
+          template.count
+        ] }, template.rel)),
+        inheritSummary.untemplated ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-template", title: "\u8FD9\u4E9B\u4EFB\u52A1\u6CA1\u6709\u6A21\u677F\uFF0C\u6587\u4EF6\u5168\u90E8\u5355\u72EC\u6307\u5B9A", children: [
+          "\u65E0\u6A21\u677F \xD7",
+          inheritSummary.untemplated
+        ] }) : null,
+        inheritSummary.slots.filter((slot) => slot.fromTemplate && slot.explicit > 0).map((slot) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-exception", title: `${slot.explicit} \u4E2A\u4EFB\u52A1\u7684 ${slot.label} \u6539\u7528\u5176\u4ED6\u6765\u6E90`, children: [
+          slot.label,
+          " \u8986\u76D6 \xD7",
+          slot.explicit
+        ] }, `override-${slot.key}`)),
+        inheritSummary.slots.filter((slot) => slot.missing > 0).map((slot) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-missing", title: `${slot.missing} \u4E2A\u4EFB\u52A1\u672A\u63D0\u4F9B ${slot.label}`, children: [
+          slot.label,
+          " \u7F3A\u5931 \xD7",
+          slot.missing
+        ] }, `missing-${slot.key}`))
+      ] }),
       settled && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-build-steps", "aria-label": "\u6784\u5EFA\u8FDB\u5EA6", children: isPreview ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
         /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { "data-stage": "done", children: "\u2460 \u9884\u89C8\u5DF2\u751F\u6210" }),
         /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { "data-stage": phase === "preview" ? "current" : phase === "building" || phase === "done" ? "done" : "stopped", children: [

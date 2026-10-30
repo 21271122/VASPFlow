@@ -10,6 +10,11 @@ import {
   AppstoreOutlined, UnorderedListOutlined, MessageOutlined, MenuOutlined, DownOutlined,
 } from '@ant-design/icons';
 import { panelStore, usePanelStore } from './store';
+import {
+  absoluteTaskPath, basenameOf, buildShareIndex, describeSlots, originLabel,
+  projectRelative, shortenPath, summarizeBatch, toPosix,
+} from './inheritance';
+import type { BuildBatchSummary } from './inheritance';
 import { startStructureDrag } from './structure-drag';
 import type { BuildTaskDetail } from './store';
 import { scanProject, scanProjectEvents, openTaskByPath, checkTaskInputs } from './api';
@@ -31,31 +36,97 @@ function formatDateTime(value?: string): string {
   });
 }
 
-function absoluteTaskPath(rootPath: string, relPath: string): string {
-  const root = rootPath.replace(/[\\/]+$/, '');
-  const relative = (relPath || '.').replace(/^[\\/]+/, '');
-  return !relative || relative === '.' ? root : `${root}\\${relative.replace(/[\\/]+/g, '\\')}`;
-}
-
 function immediateParent(relPath: string): string {
   const parts = relPath.split(/[\\/]+/).filter((part) => part && part !== '.');
   return parts.length > 1 ? parts[parts.length - 2] : '';
 }
 
+function BuildInheritanceSummary({ summary }: { summary: BuildBatchSummary }) {
+  const countsFor = (slot: BuildBatchSummary['slots'][number]) => {
+    const parts: string[] = [];
+    if (slot.inherit) parts.push(`${slot.inherit} 继承`);
+    if (slot.explicit) parts.push(`${slot.explicit} ${slot.fromTemplate ? '覆盖' : '指定'}`);
+    if (slot.missing) parts.push(`${slot.missing} 缺失`);
+    return parts.join(' · ') || '无来源';
+  };
+  return (
+    <div className="vfp-inherit-batch">
+      <div className="vfp-inherit-batch-head">
+        <span>本批次 · {summary.total} 个任务</span>
+        <span className="vfp-inherit-templates">
+          {summary.templates.map((template) => <span key={template.rel} title={template.rel}>{template.name} ×{template.count}</span>)}
+          {summary.untemplated ? <span title="无模板，文件全部按任务指定">无模板 ×{summary.untemplated}</span> : null}
+        </span>
+      </div>
+      <div className="vfp-inherit-bars">
+        {summary.slots.map((slot) => {
+          const total = slot.inherit + slot.explicit + slot.missing || 1;
+          return <div className="vfp-inherit-bar" key={slot.key} title={`${slot.label}：${countsFor(slot)}`}>
+            <span className="vfp-inherit-bar-label">{slot.label}</span>
+            <span className="vfp-inherit-bar-track">
+              {slot.inherit ? <i data-origin="inherit" style={{ width: `${(slot.inherit / total) * 100}%` }} /> : null}
+              {slot.explicit ? <i data-origin={slot.fromTemplate ? 'override' : 'explicit'} style={{ width: `${(slot.explicit / total) * 100}%` }} /> : null}
+              {slot.missing ? <i data-origin="missing" style={{ width: `${(slot.missing / total) * 100}%` }} /> : null}
+            </span>
+            <span className="vfp-inherit-bar-count">{countsFor(slot)}</span>
+          </div>;
+        })}
+      </div>
+      <div className="vfp-inherit-legend" aria-hidden="true">
+        <span data-origin="inherit">继承模板</span>
+        <span data-origin="override">覆盖模板</span>
+        <span data-origin="explicit">本任务指定</span>
+        <span data-origin="missing">缺失</span>
+      </div>
+    </div>
+  );
+}
+
 function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
-  const { task, result } = detail;
+  const { task, result, batch } = detail;
+  const projectRoot = detail.projectRoot || '';
   const status = result?.errors?.length ? '错误' : detail.phase === 'done' && result?.wrote ? '已写入' : result?.warnings?.length ? '需注意' : detail.phase === 'building' ? '构建中' : '可构建';
-  const sources = Object.entries(result?.sources ?? {}).length > 0
-    ? Object.entries(result?.sources ?? {})
-    : ([['POSCAR', task.poscarSrc], ['INCAR', task.incarSrc], ['KPOINTS', task.kpointsSrc], ['POTCAR', task.potcarSrc], ['提交脚本', task.submitSrc]] as Array<[string, string | undefined]>).filter(([, src]) => Boolean(src)) as Array<[string, string]>;
-  const target = detail.projectRoot ? absoluteTaskPath(detail.projectRoot, task.dir || '.') : task.dir || '未指定';
+  const target = projectRoot ? absoluteTaskPath(projectRoot, task.dir || '.') : task.dir || '未指定';
+  const crumbs = toPosix(task.dir || '.').split('/').filter((part) => part && part !== '.');
+  const share = useMemo(() => buildShareIndex(batch, projectRoot), [batch, projectRoot]);
+  const summary = useMemo(() => summarizeBatch(batch, projectRoot), [batch, projectRoot]);
+  const slots = useMemo(() => describeSlots(task, result, projectRoot, share), [task, result, projectRoot, share]);
+  const templateFullRel = task.template ? projectRelative(projectRoot, absoluteTaskPath(projectRoot, task.template)) : '';
+  const templateRel = templateFullRel ? shortenPath(templateFullRel) : '';
+  const templateShared = templateFullRel ? summary?.templates.find((entry) => entry.rel === templateFullRel)?.count ?? 0 : 0;
+  const extras = (task.extraFiles ?? []).map((item, index) => ({
+    name: item.dest || item.fromTemplate || basenameOf(item.src) || `额外文件 ${index + 1}`,
+    path: (result?.sources ?? {})[item.dest || item.fromTemplate || basenameOf(item.src) || ''] as string | undefined,
+  }));
   return (
     <div className="vfp-build-detail">
-      <div className="vfp-build-detail-head"><strong>{task.dir || '未命名任务'}</strong><Tag color={result?.errors?.length ? 'error' : result?.warnings?.length ? 'warning' : 'success'}>{status}</Tag></div>
-      <div className="vfp-build-detail-path">{target}</div>
-      <div className="vfp-build-detail-section"><b>来源映射</b>
-        {task.template && <div>模板：{task.template}</div>}
-        {sources.length ? sources.map(([name, src]) => <div key={name}><span>{name}</span><span>{src}</span></div>) : <div>未指定文件来源</div>}
+      <div className="vfp-build-detail-head"><strong>{basenameOf(task.dir) || '未命名任务'}</strong><Tag color={result?.errors?.length ? 'error' : result?.warnings?.length ? 'warning' : 'success'}>{status}</Tag></div>
+      <div className="vfp-build-detail-path" title={target}>{crumbs.length > 1 ? `${crumbs.slice(0, -1).join(' › ')} ›` : '项目根目录 ›'}</div>
+      {summary && <BuildInheritanceSummary summary={summary} />}
+      <div className="vfp-build-detail-section"><b>本任务来源</b>
+        <div className="vfp-inherit-template">
+          <span className="vfp-inherit-name">模板</span>
+          {task.template
+            ? <code className="vfp-inherit-path" title={absoluteTaskPath(projectRoot, task.template)}>{templateRel}</code>
+            : <span className="vfp-inherit-empty">未指定模板</span>}
+          {templateShared > 1 ? <span className="vfp-inherit-share">{templateShared} 个任务共用</span> : null}
+        </div>
+        <ul className="vfp-inherit-rows">
+          {slots.map((slot) => {
+            const badge = slot.origin === 'explicit' && slot.fromTemplate ? 'override' : slot.origin;
+            return <li key={slot.key} className="vfp-inherit-row" data-origin={badge} title={slot.path || slot.rel || '未提供'}>
+              <span className="vfp-inherit-name">{slot.label}</span>
+              <span className="vfp-inherit-badge" data-origin={badge}>{originLabel(slot.origin, slot.fromTemplate)}</span>
+              <code className="vfp-inherit-path">{slot.rel || '未提供'}</code>
+              {slot.shared > 1 ? <span className="vfp-inherit-share" title={`${slot.shared} 个任务使用同一来源`}>×{slot.shared}</span> : null}
+            </li>;
+          })}
+        </ul>
+        {extras.length ? <div className="vfp-inherit-extras">
+          <span className="vfp-inherit-name">额外文件</span>
+          <span>{extras.map((extra) => <code key={extra.name} title={extra.path || ''}>{extra.name}</code>)}</span>
+        </div> : null}
+        {!result && <div className="vfp-inherit-empty">尚未生成预览，来源为任务声明值，未经解析校验。</div>}
       </div>
       <div className="vfp-build-detail-section"><b>构建设置与检查</b>
         <div>Selective dynamics：{result?.sd || (task.freeAtoms?.length ? `放开原子 ${task.freeAtoms.join(', ')}` : task.fixedAtoms?.length ? `固定原子 ${task.fixedAtoms.join(', ')}` : task.sdPolicy === 'keep' ? '沿用源文件' : '待预览')}</div>

@@ -22,6 +22,7 @@ import type { BuildTaskDetail } from './store';
 import type { Task } from './api';
 import { readStructureDrag, startStructureDrag, STRUCTURE_DRAG_TYPE } from './structure-drag';
 import { scrollExpandedTreeRow, useTreeScrollPath } from './tree-scroll';
+import { summarizeBatch } from './inheritance';
 
 const ENTRY_ATTR = 'data-dsh-vaspflow-entry';
 const PANEL_ATTR = 'data-dsh-vaspflow-panel';
@@ -580,6 +581,10 @@ function BuildInputsToolRow({ block }: { block: any }) {
   };
   const tasks = revision?.tasks ?? (Array.isArray(args.tasks) ? args.tasks : []);
   const preview = revision?.preview ?? originalPreview;
+  const inheritSummary = React.useMemo(
+    () => summarizeBatch({ tasks, results: preview.results ?? [] }, preview.projectRoot || args.projectRoot || ''),
+    [tasks, preview, args.projectRoot],
+  );
   const [selectedState, setSelected] = React.useState<Set<number>>(() => new Set(tasks.map((_, index) => index)));
   const [focused, setFocused] = React.useState<number | null>(null);
   const [openDirectory, setOpenDirectory] = React.useState('');
@@ -697,7 +702,7 @@ function BuildInputsToolRow({ block }: { block: any }) {
       const sourceName = item.kind === 'file' ? item.file : item.relPath;
       setMessage(`任务 ${tasks[index].dir} 已改用 ${sourceName}；预览已更新，尚未写入磁盘`);
       recordAction(`${tasks[index].dir}：${item.kind === 'file' ? 'POSCAR' : 'INCAR/KPOINTS/POTCAR'} 来源改为 ${sourceName}，预览已更新`);
-      if (focused === index) panelStore.setSelectedBuildTask({ task: result.tasks[index], result: result.results?.[index], projectRoot: result.projectRoot || args.projectRoot || '', linkPotcar: !!args.linkPotcar, phase: 'preview' });
+      if (focused === index) panelStore.setSelectedBuildTask({ task: result.tasks[index], result: result.results?.[index], projectRoot: result.projectRoot || args.projectRoot || '', linkPotcar: !!args.linkPotcar, phase: 'preview', batch: { tasks: result.tasks ?? [], results: result.results ?? [] } });
     } catch (caught) {
       setRequestError(true);
       setMessage(caught instanceof Error ? caught.message : String(caught));
@@ -713,6 +718,7 @@ function BuildInputsToolRow({ block }: { block: any }) {
       task: tasks[index], result: row ?? writeRows[index] ?? preview.results?.[index],
       projectRoot: preview.projectRoot || args.projectRoot || '',
       linkPotcar: !!args.linkPotcar, phase: nextPhase,
+      batch: { tasks, results: preview.results ?? [] },
     });
     panelStore.setOpen(true);
   };
@@ -844,6 +850,13 @@ function BuildInputsToolRow({ block }: { block: any }) {
       <div className="vfp-tree-head"><button type="button" className="vfp-card-toggle" aria-expanded={!collapsed} onClick={() => setCardCollapsed(!collapsed)}><span aria-hidden="true">{collapsed ? '▸' : '▾'}</span><strong>构建任务</strong></button><span className="vfp-tree-muted">{!settled ? '处理中' : phase === 'done' ? `已写入 ${writtenCount}/${selectedIndices.length}` : phase === 'cancelled' ? '已取消' : phase === 'unavailable' ? '不可确认' : isPreview ? '待确认预览' : `已写入 ${writtenCount}/${tasks.length}`} · {tasks.length} 个任务{writeErrors ? ` · ${writeErrors} 错误` : ''}</span></div>
       <div hidden={collapsed}>
       {(preview.projectRoot || args.projectRoot) && <div className="vfp-scan-path"><code>{preview.projectRoot || args.projectRoot}</code></div>}
+      {inheritSummary && <div className="vfp-build-inherit-line">
+        <span className="vfp-build-inherit-label">继承</span>
+        {inheritSummary.templates.map((template) => <span key={template.rel} className="vfp-build-inherit-template" title={template.rel}>{template.name} ×{template.count}</span>)}
+        {inheritSummary.untemplated ? <span className="vfp-build-inherit-template" title="这些任务没有模板，文件全部单独指定">无模板 ×{inheritSummary.untemplated}</span> : null}
+        {inheritSummary.slots.filter((slot) => slot.fromTemplate && slot.explicit > 0).map((slot) => <span key={`override-${slot.key}`} className="vfp-build-inherit-exception" title={`${slot.explicit} 个任务的 ${slot.label} 改用其他来源`}>{slot.label} 覆盖 ×{slot.explicit}</span>)}
+        {inheritSummary.slots.filter((slot) => slot.missing > 0).map((slot) => <span key={`missing-${slot.key}`} className="vfp-build-inherit-missing" title={`${slot.missing} 个任务未提供 ${slot.label}`}>{slot.label} 缺失 ×{slot.missing}</span>)}
+      </div>}
       {settled && tasks.length > 0 && <div className="vfp-build-steps" aria-label="构建进度">
         {isPreview ? <>
           <span data-stage="done">① 预览已生成</span>
