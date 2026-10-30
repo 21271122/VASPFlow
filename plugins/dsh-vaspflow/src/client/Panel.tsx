@@ -11,10 +11,11 @@ import {
 } from '@ant-design/icons';
 import { panelStore, usePanelStore } from './store';
 import {
-  absoluteTaskPath, basenameOf, buildShareIndex, describeSlots, originLabel,
+  absoluteTaskPath, basenameOf, buildShareIndex, buildSourceTasks, describeSlots, originLabel,
   projectRelative, shortenPath, summarizeBatch, toPosix,
 } from './inheritance';
 import type { BuildBatchSummary } from './inheritance';
+import { SourceCompare } from './source-compare';
 import { startStructureDrag } from './structure-drag';
 import type { BuildTaskDetail } from './store';
 import { scanProject, scanProjectEvents, openTaskByPath, checkTaskInputs } from './api';
@@ -91,6 +92,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
   const target = projectRoot ? absoluteTaskPath(projectRoot, task.dir || '.') : task.dir || '未指定';
   const crumbs = toPosix(task.dir || '.').split('/').filter((part) => part && part !== '.');
   const share = useMemo(() => buildShareIndex(batch, projectRoot), [batch, projectRoot]);
+  const sourceOwners = useMemo(() => buildSourceTasks(batch), [batch]);
   const summary = useMemo(() => summarizeBatch(batch, projectRoot), [batch, projectRoot]);
   const slots = useMemo(() => describeSlots(task, result, projectRoot, share), [task, result, projectRoot, share]);
   const templateFullRel = task.template ? projectRelative(projectRoot, absoluteTaskPath(projectRoot, task.template)) : '';
@@ -115,12 +117,40 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
         </div>
         <ul className="vfp-inherit-rows">
           {slots.map((slot) => {
-            return <li key={slot.key} className="vfp-inherit-row" data-origin={slot.origin} title={slot.path || slot.rel || '未提供'}>
+            const row = <li key={slot.key} className="vfp-inherit-row" data-origin={slot.origin} title={slot.path || slot.rel || '未提供'}>
               <span className="vfp-inherit-name">{slot.label}</span>
               <span className="vfp-inherit-badge" data-origin={slot.origin}>{originLabel(slot.origin)}</span>
               <code className="vfp-inherit-path">{slot.rel || '未提供'}</code>
               {slot.shared > 1 ? <span className="vfp-inherit-share" title={`${slot.shared} 个任务使用同一来源`}>×{slot.shared}</span> : null}
             </li>;
+            if (!slot.path) return row;
+            const destination = slot.key === 'submit' ? basenameOf(task.submitSrc) : slot.key;
+            const templateCopy = slot.fromTemplate && task.template
+              ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`)
+              : '';
+            const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || '.')}/${destination}`);
+            const baseSide = slot.origin === 'override' && templateCopy
+              ? { role: '模板', path: templateCopy }
+              : { role: '目录现有', path: diskCopy };
+            const owners = sourceOwners.get(`${slot.key}|${slot.path.toLowerCase()}`) ?? [toPosix(task.dir || '.')];
+            return <Popover
+              key={slot.key}
+              trigger="hover"
+              mouseEnterDelay={0.35}
+              mouseLeaveDelay={0.12}
+              destroyTooltipOnHide
+              placement="leftTop"
+              overlayClassName="vfp-cmp-popover"
+              content={<SourceCompare
+                projectRoot={projectRoot}
+                projectName={basenameOf(projectRoot) || '项目'}
+                slotLabel={slot.label}
+                originText={originLabel(slot.origin)}
+                base={baseSide}
+                adopted={{ role: '本任务采用', path: slot.path }}
+                taskDirs={owners}
+              />}
+            >{row}</Popover>;
           })}
         </ul>
         {extras.length ? <div className="vfp-inherit-extras">

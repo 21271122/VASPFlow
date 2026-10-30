@@ -150,6 +150,22 @@ export function buildShareIndex(batch: BuildBatch, projectRoot: string): Map<str
   return share;
 }
 
+/** Task directories that resolve each slot to the same file, for the share drill-down. */
+export function buildSourceTasks(batch: BuildBatch): Map<string, string[]> {
+  const owners = new Map<string, string[]>();
+  (batch?.tasks ?? []).forEach((entry, index) => {
+    const result = batch?.results?.[index];
+    const dir = typeof entry?.dir === 'string' && entry.dir ? entry.dir.replace(/[\\/]+/g, '/') : '(未命名任务)';
+    for (const slot of BUILD_SLOTS) {
+      const resolved = slotResolvedPath(entry, result, slot);
+      if (!resolved) continue;
+      const key = `${slot.key}|${resolved.toLowerCase()}`;
+      owners.set(key, [...(owners.get(key) ?? []), dir]);
+    }
+  });
+  return owners;
+}
+
 export function summarizeBatch(batch: BuildBatch, projectRoot: string): BuildBatchSummary | null {
   const tasks = batch?.tasks ?? [];
   if (tasks.length < 2) return null;

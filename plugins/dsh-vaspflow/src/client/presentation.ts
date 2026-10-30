@@ -139,6 +139,29 @@ body[data-ds-dark-theme] .vaspflow-task-popover {
 .vfp-inherit-empty { color:var(--vfp-muted); font-size:12px; }
 .vfp-inherit-extras { display:grid; grid-template-columns:64px minmax(0,1fr); align-items:baseline; gap:8px; margin-top:3px; font-size:12px; }
 .vfp-inherit-extras code { margin-right:8px; color:var(--vfp-text); }
+/* Hover drill-down: the two candidate files side by side, plus the tasks that
+   resolve to the same source. */
+.vfp-cmp-popover .ant-popover-inner { padding:12px 14px; }
+.vfp-cmp { display:grid; gap:10px; width:min(560px,72vw); font-size:12px; }
+.vfp-cmp-head { display:flex; align-items:baseline; gap:8px; }
+.vfp-cmp-head strong { font-size:13px; }
+.vfp-cmp-origin { color:var(--vfp-muted); }
+.vfp-cmp-diff { margin-left:auto; color:var(--vfp-warning); }
+.vfp-cmp-same { margin-left:auto; color:var(--vfp-success); }
+.vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
+.vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:6px; overflow:hidden; background:var(--vfp-surface); }
+.vfp-cmp-side>header { display:flex; align-items:baseline; gap:8px; padding:5px 8px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
+.vfp-cmp-role { flex:none; color:var(--vfp-muted); font-size:11px; }
+.vfp-cmp-side>header code { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--vfp-text); font:11.5px/1.5 Consolas,"Cascadia Mono",monospace; }
+.vfp-cmp-side pre { margin:0; padding:6px 0; max-height:208px; overflow:auto; font:11px/1.5 Consolas,"Cascadia Mono",monospace; }
+.vfp-cmp-line { display:block; padding:0 8px; white-space:pre; }
+.vfp-cmp-line i { display:inline-block; width:22px; margin-right:6px; color:var(--vfp-muted); font-style:normal; text-align:right; user-select:none; }
+.vfp-cmp-line[data-changed] { background:rgba(149,104,23,.14); }
+.vfp-cmp-empty { padding:12px 10px; color:var(--vfp-muted); }
+.vfp-cmp-empty[data-error] { color:var(--vfp-warning); }
+.vfp-cmp-more { padding:4px 8px 6px; color:var(--vfp-muted); font-size:11px; border-top:1px dashed var(--vfp-line); }
+.vfp-cmp-tasks { border-top:1px solid var(--vfp-line); padding-top:8px; }
+.vfp-cmp-tasks-head { margin-bottom:4px; color:var(--vfp-muted); }
 /* The detail section styles any div holding a <span> as a two-column row; the
    ledger needs its own columns (name / badge / path / share). */
 [data-dsh-vaspflow-panel] .vfp-build-detail-section>.vfp-inherit-template,
