@@ -3,8 +3,8 @@
  *
  * Opens on a "本任务来源" row and answers two questions about the file that
  * build will write:
- *   1. what is on disk right now (构建前) versus what will be written (构建后),
- *      line-numbered with the differing lines marked;
+ *   1. the file in the task directory (目标) next to the file it is copied from
+ *      (来源), line-numbered with the differing lines marked;
  *   2. where the written file comes from, as a directory tree (来源地址).
  *
  * File contents come from the existing task routes: open-by-path registers any
@@ -119,10 +119,10 @@ function FilePane({ step, role, path, dirLabel, state, changed, missing }: {
 }) {
   const shown = state ? state.lines.slice(0, PREVIEW_LINES) : [];
   return (
-    <section className="vfp-cmp-side" data-side={step === '构建后' ? 'after' : 'before'} data-loading={!state ? '' : undefined}>
+    <section className="vfp-cmp-side" data-side={step === '参考来源' ? 'source' : 'target'} data-loading={!state ? '' : undefined}>
       <header>
         <span className="vfp-cmp-step">{step}</span>
-        <span className="vfp-cmp-role">{role}</span>
+        {role ? <span className="vfp-cmp-role">{role}</span> : null}
         <code className="vfp-cmp-dir" title={path}>{dirLabel}</code>
       </header>
       {!state ? <div className="vfp-cmp-empty">读取中…</div>
@@ -174,34 +174,34 @@ export type SourceCompareProps = {
   projectName: string;
   slotLabel: string;
   originText: string;
-  /** File already in the task directory; may not exist yet. */
-  before: { path: string };
-  /** File build will write, copied from the source. */
-  after: { role: string; path: string };
+  /** The file in this task's directory: what the build produces or already produced. */
+  target: { path: string };
+  /** The file it is copied from: a template's file, or one chosen for this task. */
+  source: { role: string; path: string };
 };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, originText, before, after }: SourceCompareProps) {
-  const [beforeState, setBeforeState] = React.useState<FileState>();
-  const [afterState, setAfterState] = React.useState<FileState>();
+export function SourceCompare({ projectRoot, projectName, slotLabel, originText, target, source }: SourceCompareProps) {
+  const [targetState, setTargetState] = React.useState<FileState>();
+  const [sourceState, setSourceState] = React.useState<FileState>();
   React.useEffect(() => {
     let cancelled = false;
-    void readProjectFile(projectRoot, before.path).then((value) => { if (!cancelled) setBeforeState(value); });
-    void readProjectFile(projectRoot, after.path).then((value) => { if (!cancelled) setAfterState(value); });
+    void readProjectFile(projectRoot, target.path).then((value) => { if (!cancelled) setTargetState(value); });
+    void readProjectFile(projectRoot, source.path).then((value) => { if (!cancelled) setSourceState(value); });
     return () => { cancelled = true; };
-  }, [projectRoot, before.path, after.path]);
+  }, [projectRoot, target.path, source.path]);
 
   const marks = React.useMemo(
-    () => (beforeState && afterState && !beforeState.error && !afterState.error
-      ? markDifferences(beforeState.lines.slice(0, PREVIEW_LINES), afterState.lines.slice(0, PREVIEW_LINES))
+    () => (targetState && sourceState && !targetState.error && !sourceState.error
+      ? markDifferences(sourceState.lines.slice(0, PREVIEW_LINES), targetState.lines.slice(0, PREVIEW_LINES))
       : undefined),
-    [beforeState, afterState],
+    [targetState, sourceState],
   );
-  const isNew = Boolean(beforeState?.error);
+  const isNew = Boolean(targetState?.error);
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
-  const status = beforeState && afterState ? (isNew ? '构建时新建' : same ? '内容不变' : '内容将变化') : '';
+  const status = targetState && sourceState ? (isNew ? '尚未写入' : same ? '与来源一致' : '与来源不同') : '';
   const addressTree = React.useMemo(
-    () => buildAddressTree(projectName, projectRoot, after.path),
-    [projectName, projectRoot, after.path],
+    () => buildAddressTree(projectName, projectRoot, source.path),
+    [projectName, projectRoot, source.path],
   );
 
   return (
@@ -212,10 +212,10 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, originText,
         {status ? <span className={same ? 'vfp-cmp-same' : 'vfp-cmp-diff'}>{status}</span> : null}
       </div>
       <div className="vfp-cmp-grid">
-        <FilePane step="构建前" role="目录现状" path={before.path} dirLabel={shortPath(projectRoot, before.path)}
-          state={beforeState} changed={marks?.left} missing="目录中还没有这个文件" />
-        <FilePane step="构建后" role={after.role} path={after.path} dirLabel={shortPath(projectRoot, after.path)}
-          state={afterState} changed={marks?.right} />
+        <FilePane step="本任务文件" role="" path={target.path} dirLabel={shortPath(projectRoot, target.path)}
+          state={targetState} changed={marks?.right} missing="尚未写入" />
+        <FilePane step="参考来源" role={source.role} path={source.path} dirLabel={shortPath(projectRoot, source.path)}
+          state={sourceState} changed={marks?.left} />
       </div>
       <div className="vfp-cmp-address">
         <div className="vfp-cmp-address-head">来源地址</div>

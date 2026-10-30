@@ -176,7 +176,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
             if (!slot.path) return row;
             const destination = slot.key === 'submit' ? basenameOf(task.submitSrc) : slot.key;
             const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || '.')}/${destination}`);
-            const afterRole = slot.origin === 'inherit' ? '继承模板' : slot.origin === 'override' ? '本任务覆盖' : '本任务指定';
+            const sourceRole = slot.origin === 'inherit' ? '模板' : slot.origin === 'override' ? '本任务覆盖' : '本任务指定';
             const open = hoverSlot === slot.key || pinnedSlot === slot.key;
             return <Popover
               key={slot.key}
@@ -195,8 +195,8 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
                   projectName={basenameOf(projectRoot) || '项目'}
                   slotLabel={slot.label}
                   originText={originLabel(slot.origin)}
-                  before={{ path: diskCopy }}
-                  after={{ role: afterRole, path: slot.path }}
+                  target={{ path: diskCopy }}
+                  source={{ role: sourceRole, path: slot.path }}
                 />
               </div>}
             >
