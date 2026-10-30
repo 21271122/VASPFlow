@@ -101776,10 +101776,6 @@ body[data-ds-dark-theme] [data-dsh-vaspflow-tool] { --vfp-tree-folder-bg:transpa
 body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); }
 [data-dsh-vaspflow-tool] .vfp-tree-group { font-size:12px; }
 /* Build inheritance ledger: batch distribution bars + one row per inherited input. */
-.vfp-build-inherit-line { display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin:6px 0 2px; font-size:11.5px; color:var(--vfp-muted); }
-.vfp-build-inherit-template { padding:0 6px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); color:var(--vfp-text); }
-.vfp-build-inherit-exception { padding:0 6px; border:1px solid rgba(149,104,23,.26); border-radius:8px; background:rgba(149,104,23,.12); color:var(--vfp-warning); }
-.vfp-build-inherit-missing { padding:0 6px; border:1px dashed var(--vfp-line); border-radius:8px; color:var(--vfp-muted); }
 .vfp-inherit-batch { display:grid; gap:7px; margin:10px 0 2px; padding:10px 12px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
 .vfp-inherit-batch-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:12px; color:var(--vfp-muted); }
 .vfp-inherit-templates { display:flex; flex-wrap:wrap; gap:5px; }
@@ -103675,6 +103671,20 @@ function BuildInputsToolRow({ block }) {
     () => summarizeBatch({ tasks, results: preview.results ?? [] }, preview.projectRoot || args.projectRoot || ""),
     [tasks, preview, args.projectRoot]
   );
+  const inheritHint = import_react170.default.useMemo(() => {
+    if (!inheritSummary) return "";
+    const parts = [];
+    if (inheritSummary.templates.length > 1 || inheritSummary.untemplated) {
+      const groups = inheritSummary.templates.map((template) => `${template.name}\xD7${template.count}`);
+      if (inheritSummary.untemplated) groups.push(`\u65E0\u6A21\u677F\xD7${inheritSummary.untemplated}`);
+      parts.push(`\u7EE7\u627F ${groups.join(" ")}`);
+    }
+    for (const slot of inheritSummary.slots) {
+      if (slot.override) parts.push(`${slot.label}\u8986\u76D6${slot.override}`);
+      if (slot.missing) parts.push(`${slot.label}\u7F3A\u5931${slot.missing}`);
+    }
+    return parts.join(" \xB7 ");
+  }, [inheritSummary]);
   const [selectedState, setSelected] = import_react170.default.useState(() => new Set(tasks.map((_, index2) => index2)));
   const [focused, setFocused] = import_react170.default.useState(null);
   const [openDirectory, setOpenDirectory] = import_react170.default.useState("");
@@ -103993,33 +104003,12 @@ function BuildInputsToolRow({ block }) {
         " \xB7 ",
         tasks.length,
         " \u4E2A\u4EFB\u52A1",
+        inheritHint ? ` \xB7 ${inheritHint}` : "",
         writeErrors ? ` \xB7 ${writeErrors} \u9519\u8BEF` : ""
       ] })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { hidden: collapsed, children: [
       (preview.projectRoot || args.projectRoot) && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-scan-path", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("code", { children: preview.projectRoot || args.projectRoot }) }),
-      inheritSummary && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-inherit-line", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-build-inherit-label", children: "\u7EE7\u627F" }),
-        inheritSummary.templates.map((template) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-template", title: template.rel, children: [
-          template.name,
-          " \xD7",
-          template.count
-        ] }, template.rel)),
-        inheritSummary.untemplated ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-template", title: "\u8FD9\u4E9B\u4EFB\u52A1\u6CA1\u6709\u6A21\u677F\uFF0C\u6587\u4EF6\u5168\u90E8\u5355\u72EC\u6307\u5B9A", children: [
-          "\u65E0\u6A21\u677F \xD7",
-          inheritSummary.untemplated
-        ] }) : null,
-        inheritSummary.slots.filter((slot) => slot.override > 0).map((slot) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-exception", title: `${slot.override} \u4E2A\u4EFB\u52A1\u7684 ${slot.label} \u6539\u7528\u5176\u4ED6\u6765\u6E90`, children: [
-          slot.label,
-          " \u8986\u76D6 \xD7",
-          slot.override
-        ] }, `override-${slot.key}`)),
-        inheritSummary.slots.filter((slot) => slot.missing > 0).map((slot) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-build-inherit-missing", title: `${slot.missing} \u4E2A\u4EFB\u52A1\u672A\u63D0\u4F9B ${slot.label}`, children: [
-          slot.label,
-          " \u7F3A\u5931 \xD7",
-          slot.missing
-        ] }, `missing-${slot.key}`))
-      ] }),
       settled && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-build-steps", "aria-label": "\u6784\u5EFA\u8FDB\u5EA6", children: isPreview ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
         /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { "data-stage": "done", children: "\u2460 \u9884\u89C8\u5DF2\u751F\u6210" }),
         /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { "data-stage": phase === "preview" ? "current" : phase === "building" || phase === "done" ? "done" : "stopped", children: [

@@ -110,10 +110,6 @@ body[data-ds-dark-theme] [data-dsh-vaspflow-tool] { --vfp-tree-folder-bg:transpa
 body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); }
 [data-dsh-vaspflow-tool] .vfp-tree-group { font-size:12px; }
 /* Build inheritance ledger: batch distribution bars + one row per inherited input. */
-.vfp-build-inherit-line { display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin:6px 0 2px; font-size:11.5px; color:var(--vfp-muted); }
-.vfp-build-inherit-template { padding:0 6px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); color:var(--vfp-text); }
-.vfp-build-inherit-exception { padding:0 6px; border:1px solid rgba(149,104,23,.26); border-radius:8px; background:rgba(149,104,23,.12); color:var(--vfp-warning); }
-.vfp-build-inherit-missing { padding:0 6px; border:1px dashed var(--vfp-line); border-radius:8px; color:var(--vfp-muted); }
 .vfp-inherit-batch { display:grid; gap:7px; margin:10px 0 2px; padding:10px 12px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
 .vfp-inherit-batch-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:12px; color:var(--vfp-muted); }
 .vfp-inherit-templates { display:flex; flex-wrap:wrap; gap:5px; }

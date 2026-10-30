@@ -585,6 +585,21 @@ function BuildInputsToolRow({ block }: { block: any }) {
     () => summarizeBatch({ tasks, results: preview.results ?? [] }, preview.projectRoot || args.projectRoot || ''),
     [tasks, preview, args.projectRoot],
   );
+  /** One muted clause appended to the card header — no extra row, no badges. */
+  const inheritHint = React.useMemo(() => {
+    if (!inheritSummary) return '';
+    const parts: string[] = [];
+    if (inheritSummary.templates.length > 1 || inheritSummary.untemplated) {
+      const groups = inheritSummary.templates.map((template) => `${template.name}×${template.count}`);
+      if (inheritSummary.untemplated) groups.push(`无模板×${inheritSummary.untemplated}`);
+      parts.push(`继承 ${groups.join(' ')}`);
+    }
+    for (const slot of inheritSummary.slots) {
+      if (slot.override) parts.push(`${slot.label}覆盖${slot.override}`);
+      if (slot.missing) parts.push(`${slot.label}缺失${slot.missing}`);
+    }
+    return parts.join(' · ');
+  }, [inheritSummary]);
   const [selectedState, setSelected] = React.useState<Set<number>>(() => new Set(tasks.map((_, index) => index)));
   const [focused, setFocused] = React.useState<number | null>(null);
   const [openDirectory, setOpenDirectory] = React.useState('');
@@ -847,16 +862,9 @@ function BuildInputsToolRow({ block }: { block: any }) {
   };
   return (
     <div data-dsh-vaspflow-tool="vasp_build_inputs">
-      <div className="vfp-tree-head"><button type="button" className="vfp-card-toggle" aria-expanded={!collapsed} onClick={() => setCardCollapsed(!collapsed)}><span aria-hidden="true">{collapsed ? '▸' : '▾'}</span><strong>构建任务</strong></button><span className="vfp-tree-muted">{!settled ? '处理中' : phase === 'done' ? `已写入 ${writtenCount}/${selectedIndices.length}` : phase === 'cancelled' ? '已取消' : phase === 'unavailable' ? '不可确认' : isPreview ? '待确认预览' : `已写入 ${writtenCount}/${tasks.length}`} · {tasks.length} 个任务{writeErrors ? ` · ${writeErrors} 错误` : ''}</span></div>
+      <div className="vfp-tree-head"><button type="button" className="vfp-card-toggle" aria-expanded={!collapsed} onClick={() => setCardCollapsed(!collapsed)}><span aria-hidden="true">{collapsed ? '▸' : '▾'}</span><strong>构建任务</strong></button><span className="vfp-tree-muted">{!settled ? '处理中' : phase === 'done' ? `已写入 ${writtenCount}/${selectedIndices.length}` : phase === 'cancelled' ? '已取消' : phase === 'unavailable' ? '不可确认' : isPreview ? '待确认预览' : `已写入 ${writtenCount}/${tasks.length}`} · {tasks.length} 个任务{inheritHint ? ` · ${inheritHint}` : ''}{writeErrors ? ` · ${writeErrors} 错误` : ''}</span></div>
       <div hidden={collapsed}>
       {(preview.projectRoot || args.projectRoot) && <div className="vfp-scan-path"><code>{preview.projectRoot || args.projectRoot}</code></div>}
-      {inheritSummary && <div className="vfp-build-inherit-line">
-        <span className="vfp-build-inherit-label">继承</span>
-        {inheritSummary.templates.map((template) => <span key={template.rel} className="vfp-build-inherit-template" title={template.rel}>{template.name} ×{template.count}</span>)}
-        {inheritSummary.untemplated ? <span className="vfp-build-inherit-template" title="这些任务没有模板，文件全部单独指定">无模板 ×{inheritSummary.untemplated}</span> : null}
-        {inheritSummary.slots.filter((slot) => slot.override > 0).map((slot) => <span key={`override-${slot.key}`} className="vfp-build-inherit-exception" title={`${slot.override} 个任务的 ${slot.label} 改用其他来源`}>{slot.label} 覆盖 ×{slot.override}</span>)}
-        {inheritSummary.slots.filter((slot) => slot.missing > 0).map((slot) => <span key={`missing-${slot.key}`} className="vfp-build-inherit-missing" title={`${slot.missing} 个任务未提供 ${slot.label}`}>{slot.label} 缺失 ×{slot.missing}</span>)}
-      </div>}
       {settled && tasks.length > 0 && <div className="vfp-build-steps" aria-label="构建进度">
         {isPreview ? <>
           <span data-stage="done">① 预览已生成</span>

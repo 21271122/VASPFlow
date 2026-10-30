@@ -116,10 +116,6 @@ body[data-ds-dark-theme] [data-dsh-vaspflow-tool] { --vfp-tree-folder-bg:transpa
 body[data-ds-dark-theme] [data-dsh-vaspflow-tool] .vfp-tree-head strong { color:var(--vfp-text); }
 [data-dsh-vaspflow-tool] .vfp-tree-group { font-size:12px; }
 /* Build inheritance ledger: batch distribution bars + one row per inherited input. */
-.vfp-build-inherit-line { display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin:6px 0 2px; font-size:11.5px; color:var(--vfp-muted); }
-.vfp-build-inherit-template { padding:0 6px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); color:var(--vfp-text); }
-.vfp-build-inherit-exception { padding:0 6px; border:1px solid rgba(149,104,23,.26); border-radius:8px; background:rgba(149,104,23,.12); color:var(--vfp-warning); }
-.vfp-build-inherit-missing { padding:0 6px; border:1px dashed var(--vfp-line); border-radius:8px; color:var(--vfp-muted); }
 .vfp-inherit-batch { display:grid; gap:7px; margin:10px 0 2px; padding:10px 12px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
 .vfp-inherit-batch-head { display:flex; align-items:baseline; justify-content:space-between; gap:8px; font-size:12px; color:var(--vfp-muted); }
 .vfp-inherit-templates { display:flex; flex-wrap:wrap; gap:5px; }
@@ -223,12 +219,16 @@ body[data-ds-dark-theme] .demo-scenario { background: #1d212a; border-color: #2c
 body[data-ds-dark-theme] .demo-scenario p { color: #93a1b4; }
 .demo-card-label { margin: 12px 0 5px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: #7b8899; }
 body[data-ds-dark-theme] .demo-card-label { color: #7f8ea3; }
-.demo-card { border: 1px solid #e2e7ee; border-radius: 9px; padding: 6px 10px; }
-body[data-ds-dark-theme] .demo-card { border-color: #2c3340; }
+.demo-card { margin: 0; }
+body[data-ds-dark-theme] .demo-card { }
 .demo-panel { width: 100%; height: auto; max-width: 420px; border: 1px solid #e2e7ee; border-radius: 9px; background: #fff; }
 body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212a; }
 .demo-panel .vfp-panel-body { overflow: visible; padding: 14px 16px 16px; }
-/* Dock chrome that normally lives in index.tsx; values copied verbatim. */
+/* Card header rules copied from index.tsx so the snippet reads like the real card. */
+[data-dsh-vaspflow-tool] .vfp-tree-head { display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:0 0 4px;margin-bottom:4px; }
+[data-dsh-vaspflow-tool] .vfp-card-toggle { display:inline-flex;align-items:center;gap:7px;min-width:0;padding:0;border:0;background:none;color:inherit;cursor:pointer;font:inherit; }
+[data-dsh-vaspflow-tool] .vfp-card-toggle>span { width:12px;color:var(--vfp-muted); }
+[data-dsh-vaspflow-tool] .vfp-tree-muted { color:var(--vfp-muted);font-size:12px; }/* Dock chrome that normally lives in index.tsx; values copied verbatim. */
 .vfp-build-detail { font-size: 14px; line-height: 1.55; }
 .vfp-build-detail-head { display: flex; align-items: center; gap: 8px; font-size: 16px; }
 .vfp-build-detail-path { margin: 5px 0 16px; overflow-wrap: anywhere; color: var(--vfp-muted); font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
@@ -258,8 +258,11 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
 <section class="demo-scenario">
     <h2>① 单模板批量 · 8 个任务</h2>
     <p>最常见的形状：一个 relax 模板供给所有任务，只有 CO-fcc 换了 INCAR，CO-hollow 的提交脚本还没交。</p>
-    <div class="demo-card-label">对话卡片里的一行摘要</div>
-    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-build-inherit-line"><span class="vfp-build-inherit-label">继承</span><span class="vfp-build-inherit-template" title="templates/relax">relax ×8</span><span class="vfp-build-inherit-exception" title="1 个任务的 INCAR 改用其他来源">INCAR 覆盖 ×1</span><span class="vfp-build-inherit-missing" title="1 个任务未提供 提交脚本">提交脚本 缺失 ×1</span></div></div>
+    <div class="demo-card-label">对话卡片标题行（信息并入原有那行，不再额外占一行）</div>
+    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-tree-head">
+    <button type="button" class="vfp-card-toggle"><span aria-hidden="true">▾</span><strong>构建任务</strong></button>
+    <span class="vfp-tree-muted">待确认预览 · 8 个任务 · INCAR覆盖1 · 提交脚本缺失1</span>
+  </div></div>
     <div class="demo-card-label">右侧面板 · 点开 CO-fcc</div>
     <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
       <div class="vfp-panel-body vfp-panel-body-build"><div class="vfp-build-detail">
@@ -360,8 +363,11 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
 <section class="demo-scenario">
     <h2>② 两个模板 + 一个无模板任务</h2>
     <p>relax ×5、freq ×3，外加一个 static-scf 完全自带文件。没有模板的任务只会显示「指定」，不会假装成「覆盖」。</p>
-    <div class="demo-card-label">对话卡片里的一行摘要</div>
-    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-build-inherit-line"><span class="vfp-build-inherit-label">继承</span><span class="vfp-build-inherit-template" title="templates/relax">relax ×5</span><span class="vfp-build-inherit-template" title="templates/freq">freq ×3</span><span class="vfp-build-inherit-template" title="这些任务没有模板，文件全部单独指定">无模板 ×1</span></div></div>
+    <div class="demo-card-label">对话卡片标题行（信息并入原有那行，不再额外占一行）</div>
+    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-tree-head">
+    <button type="button" class="vfp-card-toggle"><span aria-hidden="true">▾</span><strong>构建任务</strong></button>
+    <span class="vfp-tree-muted">待确认预览 · 9 个任务 · 继承 relax×5 freq×3 无模板×1</span>
+  </div></div>
     <div class="demo-card-label">右侧面板 · 点开最后一个 static-scf</div>
     <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
       <div class="vfp-panel-body vfp-panel-body-build"><div class="vfp-build-detail">
@@ -462,8 +468,11 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
 <section class="demo-scenario">
     <h2>③ 分段构建（staged）</h2>
     <p>先只搭参数与赝势，POSCAR 和提交脚本后补。缺失项按灰色虚线列出，不会和错误混在一起。</p>
-    <div class="demo-card-label">对话卡片里的一行摘要</div>
-    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-build-inherit-line"><span class="vfp-build-inherit-label">继承</span><span class="vfp-build-inherit-template" title="templates/relax">relax ×4</span><span class="vfp-build-inherit-missing" title="4 个任务未提供 POSCAR">POSCAR 缺失 ×4</span><span class="vfp-build-inherit-missing" title="4 个任务未提供 提交脚本">提交脚本 缺失 ×4</span></div></div>
+    <div class="demo-card-label">对话卡片标题行（信息并入原有那行，不再额外占一行）</div>
+    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-tree-head">
+    <button type="button" class="vfp-card-toggle"><span aria-hidden="true">▾</span><strong>构建任务</strong></button>
+    <span class="vfp-tree-muted">待确认预览 · 4 个任务 · POSCAR缺失4 · 提交脚本缺失4</span>
+  </div></div>
     <div class="demo-card-label">右侧面板 · 点开第一个任务</div>
     <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
       <div class="vfp-panel-body vfp-panel-body-build"><div class="vfp-build-detail">
@@ -564,8 +573,11 @@ body[data-ds-dark-theme] .demo-panel { border-color: #2c3340; background: #1d212
 <section class="demo-scenario">
     <h2>④ 覆盖密集 · 共享自定义 INCAR</h2>
     <p>5 个任务里有 4 个换成两种自定义 INCAR，×2 说明这两个文件各被两个任务共用。</p>
-    <div class="demo-card-label">对话卡片里的一行摘要</div>
-    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-build-inherit-line"><span class="vfp-build-inherit-label">继承</span><span class="vfp-build-inherit-template" title="templates/relax">relax ×5</span><span class="vfp-build-inherit-exception" title="4 个任务的 INCAR 改用其他来源">INCAR 覆盖 ×4</span></div></div>
+    <div class="demo-card-label">对话卡片标题行（信息并入原有那行，不再额外占一行）</div>
+    <div class="demo-card" data-dsh-vaspflow-tool="vasp_build_inputs"><div class="vfp-tree-head">
+    <button type="button" class="vfp-card-toggle"><span aria-hidden="true">▾</span><strong>构建任务</strong></button>
+    <span class="vfp-tree-muted">待确认预览 · 5 个任务 · INCAR覆盖4</span>
+  </div></div>
     <div class="demo-card-label">右侧面板 · 点开 NO-hollow</div>
     <div class="vfp-panel demo-panel" data-dsh-vaspflow-panel>
       <div class="vfp-panel-body vfp-panel-body-build"><div class="vfp-build-detail">
