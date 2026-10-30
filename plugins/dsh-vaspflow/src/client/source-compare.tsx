@@ -173,14 +173,13 @@ export type SourceCompareProps = {
   projectRoot: string;
   projectName: string;
   slotLabel: string;
-  originText: string;
   /** The file in this task's directory: what the build produces or already produced. */
   target: { path: string };
   /** The file it is copied from: a template's file, or one chosen for this task. */
   source: { role: string; path: string };
 };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, originText, target, source }: SourceCompareProps) {
+export function SourceCompare({ projectRoot, projectName, slotLabel, target, source }: SourceCompareProps) {
   const [targetState, setTargetState] = React.useState<FileState>();
   const [sourceState, setSourceState] = React.useState<FileState>();
   React.useEffect(() => {
@@ -198,7 +197,8 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, originText,
   );
   const isNew = Boolean(targetState?.error);
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
-  const status = targetState && sourceState ? (isNew ? '尚未写入' : same ? '与来源一致' : '与来源不同') : '';
+  const changedLines = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : undefined;
+  const state = targetState && sourceState ? (isNew ? 'missing' : same ? 'same' : 'changed') : 'loading';
   const addressTree = React.useMemo(
     () => buildAddressTree(projectName, projectRoot, source.path),
     [projectName, projectRoot, source.path],
@@ -208,13 +208,17 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, originText,
     <div className="vfp-cmp vaspflow-task-popover">
       <div className="vfp-cmp-head">
         <strong>{slotLabel}</strong>
-        <span className="vfp-cmp-origin">{originText}</span>
-        {status ? <span className={same ? 'vfp-cmp-same' : 'vfp-cmp-diff'}>{status}</span> : null}
+        {state === 'missing' && <span className="vfp-cmp-note">尚未写入</span>}
+        {state === 'same' && <span className="vfp-cmp-same">内容相同</span>}
+        {state === 'changed' && <span className="vfp-cmp-diff">
+          内容有变化
+          {changedLines && <em className="vfp-cmp-delta"><b>+{changedLines.added}</b><b>−{changedLines.removed}</b></em>}
+        </span>}
       </div>
       <div className="vfp-cmp-grid">
         <FilePane step="本任务文件" role="" path={target.path} dirLabel={shortPath(projectRoot, target.path)}
           state={targetState} changed={marks?.right} missing="尚未写入" />
-        <FilePane step="参考来源" role={source.role} path={source.path} dirLabel={shortPath(projectRoot, source.path)}
+        <FilePane step="参考来源" role="" path={source.path} dirLabel={shortPath(projectRoot, source.path)}
           state={sourceState} changed={marks?.left} />
       </div>
       <div className="vfp-cmp-address">

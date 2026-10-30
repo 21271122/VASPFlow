@@ -59624,7 +59624,7 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, originText, target, source }) {
+function SourceCompare({ projectRoot, projectName, slotLabel, target, source }) {
   const [targetState, setTargetState] = import_react129.default.useState();
   const [sourceState, setSourceState] = import_react129.default.useState();
   import_react129.default.useEffect(() => {
@@ -59645,7 +59645,8 @@ function SourceCompare({ projectRoot, projectName, slotLabel, originText, target
   );
   const isNew = Boolean(targetState?.error);
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
-  const status = targetState && sourceState ? isNew ? "\u5C1A\u672A\u5199\u5165" : same ? "\u4E0E\u6765\u6E90\u4E00\u81F4" : "\u4E0E\u6765\u6E90\u4E0D\u540C" : "";
+  const changedLines = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : void 0;
+  const state = targetState && sourceState ? isNew ? "missing" : same ? "same" : "changed" : "loading";
   const addressTree = import_react129.default.useMemo(
     () => buildAddressTree(projectName, projectRoot, source.path),
     [projectName, projectRoot, source.path]
@@ -59653,8 +59654,21 @@ function SourceCompare({ projectRoot, projectName, slotLabel, originText, target
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: slotLabel }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-origin", children: originText }),
-      status ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: same ? "vfp-cmp-same" : "vfp-cmp-diff", children: status }) : null
+      state === "missing" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u5C1A\u672A\u5199\u5165" }),
+      state === "same" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: "\u5185\u5BB9\u76F8\u540C" }),
+      state === "changed" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
+        "\u5185\u5BB9\u6709\u53D8\u5316",
+        changedLines && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("em", { className: "vfp-cmp-delta", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
+            "+",
+            changedLines.added
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
+            "\u2212",
+            changedLines.removed
+          ] })
+        ] })
+      ] })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -59673,7 +59687,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, originText, target
         FilePane,
         {
           step: "\u53C2\u8003\u6765\u6E90",
-          role: source.role,
+          role: "",
           path: source.path,
           dirLabel: shortPath(projectRoot, source.path),
           state: sourceState,
@@ -101115,7 +101129,6 @@ function BuildPreviewDetail({ detail }) {
                     projectRoot,
                     projectName: basenameOf(projectRoot) || "\u9879\u76EE",
                     slotLabel: slot.label,
-                    originText: originLabel(slot.origin),
                     target: { path: diskCopy },
                     source: { role: sourceRole, path: slot.path }
                   }
@@ -102157,7 +102170,11 @@ body[data-ds-dark-theme] .vfp-cmp-address .ant-tree::-webkit-scrollbar-thumb { b
 body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.38) transparent; }
 .vfp-cmp-head { display:flex; align-items:center; gap:8px; padding-bottom:9px; border-bottom:1px solid var(--vfp-line); }
 .vfp-cmp-head strong { font-size:13px; letter-spacing:.01em; }
-.vfp-cmp-origin { padding:0 7px; border-radius:9px; background:var(--vfp-soft); color:var(--vfp-muted); font-size:11px; line-height:18px; }
+.vfp-cmp-note { margin-left:auto; color:var(--vfp-muted); font-size:11px; }
+.vfp-cmp-delta { display:inline-flex; gap:7px; margin-left:7px; font-style:normal; font-variant-numeric:tabular-nums; }
+.vfp-cmp-delta b { font-weight:500; }
+.vfp-cmp-delta b:first-child { color:var(--vfp-success); }
+.vfp-cmp-delta b:last-child { color:var(--vfp-error); }
 .vfp-cmp-diff, .vfp-cmp-same { display:inline-flex; align-items:center; gap:5px; margin-left:auto; font-size:11px; }
 .vfp-cmp-diff::before, .vfp-cmp-same::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
 .vfp-cmp-diff { color:var(--vfp-warning); }

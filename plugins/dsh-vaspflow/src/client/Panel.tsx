@@ -194,7 +194,6 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
                   projectRoot={projectRoot}
                   projectName={basenameOf(projectRoot) || '项目'}
                   slotLabel={slot.label}
-                  originText={originLabel(slot.origin)}
                   target={{ path: diskCopy }}
                   source={{ role: sourceRole, path: slot.path }}
                 />
