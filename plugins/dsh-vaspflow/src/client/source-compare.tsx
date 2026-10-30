@@ -190,7 +190,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, adopted, te
     // Pick the most useful thing to compare against, before anything is written:
     // the template this task deviates from, otherwise whatever is on disk.
     const choose = async () => {
-      if (templatePath) {
+      if (templatePath && templatePath.toLowerCase() !== adopted.path.toLowerCase()) {
         const template = await readProjectFile(projectRoot, templatePath);
         if (!cancelled && !template.error) { setReference({ label: '模板版本', path: templatePath, state: template }); return; }
       }

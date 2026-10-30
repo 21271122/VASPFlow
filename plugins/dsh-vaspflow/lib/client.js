@@ -59629,7 +59629,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, adopted, templateP
       if (!cancelled) setAdoptedState(value);
     });
     const choose = async () => {
-      if (templatePath) {
+      if (templatePath && templatePath.toLowerCase() !== adopted.path.toLowerCase()) {
         const template = await readProjectFile(projectRoot, templatePath);
         if (!cancelled && !template.error) {
           setReference({ label: "\u6A21\u677F\u7248\u672C", path: templatePath, state: template });
@@ -101109,7 +101109,9 @@ function BuildPreviewDetail({ detail }) {
         if (!slot.path) return row;
         const destination = slot.key === "submit" ? basenameOf(task.submitSrc) : slot.key;
         const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || ".")}/${destination}`);
-        const templateCopy = slot.origin === "explicit" && slot.fromTemplate && task.template ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`) : void 0;
+        const templateRoot = task.template ? /^[A-Za-z]:[\\/]/.test(task.template) ? toPosix(task.template).replace(/\//g, "\\") : absoluteTaskPath(projectRoot, toPosix(task.template)) : "";
+        const templateCandidate = slot.origin === "explicit" && slot.fromTemplate && templateRoot ? `${templateRoot}\\${destination}` : void 0;
+        const templateCopy = templateCandidate && templateCandidate.toLowerCase() !== slot.path.toLowerCase() ? templateCandidate : void 0;
         const open = hoverSlot === slot.key || pinnedSlot === slot.key;
         return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           popover_default,

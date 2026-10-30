@@ -173,9 +173,19 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
             if (!slot.path) return row;
             const destination = slot.key === 'submit' ? basenameOf(task.submitSrc) : slot.key;
             const diskCopy = absoluteTaskPath(projectRoot, `${toPosix(task.dir || '.')}/${destination}`);
-            // Only a named file can deviate from the template; an inherited one *is* the template copy.
-            const templateCopy = slot.origin === 'explicit' && slot.fromTemplate && task.template
-              ? absoluteTaskPath(projectRoot, `${toPosix(task.template)}/${destination}`)
+            // Only a named file can deviate from the template, and only when it is
+            // not the template's own file: naming 'templates/relax/INCAR' directly
+            // would otherwise compare that file with itself.
+            const templateRoot = task.template
+              ? (/^[A-Za-z]:[\\/]/.test(task.template)
+                ? toPosix(task.template).replace(/\//g, '\\')
+                : absoluteTaskPath(projectRoot, toPosix(task.template)))
+              : '';
+            const templateCandidate = slot.origin === 'explicit' && slot.fromTemplate && templateRoot
+              ? `${templateRoot}\\${destination}`
+              : undefined;
+            const templateCopy = templateCandidate && templateCandidate.toLowerCase() !== slot.path.toLowerCase()
+              ? templateCandidate
               : undefined;
             const open = hoverSlot === slot.key || pinnedSlot === slot.key;
             return <Popover
