@@ -230,6 +230,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
   React.useEffect(() => {
     let cancelled = false;
     setCompared(undefined);
+    let hostStale = false;
     const splitLines = (text: string) => {
       const lines = text.replace(/\r\n?/g, '\n').split('\n');
       if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
@@ -249,6 +250,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
           const url = `/plugins/dsh-vaspflow/build-inputs/file?planId=${encodeURIComponent(planId)}`
             + `&taskIndex=${taskIndex}&name=${encodeURIComponent(fileName)}`;
           const response = await fetch(url);
+          if (response.status === 404) hostStale = true;
           if (response.ok) {
             const payload = await response.json() as { source?: string; written?: string };
             if (typeof payload.source === 'string' && typeof payload.written === 'string') {
@@ -264,7 +266,10 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
       const written = Object.keys(incarOverrides ?? {}).length
         ? splitLines(applyIncarOverrides(state.text, incarOverrides))
         : state.lines;
-      setCompared({ source: state.lines, written, notice: rewritten ? '未取得宿主写入内容，此处仅为来源' : undefined });
+      const notice = hostStale
+        ? '宿主版本过旧，未提供写入内容（重启 DSH 后生效）'
+        : rewritten ? '未取得宿主写入内容，此处仅为来源' : undefined;
+      setCompared({ source: state.lines, written, notice });
     };
     void load();
     return () => { cancelled = true; };

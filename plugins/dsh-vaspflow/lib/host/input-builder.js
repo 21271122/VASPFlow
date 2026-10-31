@@ -551,8 +551,14 @@ export async function buildOneTask(task, projectRoot, opts) {
       } catch { /* binary or unreadable: skip */ }
       if (typeof sourceText !== 'string') continue;
       let written = sourceText;
-      if (dest === 'POSCAR' && typeof newText === 'string') written = newText;
-      else if (dest === 'INCAR' && t.incarOverrides) written = applyIncarOverrides(sourceText, t.incarOverrides);
+      if (dest === 'POSCAR') {
+        // If the rewrite failed there is no result to show; never pass the
+        // source off as one.
+        if (typeof newText !== 'string') continue;
+        written = newText;
+      } else if (dest === 'INCAR' && t.incarOverrides) {
+        written = applyIncarOverrides(sourceText, t.incarOverrides);
+      }
       previewFiles[dest] = { source: sourceText, written };
     }
   }

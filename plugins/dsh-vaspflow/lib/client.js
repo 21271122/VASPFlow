@@ -59652,6 +59652,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
   import_react129.default.useEffect(() => {
     let cancelled = false;
     setCompared(void 0);
+    let hostStale = false;
     const splitLines = (text) => {
       const lines = text.replace(/\r\n?/g, "\n").split("\n");
       if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
@@ -59667,6 +59668,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
         try {
           const url2 = `/plugins/dsh-vaspflow/build-inputs/file?planId=${encodeURIComponent(planId)}&taskIndex=${taskIndex}&name=${encodeURIComponent(fileName)}`;
           const response = await fetch(url2);
+          if (response.status === 404) hostStale = true;
           if (response.ok) {
             const payload = await response.json();
             if (typeof payload.source === "string" && typeof payload.written === "string") {
@@ -59684,7 +59686,8 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
         return;
       }
       const written = Object.keys(incarOverrides ?? {}).length ? splitLines(applyIncarOverrides(state.text, incarOverrides)) : state.lines;
-      setCompared({ source: state.lines, written, notice: rewritten ? "\u672A\u53D6\u5F97\u5BBF\u4E3B\u5199\u5165\u5185\u5BB9\uFF0C\u6B64\u5904\u4EC5\u4E3A\u6765\u6E90" : void 0 });
+      const notice = hostStale ? "\u5BBF\u4E3B\u7248\u672C\u8FC7\u65E7\uFF0C\u672A\u63D0\u4F9B\u5199\u5165\u5185\u5BB9\uFF08\u91CD\u542F DSH \u540E\u751F\u6548\uFF09" : rewritten ? "\u672A\u53D6\u5F97\u5BBF\u4E3B\u5199\u5165\u5185\u5BB9\uFF0C\u6B64\u5904\u4EC5\u4E3A\u6765\u6E90" : void 0;
+      setCompared({ source: state.lines, written, notice });
     };
     void load();
     return () => {
