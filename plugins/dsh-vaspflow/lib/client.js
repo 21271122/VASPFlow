@@ -59729,9 +59729,9 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", "data-compact": compact ? "" : void 0, "data-variant": variant, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
       variant !== "source" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: slotLabel }),
-      note2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
-      variant !== "source" && (error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
-        "\u4E0E\u6765\u6E90\u4E0D\u540C",
+      note2 && !compact ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
+      variant !== "source" && (error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: compact ? "\u76F8\u540C" : "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
+        compact ? "\u4E0D\u540C" : "\u4E0E\u6765\u6E90\u4E0D\u540C",
         delta && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("em", { className: "vfp-cmp-delta", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
             "+",
@@ -59743,8 +59743,8 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
           ] })
         ] })
       ] }))),
-      compared?.notice && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
-      overrideCount > 0 && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-note", children: [
+      compared?.notice && variant !== "source" && !compact ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
+      overrideCount > 0 && variant !== "source" && !compact ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-note", children: [
         "\u53C2\u6570\u8986\u76D6 ",
         overrideCount,
         " \u9879"
@@ -102460,8 +102460,8 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp-file { color:var(--vfp-text); font-weight:500; }
 .vfp-cmp-ellipsis { color:var(--vfp-muted); }
 /* Batch source view: file type \u2192 source file node \u2192 task nodes. */
-.vfp-batch-popover .ant-popover-inner { width:min(760px,82vw); }
-.vfp-batch { display:grid; gap:10px; width:100%; max-height:min(78vh,720px); overflow:auto; overscroll-behavior:contain; padding:13px 15px; font-size:12px; scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.38) transparent; }
+.vfp-batch-popover .ant-popover-inner { width:min(1240px,94vw); }
+.vfp-batch { display:grid; gap:10px; width:100%; max-height:min(86vh,820px); overflow:auto; overscroll-behavior:contain; padding:13px 15px; font-size:12px; scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.38) transparent; }
 .vfp-batch::-webkit-scrollbar { width:8px; }
 .vfp-batch::-webkit-scrollbar-thumb { background:rgba(120,132,150,.34); border-radius:99px; }
 .vfp-batch-head { display:flex; align-items:baseline; gap:8px; padding-bottom:9px; border-bottom:1px solid var(--vfp-line); }
@@ -102480,9 +102480,9 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-dot { width:7px; height:7px; border-radius:50%; background:var(--vfp-accent); flex:none; }
 .vfp-batch-path-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1.5 Consolas,"Cascadia Mono",monospace; color:var(--vfp-text); }
 .vfp-batch-count { margin-left:auto; color:var(--vfp-muted); font-size:11px; font-variant-numeric:tabular-nums; }
-.vfp-batch-children { display:grid; gap:1px; margin:6px 0 0 12px; padding:0 0 0 18px; list-style:none; border-left:1px solid var(--vfp-line); }
-.vfp-batch-children li { position:relative; }
-.vfp-batch-children li::before { content:""; position:absolute; left:-18px; top:20px; width:14px; border-top:1px solid var(--vfp-line); }
+.vfp-batch-children { display:flex; flex-wrap:nowrap; gap:8px; margin:6px 0 0 12px; padding:0 0 4px 12px; list-style:none; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
+.vfp-batch-children li { position:relative; flex:0 0 230px; min-width:230px; }
+.vfp-batch-children li::before { content:none; }
 .vfp-batch-task { width:100%; padding:2px 6px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }
 .vfp-batch-task:hover { background:var(--vfp-soft); }
 .vfp-batch-task[data-active] { background:var(--vfp-selected); }
@@ -102491,14 +102491,16 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-dir { margin-left:auto; flex:none; color:var(--vfp-muted); font-size:10.5px; font-variant-numeric:tabular-nums; }
 .vfp-batch-missing-row { color:var(--vfp-warning); font-size:11px; }
 .vfp-batch-source > .vfp-cmp { margin:6px 0 2px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
-.vfp-batch-leaf { margin:3px 0 7px; }
+.vfp-batch-leaf { margin:0; }
 .vfp-batch-leaf .vfp-cmp { width:100%; max-height:none; overflow:visible; gap:6px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); }
 .vfp-cmp[data-compact] { width:100%; max-height:none; overflow:visible; padding:0; gap:6px; }
-.vfp-cmp[data-compact] .vfp-cmp-head { padding-bottom:5px; }
+.vfp-cmp[data-compact] .vfp-cmp-head { padding-bottom:5px; flex-wrap:nowrap; gap:6px; }
+.vfp-cmp[data-compact] .vfp-cmp-head strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vfp-cmp[data-compact] .vfp-cmp-diff, .vfp-cmp[data-compact] .vfp-cmp-same { margin-left:auto; flex:none; }
 .vfp-cmp[data-compact] .vfp-cmp-head strong { font-size:12px; }
 .vfp-cmp[data-compact] .vfp-cmp-side > header { padding:3px 7px; }
 .vfp-cmp[data-compact] .vfp-cmp-side > header code { font-size:10px; }
-.vfp-cmp[data-compact] .vfp-cmp-side pre { max-height:132px; }
+.vfp-cmp[data-compact] .vfp-cmp-side pre { max-height:150px; }
 .vfp-cmp[data-compact] .vfp-cmp-line { padding:0 7px; }
 .vfp-batch-more { margin:2px 0 4px; }
 .vfp-batch-more button { border:1px dashed var(--vfp-line); border-radius:6px; background:transparent; color:var(--vfp-muted); font:inherit; font-size:11px; padding:3px 8px; cursor:pointer; }

@@ -296,14 +296,14 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
     <div className="vfp-cmp vaspflow-task-popover" data-compact={compact ? '' : undefined} data-variant={variant}>
       <div className="vfp-cmp-head">
         {variant !== 'source' && <strong>{slotLabel}</strong>}
-        {note ? <span className="vfp-cmp-note">{note}</span> : null}
+        {note && !compact ? <span className="vfp-cmp-note">{note}</span> : null}
         {variant !== 'source' && (error
           ? <span className="vfp-cmp-note">来源不可读</span>
           : marks && (same
-            ? <span className="vfp-cmp-same">与来源相同</span>
-            : <span className="vfp-cmp-diff">与来源不同{delta && <em className="vfp-cmp-delta"><b>+{delta.added}</b><b>−{delta.removed}</b></em>}</span>))}
-        {compared?.notice && variant !== 'source' ? <span className="vfp-cmp-note">{compared.notice}</span> : null}
-        {overrideCount > 0 && variant !== 'source' ? <span className="vfp-cmp-note">参数覆盖 {overrideCount} 项</span> : null}
+            ? <span className="vfp-cmp-same">{compact ? '相同' : '与来源相同'}</span>
+            : <span className="vfp-cmp-diff">{compact ? '不同' : '与来源不同'}{delta && <em className="vfp-cmp-delta"><b>+{delta.added}</b><b>−{delta.removed}</b></em>}</span>))}
+        {compared?.notice && variant !== 'source' && !compact ? <span className="vfp-cmp-note">{compared.notice}</span> : null}
+        {overrideCount > 0 && variant !== 'source' && !compact ? <span className="vfp-cmp-note">参数覆盖 {overrideCount} 项</span> : null}
       </div>
       <div className="vfp-cmp-grid" data-single={variant === 'both' ? undefined : ''}>
         {variant !== 'written' && (
