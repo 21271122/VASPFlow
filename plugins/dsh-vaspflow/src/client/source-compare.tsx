@@ -196,6 +196,7 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
       data-side={step === '将写入' ? 'write' : 'read'}
       data-loading={!lines && !error ? '' : undefined}
       onPointerMove={mapPointer}
+      onPointerLeave={() => { const body = bodyRef.current; if (body) body.scrollLeft = 0; }}
       title="鼠标在框内移动即可定位内容"
     >
       <header>
@@ -337,15 +338,21 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
   return (
     <div className="vfp-cmp vaspflow-task-popover" data-compact={compact ? '' : undefined} data-variant={variant}>
       <div className="vfp-cmp-head">
-        {variant !== 'source' && <strong>{slotLabel}</strong>}
-        {note && !compact ? <span className="vfp-cmp-note">{note}</span> : null}
+        {variant !== 'source' && <strong className="vfp-cmp-title">{slotLabel}</strong>}
+        {!compact && (note || compared?.notice || overrideCount > 0) && (
+          <div className="vfp-cmp-notes">
+            {note ? <span className="vfp-cmp-note">{note}</span> : null}
+            {compared?.notice && variant !== 'source' ? <span className="vfp-cmp-note">{compared.notice}</span> : null}
+            {overrideCount > 0 && variant !== 'source'
+              ? <span className="vfp-cmp-chip">覆盖 {overrideCount} 项</span>
+              : null}
+          </div>
+        )}
         {variant !== 'source' && (error
-          ? <span className="vfp-cmp-note">来源不可读</span>
+          ? <span className="vfp-cmp-same" data-tone="muted">来源不可读</span>
           : marks && (same
             ? <span className="vfp-cmp-same">{compact ? '相同' : '与来源相同'}</span>
             : <span className="vfp-cmp-diff">{compact ? '不同' : '与来源不同'}{delta && <em className="vfp-cmp-delta"><b>+{delta.added}</b><b>−{delta.removed}</b></em>}</span>))}
-        {compared?.notice && variant !== 'source' && !compact ? <span className="vfp-cmp-note">{compared.notice}</span> : null}
-        {overrideCount > 0 && variant !== 'source' && !compact ? <span className="vfp-cmp-note">参数覆盖 {overrideCount} 项</span> : null}
       </div>
       <div className="vfp-cmp-grid" data-single={variant === 'both' ? undefined : ''}>
         {variant !== 'written' && (

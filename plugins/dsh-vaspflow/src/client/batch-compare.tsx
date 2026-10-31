@@ -33,14 +33,12 @@ function taskLabel(dir?: string): string {
 
 export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }: BatchCompareProps) {
   const groups = React.useMemo(() => groupBatchBySource(batch, projectRoot), [batch, projectRoot]);
-  const [openKeys, setOpenKeys] = React.useState<Set<string>>(() => new Set(groups.slice(0, 1).map((group) => group.key)));
+  // Accordion: expanding one file type closes the others, so only one set of
+  // previews is on screen at a time.
+  const [openKey, setOpenKey] = React.useState<string | null>(() => groups[0]?.key ?? null);
   const [showAll, setShowAll] = React.useState<Set<string>>(() => new Set());
 
-  const toggle = (key: string) => setOpenKeys((current) => {
-    const next = new Set(current);
-    if (next.has(key)) next.delete(key); else next.add(key);
-    return next;
-  });
+  const toggle = (key: string) => setOpenKey((current) => (current === key ? null : key));
 
   const revealAll = (path: string) => setShowAll((current) => new Set(current).add(path));
 
@@ -55,7 +53,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
       </div>
       <div className="vfp-batch-body">
         {groups.map((group) => {
-          const open = openKeys.has(group.key);
+          const open = openKey === group.key;
           const total = group.sources.reduce((sum, source) => sum + source.tasks.length, 0);
           return (
             <section className="vfp-batch-group" key={group.key}>

@@ -171,14 +171,19 @@ body[data-ds-dark-theme] .vfp-cmp::-webkit-scrollbar-thumb,
 body[data-ds-dark-theme] .vfp-cmp-side pre::-webkit-scrollbar-thumb,
 body[data-ds-dark-theme] .vfp-cmp-address .ant-tree::-webkit-scrollbar-thumb { background:rgba(158,170,188,.38); background-clip:padding-box; border:2px solid transparent; }
 body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.38) transparent; }
-.vfp-cmp-head { display:flex; align-items:center; gap:8px; padding-bottom:9px; border-bottom:1px solid var(--vfp-line); }
-.vfp-cmp-head strong { font-size:13px; letter-spacing:.01em; }
-.vfp-cmp-note { margin-left:auto; color:var(--vfp-muted); font-size:11px; }
+.vfp-cmp-head { display:flex; align-items:center; gap:9px; min-width:0; padding:0 1px 9px; border-bottom:1px solid var(--vfp-line); }
+.vfp-cmp-title { flex:none; font-size:13px; font-weight:600; letter-spacing:.01em; color:var(--vfp-text); }
+.vfp-cmp-notes { display:flex; align-items:center; gap:7px; flex:1 1 auto; min-width:0; overflow:hidden; }
+.vfp-cmp-note { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--vfp-muted); font-size:11px; }
+.vfp-cmp-chip { flex:none; padding:0 7px; border:1px solid var(--vfp-line); border-radius:99px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }
+.vfp-cmp-same[data-tone="muted"] { color:var(--vfp-muted); }
 .vfp-cmp-delta { display:inline-flex; gap:7px; margin-left:7px; font-style:normal; font-variant-numeric:tabular-nums; }
 .vfp-cmp-delta b { font-weight:500; }
 .vfp-cmp-delta b:first-child { color:var(--vfp-success); }
 .vfp-cmp-delta b:last-child { color:var(--vfp-error); }
-.vfp-cmp-diff, .vfp-cmp-same { display:inline-flex; align-items:center; gap:5px; margin-left:auto; font-size:11px; }
+.vfp-cmp-diff, .vfp-cmp-same { display:inline-flex; align-items:center; gap:5px; flex:none; margin-left:auto; padding:1px 7px; border-radius:99px; font-size:11px; }
+.vfp-cmp-diff { background:rgba(196,132,20,.10); }
+.vfp-cmp-same { background:rgba(38,146,96,.10); }
 .vfp-cmp-diff::before, .vfp-cmp-same::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
 .vfp-cmp-diff { color:var(--vfp-warning); }
 .vfp-cmp-same { color:var(--vfp-success); }

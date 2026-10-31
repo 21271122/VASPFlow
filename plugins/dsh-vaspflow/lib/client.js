@@ -59662,6 +59662,10 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
       "data-side": step === "\u5C06\u5199\u5165" ? "write" : "read",
       "data-loading": !lines && !error ? "" : void 0,
       onPointerMove: mapPointer,
+      onPointerLeave: () => {
+        const body = bodyRef.current;
+        if (body) body.scrollLeft = 0;
+      },
       title: "\u9F20\u6807\u5728\u6846\u5185\u79FB\u52A8\u5373\u53EF\u5B9A\u4F4D\u5185\u5BB9",
       children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { children: [
@@ -59758,9 +59762,17 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
   );
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", "data-compact": compact ? "" : void 0, "data-variant": variant, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
-      variant !== "source" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: slotLabel }),
-      note2 && !compact ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
-      variant !== "source" && (error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: compact ? "\u76F8\u540C" : "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
+      variant !== "source" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { className: "vfp-cmp-title", children: slotLabel }),
+      !compact && (note2 || compared?.notice || overrideCount > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-notes", children: [
+        note2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
+        compared?.notice && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
+        overrideCount > 0 && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-chip", children: [
+          "\u8986\u76D6 ",
+          overrideCount,
+          " \u9879"
+        ] }) : null
+      ] }),
+      variant !== "source" && (error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", "data-tone": "muted", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: compact ? "\u76F8\u540C" : "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
         compact ? "\u4E0D\u540C" : "\u4E0E\u6765\u6E90\u4E0D\u540C",
         delta && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("em", { className: "vfp-cmp-delta", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
@@ -59772,13 +59784,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
             delta.removed
           ] })
         ] })
-      ] }))),
-      compared?.notice && variant !== "source" && !compact ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
-      overrideCount > 0 && variant !== "source" && !compact ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-note", children: [
-        "\u53C2\u6570\u8986\u76D6 ",
-        overrideCount,
-        " \u9879"
-      ] }) : null
+      ] })))
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", "data-single": variant === "both" ? void 0 : "", children: [
       variant !== "written" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -59835,14 +59841,9 @@ function taskLabel(dir) {
 }
 function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
   const groups = import_react130.default.useMemo(() => groupBatchBySource(batch, projectRoot), [batch, projectRoot]);
-  const [openKeys, setOpenKeys] = import_react130.default.useState(() => new Set(groups.slice(0, 1).map((group) => group.key)));
+  const [openKey, setOpenKey] = import_react130.default.useState(() => groups[0]?.key ?? null);
   const [showAll, setShowAll] = import_react130.default.useState(() => /* @__PURE__ */ new Set());
-  const toggle = (key) => setOpenKeys((current) => {
-    const next2 = new Set(current);
-    if (next2.has(key)) next2.delete(key);
-    else next2.add(key);
-    return next2;
-  });
+  const toggle = (key) => setOpenKey((current) => current === key ? null : key);
   const revealAll = (path3) => setShowAll((current) => new Set(current).add(path3));
   const tasks = batch?.tasks ?? [];
   const results = batch?.results ?? [];
@@ -59857,7 +59858,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
       ] })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-batch-body", children: groups.map((group) => {
-      const open = openKeys.has(group.key);
+      const open = openKey === group.key;
       const total = group.sources.reduce((sum, source) => sum + source.tasks.length, 0);
       return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "vfp-batch-group", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", className: "vfp-batch-group-head", "aria-expanded": open, onClick: () => toggle(group.key), children: [
@@ -102447,14 +102448,19 @@ body[data-ds-dark-theme] .vfp-cmp::-webkit-scrollbar-thumb,
 body[data-ds-dark-theme] .vfp-cmp-side pre::-webkit-scrollbar-thumb,
 body[data-ds-dark-theme] .vfp-cmp-address .ant-tree::-webkit-scrollbar-thumb { background:rgba(158,170,188,.38); background-clip:padding-box; border:2px solid transparent; }
 body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.38) transparent; }
-.vfp-cmp-head { display:flex; align-items:center; gap:8px; padding-bottom:9px; border-bottom:1px solid var(--vfp-line); }
-.vfp-cmp-head strong { font-size:13px; letter-spacing:.01em; }
-.vfp-cmp-note { margin-left:auto; color:var(--vfp-muted); font-size:11px; }
+.vfp-cmp-head { display:flex; align-items:center; gap:9px; min-width:0; padding:0 1px 9px; border-bottom:1px solid var(--vfp-line); }
+.vfp-cmp-title { flex:none; font-size:13px; font-weight:600; letter-spacing:.01em; color:var(--vfp-text); }
+.vfp-cmp-notes { display:flex; align-items:center; gap:7px; flex:1 1 auto; min-width:0; overflow:hidden; }
+.vfp-cmp-note { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--vfp-muted); font-size:11px; }
+.vfp-cmp-chip { flex:none; padding:0 7px; border:1px solid var(--vfp-line); border-radius:99px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }
+.vfp-cmp-same[data-tone="muted"] { color:var(--vfp-muted); }
 .vfp-cmp-delta { display:inline-flex; gap:7px; margin-left:7px; font-style:normal; font-variant-numeric:tabular-nums; }
 .vfp-cmp-delta b { font-weight:500; }
 .vfp-cmp-delta b:first-child { color:var(--vfp-success); }
 .vfp-cmp-delta b:last-child { color:var(--vfp-error); }
-.vfp-cmp-diff, .vfp-cmp-same { display:inline-flex; align-items:center; gap:5px; margin-left:auto; font-size:11px; }
+.vfp-cmp-diff, .vfp-cmp-same { display:inline-flex; align-items:center; gap:5px; flex:none; margin-left:auto; padding:1px 7px; border-radius:99px; font-size:11px; }
+.vfp-cmp-diff { background:rgba(196,132,20,.10); }
+.vfp-cmp-same { background:rgba(38,146,96,.10); }
 .vfp-cmp-diff::before, .vfp-cmp-same::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
 .vfp-cmp-diff { color:var(--vfp-warning); }
 .vfp-cmp-same { color:var(--vfp-success); }
