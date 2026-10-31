@@ -146,6 +146,20 @@ function shortPath(projectRoot: string, absolutePath: string): string {
   return `${prefix}/${name}`;
 }
 
+/** Thickness, in pixels, of the pinned band along each edge of a preview. */
+const EDGE_BAND = 20;
+
+/**
+ * Map a pointer offset inside [0, size) onto [0, 1] with a pinned band at both
+ * ends: anything within `band` of an edge reports the edge, and the rest is a
+ * smooth linear ramp over the remaining span.
+ */
+function positionRatio(offset: number, size: number, band: number): number {
+  if (size <= 0) return 0;
+  if (offset <= band) return 0;
+  if (offset >= size - band) return 1;
+  return (offset - band) / Math.max(1, size - band * 2);
+}
 function FilePane({ step, path, dirLabel, lines, changed, error }: {
   step: string;
   path: string;
@@ -165,8 +179,13 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
     if (!body) return;
     const rect = body.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    const ratioX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-    const ratioY = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    // A thick border band stays pinned to the first/last line, so reaching an
+    // end never means balancing on the edge of the pane — the pointer can sit
+    // comfortably inside without jumping to the neighbouring preview.
+    const bandX = Math.min(EDGE_BAND, rect.width * 0.25);
+    const bandY = Math.min(EDGE_BAND, rect.height * 0.25);
+    const ratioX = positionRatio(event.clientX - rect.left, rect.width, bandX);
+    const ratioY = positionRatio(event.clientY - rect.top, rect.height, bandY);
     body.scrollTop = ratioY * (body.scrollHeight - body.clientHeight);
     body.scrollLeft = ratioX * (body.scrollWidth - body.clientWidth);
   };

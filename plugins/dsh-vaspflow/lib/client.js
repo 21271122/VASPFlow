@@ -59634,6 +59634,13 @@ function shortPath(projectRoot, absolutePath) {
   const prefix2 = dirs.length <= 2 ? dirs.join("/") : `\u2026/${dirs.slice(-2).join("/")}`;
   return `${prefix2}/${name}`;
 }
+var EDGE_BAND = 20;
+function positionRatio(offset3, size, band2) {
+  if (size <= 0) return 0;
+  if (offset3 <= band2) return 0;
+  if (offset3 >= size - band2) return 1;
+  return (offset3 - band2) / Math.max(1, size - band2 * 2);
+}
 function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
   const bodyRef = import_react129.default.useRef(null);
   const mapPointer = (event) => {
@@ -59641,8 +59648,10 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
     if (!body) return;
     const rect = body.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    const ratioX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
-    const ratioY = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    const bandX = Math.min(EDGE_BAND, rect.width * 0.25);
+    const bandY = Math.min(EDGE_BAND, rect.height * 0.25);
+    const ratioX = positionRatio(event.clientX - rect.left, rect.width, bandX);
+    const ratioY = positionRatio(event.clientY - rect.top, rect.height, bandY);
     body.scrollTop = ratioY * (body.scrollHeight - body.clientHeight);
     body.scrollLeft = ratioX * (body.scrollWidth - body.clientWidth);
   };
