@@ -101,11 +101,19 @@ foreach ($file in $checks) {
 }
 if ($bad -gt 0) { throw "$bad file(s) differ; the app would run stale code." }
 
+$link = Get-Item $pluginPath -Force -ErrorAction SilentlyContinue
+Write-Host ("      home    : " + $DesktopHome)
+Write-Host ("      profile : desktop")
+Write-Host ("      plugin  : " + $link.LinkType + " -> " + ($link.Target -join ','))
+
 if ($NoLaunch) {
   Write-Host '[4/4] Skipped launching (-NoLaunch).'
 } else {
   if (-not (Test-Path $DesktopExe)) { throw "Desktop executable not found: $DesktopExe" }
-  Start-Process -FilePath $DesktopExe
+  # Pin the home/profile for the child so it cannot fall back to ~\.dsh.
+  $env:DSH_HOME = $DesktopHome
+  $env:DSH_PROFILE = 'desktop'
+  Start-Process -FilePath $DesktopExe -WorkingDirectory (Split-Path $DesktopExe -Parent)
   Write-Host '[4/4] DeepSeek Harness started.'
 }
 
