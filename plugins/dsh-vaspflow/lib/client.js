@@ -104238,6 +104238,39 @@ function BuildInputsToolRow({ block }) {
           return;
         }
         const nextMessage = error instanceof Error ? error.message : String(error);
+        const root = originalPreview.projectRoot || args.projectRoot || "";
+        const expected = tasks.map((task, index2) => ({
+          index: index2,
+          paths: Object.keys(originalPreview.results?.[index2]?.sources ?? {}).map((name) => `${(task.dir || ".").replace(/\\/g, "/")}/${name}`)
+        }));
+        const flat = expected.flatMap((entry) => entry.paths);
+        if (root && flat.length) {
+          try {
+            const probe = await fetch("/plugins/dsh-vaspflow/build-inputs/presence", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ root, paths: flat })
+            });
+            if (probe.ok) {
+              const { existing } = await probe.json();
+              let cursor = 0;
+              const writtenIndices2 = [];
+              for (const entry of expected) {
+                const flags = existing.slice(cursor, cursor + entry.paths.length);
+                cursor += entry.paths.length;
+                if (flags.length && flags.every(Boolean)) writtenIndices2.push(entry.index);
+              }
+              if (writtenIndices2.length > 0) {
+                const inferred = `\u5DF2\u5199\u5165 ${writtenIndices2.length} \u4E2A\u4EFB\u52A1\uFF08\u6309\u76EE\u6807\u6587\u4EF6\u5B58\u5728\u63A8\u65AD\uFF09`;
+                saveBuildOutcome(originalPreview.planId, { phase: "done", selectedIndices: writtenIndices2, writeRows: {}, message: inferred, requestError: false });
+                setPhase("done");
+                setMessage(inferred);
+                return;
+              }
+            }
+          } catch {
+          }
+        }
         saveBuildOutcome(originalPreview.planId, { phase: "unavailable", selectedIndices: [], writeRows: {}, message: nextMessage, requestError: true });
         setMessage(nextMessage);
       }

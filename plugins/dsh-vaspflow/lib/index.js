@@ -1245,6 +1245,38 @@ export function apply(ctx, config) {
       },
     }), 'dsh-vaspflow: build file preview');
 
+    // Read-only existence probe: after a restart the plan may be gone, so the
+    // card can only recover by checking whether the files it would have
+    // written are on disk. Paths must stay inside the given project root.
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: '/plugins/dsh-vaspflow/build-inputs/presence',
+      handler: async (req, res) => {
+        if (req.method !== 'POST') return json(res, 405, { error: 'POST required' });
+        try {
+          let raw = '';
+          for await (const chunk of req) {
+            raw += chunk.toString();
+            if (raw.length > 256 * 1024) return json(res, 413, { error: 'Request too large' });
+          }
+          const body = JSON.parse(raw || '{}');
+          const root = typeof body.root === 'string' && isAbsolute(body.root) ? resolvePath(body.root) : '';
+          if (!root || !isDirectory(root)) return json(res, 400, { error: '无效的项目根目录' });
+          const paths = Array.isArray(body.paths) ? body.paths.slice(0, 1000) : [];
+          const existing = paths.map((entry) => {
+            if (typeof entry !== 'string' || !entry) return false;
+            const absolute = resolvePath(root, entry);
+            const inside = relativePath(root, absolute);
+            if (isAbsolute(inside) || inside === '..' || inside.startsWith(`..${sep}`)) return false;
+            try { return statSync(absolute).isFile(); } catch { return false; }
+          });
+          return json(res, 200, { existing });
+        } catch (error) {
+          return json(res, 400, { error: String(error) });
+        }
+      },
+    }), 'dsh-vaspflow: build output presence');
+
     // A preview creates an opaque server-side plan. Only its selected task
     // indices may be confirmed; the browser cannot submit arbitrary paths.
     ctx.effect(() => webServer.register({

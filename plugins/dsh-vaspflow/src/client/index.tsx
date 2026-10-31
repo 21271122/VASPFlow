@@ -698,6 +698,41 @@ function BuildInputsToolRow({ block }: { block: any }) {
           return;
         }
         const nextMessage = error instanceof Error ? error.message : String(error);
+        // Nothing authoritative left: the plan and the outcome store are both
+        // gone. Fall back to asking the filesystem what actually exists.
+        const root = originalPreview.projectRoot || args.projectRoot || '';
+        const expected = tasks.map((task, index) => ({
+          index,
+          paths: Object.keys(originalPreview.results?.[index]?.sources ?? {})
+            .map((name) => `${(task.dir || '.').replace(/\\/g, '/')}/${name}`),
+        }));
+        const flat = expected.flatMap((entry) => entry.paths);
+        if (root && flat.length) {
+          try {
+            const probe = await fetch('/plugins/dsh-vaspflow/build-inputs/presence', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ root, paths: flat }),
+            });
+            if (probe.ok) {
+              const { existing } = await probe.json() as { existing: boolean[] };
+              let cursor = 0;
+              const writtenIndices: number[] = [];
+              for (const entry of expected) {
+                const flags = existing.slice(cursor, cursor + entry.paths.length);
+                cursor += entry.paths.length;
+                if (flags.length && flags.every(Boolean)) writtenIndices.push(entry.index);
+              }
+              if (writtenIndices.length > 0) {
+                const inferred = `已写入 ${writtenIndices.length} 个任务（按目标文件存在推断）`;
+                saveBuildOutcome(originalPreview.planId, { phase: 'done', selectedIndices: writtenIndices, writeRows: {}, message: inferred, requestError: false });
+                setPhase('done');
+                setMessage(inferred);
+                return;
+              }
+            }
+          } catch { /* keep the unavailable state below */ }
+        }
         saveBuildOutcome(originalPreview.planId, { phase: 'unavailable', selectedIndices: [], writeRows: {}, message: nextMessage, requestError: true });
         setMessage(nextMessage);
       }
