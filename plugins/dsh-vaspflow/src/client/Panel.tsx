@@ -16,6 +16,7 @@ import {
 } from './inheritance';
 import type { BuildBatchSummary } from './inheritance';
 import { SourceCompare } from './source-compare';
+import { BatchCompare } from './batch-compare';
 import { startStructureDrag } from './structure-drag';
 import type { BuildTaskDetail } from './store';
 import { scanProject, scanProjectEvents, openTaskByPath, checkTaskInputs } from './api';
@@ -26,6 +27,9 @@ import FileList from './FileList';
 import type { Task } from './api';
 
 const { Text } = Typography;
+
+/** Sentinel key so the batch card shares the hover/pin machinery with the rows. */
+const BATCH_KEY = '__batch__';
 
 function formatDateTime(value?: string): string {
   if (!value) return '—';
@@ -152,7 +156,39 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
     <div className="vfp-build-detail">
       <div className="vfp-build-detail-head"><strong>{basenameOf(task.dir) || '未命名任务'}</strong><Tag color={result?.errors?.length ? 'error' : result?.warnings?.length ? 'warning' : 'success'}>{status}</Tag></div>
       <div className="vfp-build-detail-path" title={target}>{[basenameOf(projectRoot) || '项目根目录', ...crumbs.slice(0, -1)].join(' › ')}</div>
-      {summary && <BuildInheritanceSummary summary={summary} />}
+      {summary && <Popover
+        key="batch-compare"
+        trigger={[]}
+        open={hoverSlot === BATCH_KEY || pinnedSlot === BATCH_KEY}
+        destroyTooltipOnHide
+        placement="left"
+        align={{ offset: [0, alignOffset], overflow: { adjustX: true, adjustY: true } }}
+        overlayClassName="vfp-cmp-popover vfp-batch-popover"
+        content={<div
+          onMouseEnter={() => { cancelHoverClose(); }}
+          onMouseLeave={scheduleHoverClose}
+        >
+          <BatchCompare
+            batch={batch}
+            projectRoot={projectRoot}
+            projectName={basenameOf(projectRoot) || '项目'}
+            planId={detail.planId}
+          />
+        </div>}
+      >
+        <div
+          className="vfp-batch-trigger"
+          data-pinned={pinnedSlot === BATCH_KEY ? '' : undefined}
+          onMouseEnter={(event) => openCard(BATCH_KEY, event.currentTarget)}
+          onMouseLeave={scheduleHoverClose}
+          onClick={(event) => {
+            openCard(BATCH_KEY, event.currentTarget, true);
+            setPinnedSlot((current) => (current === BATCH_KEY ? null : BATCH_KEY));
+          }}
+        >
+          <BuildInheritanceSummary summary={summary} />
+        </div>
+      </Popover>}
       <div className="vfp-build-detail-section"><b>本任务来源</b>
         <div className="vfp-inherit-template">
           <span className="vfp-inherit-name" title="模板只提供 INCAR / KPOINTS / POTCAR；POSCAR 与提交脚本始终由本任务指定">模板</span>

@@ -218,6 +218,42 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp-address .ant-tree-node-content-wrapper:hover { background:var(--vfp-soft); }
 .vfp-cmp-file { color:var(--vfp-text); font-weight:500; }
 .vfp-cmp-ellipsis { color:var(--vfp-muted); }
+/* Batch source view: file type → source file node → task nodes. */
+.vfp-batch-popover .ant-popover-inner { width:min(760px,82vw); }
+.vfp-batch { display:grid; gap:10px; width:100%; max-height:min(78vh,720px); overflow:auto; overscroll-behavior:contain; padding:13px 15px; font-size:12px; scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.38) transparent; }
+.vfp-batch::-webkit-scrollbar { width:8px; }
+.vfp-batch::-webkit-scrollbar-thumb { background:rgba(120,132,150,.34); border-radius:99px; }
+.vfp-batch-head { display:flex; align-items:baseline; gap:8px; padding-bottom:9px; border-bottom:1px solid var(--vfp-line); }
+.vfp-batch-head strong { font-size:13px; }
+.vfp-batch-body { display:grid; gap:6px; }
+.vfp-batch-group { border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; }
+.vfp-batch-group-head { display:flex; align-items:center; gap:8px; width:100%; padding:6px 9px; border:0; background:var(--vfp-soft); color:inherit; font:inherit; cursor:pointer; text-align:left; }
+.vfp-batch-group-head strong { font-size:12px; }
+.vfp-batch-group-head .vfp-cmp-note { margin-left:auto; }
+.vfp-batch-missing { color:var(--vfp-warning); font-size:11px; }
+.vfp-batch-tree { display:grid; gap:7px; padding:9px 10px 10px; }
+.vfp-batch-source { display:block; }
+.vfp-batch-source + .vfp-batch-source { margin-top:10px; }
+.vfp-batch-node { display:flex; align-items:center; gap:6px; min-width:0; }
+.vfp-batch-root { padding:4px 7px; border:1px solid var(--vfp-line); border-radius:6px; background:var(--vfp-surface); }
+.vfp-batch-dot { width:7px; height:7px; border-radius:50%; background:var(--vfp-accent); flex:none; }
+.vfp-batch-path-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1.5 Consolas,"Cascadia Mono",monospace; color:var(--vfp-text); }
+.vfp-batch-count { margin-left:auto; color:var(--vfp-muted); font-size:11px; font-variant-numeric:tabular-nums; }
+.vfp-batch-children { display:grid; gap:1px; margin:4px 0 0 9px; padding:0 0 0 16px; list-style:none; border-left:1px dashed var(--vfp-line); }
+.vfp-batch-children li { position:relative; }
+.vfp-batch-children li::before { content:""; position:absolute; left:-16px; top:50%; width:12px; border-top:1px dashed var(--vfp-line); }
+.vfp-batch-task { width:100%; padding:2px 6px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }
+.vfp-batch-task:hover { background:var(--vfp-soft); }
+.vfp-batch-task[data-active] { background:var(--vfp-selected); }
+.vfp-batch-name { flex:none; font-weight:500; }
+.vfp-batch-branch { display:none; }
+.vfp-batch-dir { margin-left:auto; flex:none; color:var(--vfp-muted); font-size:10.5px; font-variant-numeric:tabular-nums; }
+.vfp-batch-missing-row { color:var(--vfp-warning); font-size:11px; }
+.vfp-batch-detail { border-top:1px solid var(--vfp-line); padding-top:10px; }
+.vfp-batch-detail .vfp-cmp { width:100%; max-height:none; overflow:visible; padding:0; gap:10px; }
+.vfp-batch-hint { padding:10px 2px; color:var(--vfp-muted); font-size:11.5px; }
+.vfp-batch-trigger { cursor:pointer; border-radius:8px; }
+.vfp-batch-trigger[data-pinned] { outline:1px solid var(--vfp-accent); outline-offset:2px; }
 .vfp-inherit-row { cursor:pointer; }
 .vfp-inherit-row[data-pinned] { background:var(--vfp-selected); }/* The detail section styles any div holding a <span> as a two-column row; the
    ledger needs its own columns (name / badge / path / share). */

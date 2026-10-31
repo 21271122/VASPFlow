@@ -167,6 +167,49 @@ export function buildSourceTasks(batch: BuildBatch): Map<string, string[]> {
   return owners;
 }
 
+export type BatchSourceGroup = {
+  /** Absolute path of the file every task in this group copies from. */
+  path: string;
+  /** Project-relative path, shortened for display. */
+  rel: string;
+  /** Indices into batch.tasks that resolve to this file. */
+  tasks: number[];
+};
+
+export type BatchFileGroup = {
+  key: string;
+  label: string;
+  fromTemplate: boolean;
+  sources: BatchSourceGroup[];
+  /** Tasks whose slot could not be resolved at all. */
+  missing: number[];
+};
+
+/**
+ * Group a batch by input file, then by the file every task in that group reads
+ * from. This is what the batch card renders as source-node → task-node edges.
+ */
+export function groupBatchBySource(batch: BuildBatch, projectRoot: string): BatchFileGroup[] {
+  const tasks = batch?.tasks ?? [];
+  return BUILD_SLOTS.map((slot) => {
+    const byPath = new Map<string, BatchSourceGroup>();
+    const missing: number[] = [];
+    tasks.forEach((entry, index) => {
+      const resolved = slotResolvedPath(entry, batch?.results?.[index], slot);
+      if (!resolved) {
+        missing.push(index);
+        return;
+      }
+      const key = resolved.toLowerCase();
+      const existing = byPath.get(key);
+      if (existing) existing.tasks.push(index);
+      else byPath.set(key, { path: resolved, rel: shortenPath(projectRelative(projectRoot, resolved)), tasks: [index] });
+    });
+    const sources = [...byPath.values()].sort((a, b) => b.tasks.length - a.tasks.length);
+    return { key: slot.key, label: slot.label, fromTemplate: slot.fromTemplate, sources, missing };
+  }).filter((group) => group.sources.length > 0 || group.missing.length > 0);
+}
+
 export function summarizeBatch(batch: BuildBatch, projectRoot: string): BuildBatchSummary | null {
   const tasks = batch?.tasks ?? [];
   if (tasks.length < 2) return null;
