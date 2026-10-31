@@ -737,6 +737,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
             if (Date.now() - plan.createdAt > 24 * 60 * 60 * 1000) buildPlans.delete(id);
             else if (plan.state === 'pending' && Date.now() - plan.createdAt > 30 * 60 * 1000) {
               plan.state = 'invalidated';
+              plan.invalidReason = '预览已超过 30 分钟';
               if (plan.sessionId) {
                 const rows = buildOutcomes.get(plan.sessionId) ?? [];
                 buildOutcomes.set(plan.sessionId, rows.map((row) => row.planId === id ? { ...row, state: 'invalidated', updatedAt: Date.now() } : row));
@@ -1036,16 +1037,17 @@ export function apply(ctx, config) {
   };
   const getBuildPlan = (planId) => {
     const plan = typeof planId === 'string' ? buildPlans.get(planId) : null;
-    if (plan?.state === 'pending' && Date.now() - plan.createdAt > 30 * 60 * 1000) markPlan(planId, plan, 'invalidated');
+    if (plan?.state === 'pending' && Date.now() - plan.createdAt > 30 * 60 * 1000) markPlan(planId, plan, 'invalidated', { invalidReason: '预览已超过 30 分钟' });
     return plan;
   };
   for (const [planId, plan] of buildPlans) {
     if (plan.state === 'writing') markPlan(planId, plan, 'uncertain');
     else if (plan.state === 'repreviewing') markPlan(planId, plan, 'pending');
-    else if (plan.state === 'confirming' || (plan.state === 'pending' && Date.now() - plan.createdAt > 30 * 60 * 1000)) markPlan(planId, plan, 'invalidated');
+    else if (plan.state === 'confirming') markPlan(planId, plan, 'invalidated', { invalidReason: '上次确认被中断' });
+    else if (plan.state === 'pending' && Date.now() - plan.createdAt > 30 * 60 * 1000) markPlan(planId, plan, 'invalidated', { invalidReason: '预览已超过 30 分钟' });
   }
   for (const [sessionId, rows] of buildOutcomes) {
-    for (const row of rows) if (row.state === 'pending' && !buildPlans.has(row.planId)) updateBuildOutcome(sessionId, row.planId, { state: 'invalidated' });
+    for (const row of rows) if (row.state === 'pending' && !buildPlans.has(row.planId)) updateBuildOutcome(sessionId, row.planId, { state: 'invalidated', invalidReason: '计划已清理' });
   }
 
   ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
@@ -1316,15 +1318,15 @@ export function apply(ctx, config) {
             return json(res, 400, { error: '请选择有效的构建任务' });
           }
           if (JSON.stringify(buildSourceStamps(plan.preview?.results)) !== JSON.stringify(plan.sourceStamps)) {
-            markPlan(planId, plan, 'invalidated');
-            return json(res, 409, { error: '构建来源在预览后已变化，请重新预览', state: 'invalidated' });
+            markPlan(planId, plan, 'invalidated', { invalidReason: '来源文件在预览后被改动' });
+            return json(res, 409, { error: '构建来源在预览后已变化，请重新预览', state: 'invalidated', invalidReason: '来源文件在预览后被改动' });
           }
           markPlan(planId, plan, 'confirming');
           const tasks = selectedIndices.map((index) => plan.tasks[index]);
           const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar, previewText: true });
           if (preview.errorCount > 0) {
-            markPlan(planId, plan, 'invalidated');
-            return json(res, 409, { error: '任务预览已出现错误，请重新检查', ...preview });
+            markPlan(planId, plan, 'invalidated', { invalidReason: '复查预览发现错误' });
+            return json(res, 409, { error: '任务预览已出现错误，请重新检查', invalidReason: '复查预览发现错误', ...preview });
           }
           markPlan(planId, plan, 'writing');
           const result = await buildInputs(plan.projectRoot, tasks, { dryRun: false, linkPotcar: plan.linkPotcar, previewText: true });
@@ -1341,7 +1343,7 @@ export function apply(ctx, config) {
           store.version += 1;
           return json(res, 200, response);
         } catch (error) {
-          if (plan?.state === 'confirming') markPlan(planId, plan, 'invalidated');
+          if (plan?.state === 'confirming') markPlan(planId, plan, 'invalidated', { invalidReason: '确认过程出错' });
           else if (plan?.state === 'writing') markPlan(planId, plan, 'uncertain');
           return json(res, 400, { error: String(error) });
         }

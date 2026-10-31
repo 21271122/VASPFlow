@@ -665,7 +665,9 @@ function BuildInputsToolRow({ block }: { block: any }) {
       setPhase('building');
       setMessage(plan.state === 'repreviewing' ? '正在更新预览…' : plan.state === 'confirming' ? '正在核对预览…' : '正在写入任务…');
     } else {
-      const nextMessage = plan.state === 'uncertain' ? '写入状态不确定；请核对目标目录，不要重复确认' : '预览已失效，请重新预览';
+      const nextMessage = plan.state === 'uncertain'
+        ? '写入状态不确定；请核对目标目录，不要重复确认'
+        : `预览已失效：${plan.invalidReason || '原因未知'}`;
       saveBuildOutcome(plan.planId, { phase: 'unavailable', selectedIndices, writeRows: {}, message: nextMessage, requestError: true });
       setPhase('unavailable');
       setMessage(nextMessage);
@@ -697,7 +699,8 @@ function BuildInputsToolRow({ block }: { block: any }) {
           setMessage(doneMessage);
           return;
         }
-        const nextMessage = error instanceof Error ? error.message : String(error);
+        const raw = error instanceof Error ? error.message : String(error);
+        const nextMessage = /未找到构建计划/.test(raw) ? '预览已失效：计划已不存在' : `预览已失效：${raw}`;
         // Nothing authoritative left: the plan and the outcome store are both
         // gone. Fall back to asking the filesystem what actually exists.
         const root = originalPreview.projectRoot || args.projectRoot || '';
@@ -950,7 +953,6 @@ function BuildInputsToolRow({ block }: { block: any }) {
       {buildModeError && <div className="vfp-tree-message" data-error="">{buildModeError}</div>}
       {settled && isPreview && !preview.planId && !preview.error && <div className="vfp-tree-message">此预览缺少确认凭据，请在对话中重新运行预览。</div>}
       {message && <div className="vfp-tree-message" data-error={requestError ? '' : undefined}>{message}</div>}
-      {phase === 'unavailable' && preview.planId && <button type="button" onClick={() => { void fetchPlanStatus().then(applyPlanStatus).catch((error) => setMessage(error instanceof Error ? error.message : String(error))); }}>核对计划状态</button>}
       </div>
     </div>
   );

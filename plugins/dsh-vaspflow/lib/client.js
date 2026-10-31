@@ -104212,7 +104212,7 @@ function BuildInputsToolRow({ block }) {
       setPhase("building");
       setMessage(plan.state === "repreviewing" ? "\u6B63\u5728\u66F4\u65B0\u9884\u89C8\u2026" : plan.state === "confirming" ? "\u6B63\u5728\u6838\u5BF9\u9884\u89C8\u2026" : "\u6B63\u5728\u5199\u5165\u4EFB\u52A1\u2026");
     } else {
-      const nextMessage = plan.state === "uncertain" ? "\u5199\u5165\u72B6\u6001\u4E0D\u786E\u5B9A\uFF1B\u8BF7\u6838\u5BF9\u76EE\u6807\u76EE\u5F55\uFF0C\u4E0D\u8981\u91CD\u590D\u786E\u8BA4" : "\u9884\u89C8\u5DF2\u5931\u6548\uFF0C\u8BF7\u91CD\u65B0\u9884\u89C8";
+      const nextMessage = plan.state === "uncertain" ? "\u5199\u5165\u72B6\u6001\u4E0D\u786E\u5B9A\uFF1B\u8BF7\u6838\u5BF9\u76EE\u6807\u76EE\u5F55\uFF0C\u4E0D\u8981\u91CD\u590D\u786E\u8BA4" : `\u9884\u89C8\u5DF2\u5931\u6548\uFF1A${plan.invalidReason || "\u539F\u56E0\u672A\u77E5"}`;
       saveBuildOutcome(plan.planId, { phase: "unavailable", selectedIndices, writeRows: {}, message: nextMessage, requestError: true });
       setPhase("unavailable");
       setMessage(nextMessage);
@@ -104240,7 +104240,8 @@ function BuildInputsToolRow({ block }) {
           setMessage(doneMessage);
           return;
         }
-        const nextMessage = error instanceof Error ? error.message : String(error);
+        const raw = error instanceof Error ? error.message : String(error);
+        const nextMessage = /未找到构建计划/.test(raw) ? "\u9884\u89C8\u5DF2\u5931\u6548\uFF1A\u8BA1\u5212\u5DF2\u4E0D\u5B58\u5728" : `\u9884\u89C8\u5DF2\u5931\u6548\uFF1A${raw}`;
         const root = originalPreview.projectRoot || args.projectRoot || "";
         const expected = tasks.map((task, index2) => ({
           index: index2,
@@ -104610,10 +104611,7 @@ function BuildInputsToolRow({ block }) {
       preview.error && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: preview.error }),
       buildModeError && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: buildModeError }),
       settled && isPreview && !preview.planId && !preview.error && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tree-message", children: "\u6B64\u9884\u89C8\u7F3A\u5C11\u786E\u8BA4\u51ED\u636E\uFF0C\u8BF7\u5728\u5BF9\u8BDD\u4E2D\u91CD\u65B0\u8FD0\u884C\u9884\u89C8\u3002" }),
-      message && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tree-message", "data-error": requestError ? "" : void 0, children: message }),
-      phase === "unavailable" && preview.planId && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("button", { type: "button", onClick: () => {
-        void fetchPlanStatus().then(applyPlanStatus).catch((error) => setMessage(error instanceof Error ? error.message : String(error)));
-      }, children: "\u6838\u5BF9\u8BA1\u5212\u72B6\u6001" })
+      message && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tree-message", "data-error": requestError ? "" : void 0, children: message })
     ] })
   ] });
 }
