@@ -184,11 +184,10 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp-same { color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
 .vfp-cmp-grid[data-single] { grid-template-columns:minmax(0,1fr); }
-/* Pointer-position scrolling: click a pane to arm it, then move to map the
-   pointer's relative position onto both scroll axes. */
-.vfp-cmp-side[data-armed] { outline:1px solid var(--vfp-accent); outline-offset:1px; }
-.vfp-cmp-side[data-armed] > header { background:var(--vfp-selected); }
-.vfp-cmp-side[data-armed] pre { cursor:crosshair; }
+/* Pointer-position scrolling: the pane follows the pointer while it is inside,
+   and stops by itself when the pointer leaves. */
+.vfp-cmp-side:hover > header { background:var(--vfp-selected); }
+.vfp-cmp-side pre { cursor:crosshair; }
 .vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; background:var(--vfp-surface); }
 .vfp-cmp-side>header { display:flex; align-items:center; gap:6px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
 .vfp-cmp-step { flex:none; padding:0 5px; border:1px solid var(--vfp-line); border-radius:4px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }
@@ -245,7 +244,7 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-path-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1.5 Consolas,"Cascadia Mono",monospace; color:var(--vfp-text); }
 .vfp-batch-count { margin-left:auto; color:var(--vfp-muted); font-size:11px; font-variant-numeric:tabular-nums; }
 .vfp-batch-children { display:flex; flex-wrap:nowrap; gap:8px; box-sizing:border-box; width:calc(100% - 12px); margin:6px 0 0 12px; padding:0 0 4px 12px; list-style:none; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
-.vfp-batch-children li { position:relative; flex:0 0 210px; min-width:210px; }
+.vfp-batch-children li { position:relative; flex:0 0 190px; min-width:190px; }
 .vfp-batch-children li::before { content:none; }
 .vfp-batch-task { width:100%; padding:2px 6px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }
 .vfp-batch-task:hover { background:var(--vfp-soft); }
@@ -254,7 +253,7 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-branch { display:none; }
 .vfp-batch-dir { margin-left:auto; flex:none; color:var(--vfp-muted); font-size:10.5px; font-variant-numeric:tabular-nums; }
 .vfp-batch-missing-row { color:var(--vfp-warning); font-size:11px; }
-.vfp-batch-source > .vfp-cmp, .vfp-batch-source > .vfp-cmp[data-compact] { width:210px; max-width:210px; margin:6px 0 2px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
+.vfp-batch-source > .vfp-cmp, .vfp-batch-source > .vfp-cmp[data-compact] { width:190px; max-width:190px; margin:6px 0 2px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
 .vfp-batch-leaf { margin:0; }
 .vfp-batch-leaf .vfp-cmp { width:100%; max-height:none; overflow:visible; gap:6px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); }
 .vfp-cmp[data-compact] { width:100%; max-height:none; overflow:visible; padding:0; gap:6px; }

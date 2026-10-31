@@ -155,23 +155,12 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
   error?: string;
 }) {
   const bodyRef = React.useRef<HTMLPreElement>(null);
-  const paneRef = React.useRef<HTMLElement>(null);
-  const [armed, setArmed] = React.useState(false);
 
-  // Only one pane may be armed at a time: arming one releases the others.
-  React.useEffect(() => {
-    const release = (event: Event) => {
-      if ((event as CustomEvent).detail !== paneRef.current) setArmed(false);
-    };
-    window.addEventListener('vfp-pane-arm', release);
-    return () => window.removeEventListener('vfp-pane-arm', release);
-  }, []);
-
-  // While a pane is selected, the pointer position inside it drives both scroll
-  // axes linearly: top-left maps to the start of the file, bottom-right to the
-  // end. Cheaper to aim than a wheel when hopping between many short previews.
+  // Moving the pointer inside a pane drives both scroll axes linearly: top-left
+  // maps to the start of the file, bottom-right to the end. Cheaper to aim than
+  // a wheel when hopping between many short previews, and it stops by itself as
+  // soon as the pointer leaves the pane, because no more moves arrive.
   const mapPointer = (event: React.PointerEvent<HTMLElement>) => {
-    if (!armed) return;
     const body = bodyRef.current;
     if (!body) return;
     const rect = body.getBoundingClientRect();
@@ -184,20 +173,11 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
 
   return (
     <section
-      ref={paneRef}
       className="vfp-cmp-side"
       data-side={step === '将写入' ? 'write' : 'read'}
       data-loading={!lines && !error ? '' : undefined}
-      data-armed={armed ? '' : undefined}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        event.preventDefault();
-        const next = !armed;
-        setArmed(next);
-        if (next) window.dispatchEvent(new CustomEvent('vfp-pane-arm', { detail: paneRef.current }));
-      }}
       onPointerMove={mapPointer}
-      title={armed ? '已选中：移动鼠标控制滚动位置' : '点击选中后，可用鼠标位置定位内容'}
+      title="鼠标在框内移动即可定位内容"
     >
       <header>
         <span className="vfp-cmp-step">{step}</span>

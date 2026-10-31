@@ -134,7 +134,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
       const centerY = panelRect ? panelRect.top + panelRect.height / 2 : window.innerHeight / 2;
       setAlignOffset(centerY - (rect.top + rect.height / 2));
       // Never let the batch card spill past the left edge of the window.
-      setCardWidth(Math.max(560, Math.min(1240, Math.round(rect.left - 32))));
+      setCardWidth(Math.max(520, Math.min(880, Math.round(rect.left - 32))));
     }
     cancelHoverClose();
     setHoverSlot(slotKey);
