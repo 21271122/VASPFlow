@@ -722,6 +722,8 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
           errors: row.errors,
           warnings: row.warnings,
           wrote: row.wrote,
+          // Exact bytes per file; the card diffs these instead of guessing.
+          ...(row.files ? { files: row.files } : {}),
         })) : [],
       }),
     },

@@ -480,7 +480,7 @@ type BuildInputsArgs = {
 
 type BuildTask = NonNullable<BuildInputsArgs['tasks']>[number];
 type BuildRow = NonNullable<BuildTaskDetail['result']>;
-type BuildResult = { planId?: string; revision?: number; projectRoot?: string; error?: string; results?: BuildRow[]; errorCount?: number; wroteCount?: number; dryRun?: boolean; dryRunMode?: boolean };
+type BuildResult = { planId?: string; revision?: number; projectRoot?: string; error?: string; results?: BuildRow[]; errorCount?: number; wroteCount?: number; count?: number; dryRun?: boolean; dryRunMode?: boolean };
 type BuildAction = { at: number; text: string };
 type BuildOutcome = { phase: 'done' | 'cancelled' | 'unavailable'; selectedIndices: number[]; writeRows: Record<number, BuildRow>; message: string; requestError: boolean };
 const buildOutcomes = new Map<string, BuildOutcome>();
@@ -496,7 +496,7 @@ function readBuildOutcome(planId?: string): BuildOutcome | null {
   const cached = buildOutcomes.get(planId);
   if (cached) return cached;
   try {
-    const raw = sessionStorage.getItem(`dsh-vaspflow:build-outcome:${planId}`);
+    const raw = localStorage.getItem(`dsh-vaspflow:build-outcome:${planId}`) ?? sessionStorage.getItem(`dsh-vaspflow:build-outcome:${planId}`);
     if (!raw) return null;
     const outcome = JSON.parse(raw) as BuildOutcome;
     if ((outcome.phase !== 'done' && outcome.phase !== 'cancelled' && outcome.phase !== 'unavailable')
@@ -509,14 +509,14 @@ function readBuildOutcome(planId?: string): BuildOutcome | null {
 function saveBuildOutcome(planId: string | undefined, outcome: BuildOutcome): void {
   if (!planId) return;
   buildOutcomes.set(planId, outcome);
-  try { sessionStorage.setItem(`dsh-vaspflow:build-outcome:${planId}`, JSON.stringify(outcome)); } catch { /* in-memory state still survives conversation switches */ }
+  try { localStorage.setItem(`dsh-vaspflow:build-outcome:${planId}`, JSON.stringify(outcome)); } catch { /* in-memory state still survives conversation switches */ }
   buildOutcomeListeners.forEach((listener) => listener());
 }
 
 function clearBuildOutcome(planId: string | undefined): void {
   if (!planId) return;
   buildOutcomes.delete(planId);
-  try { sessionStorage.removeItem(`dsh-vaspflow:build-outcome:${planId}`); } catch { /* in-memory state is authoritative */ }
+  try { localStorage.removeItem(`dsh-vaspflow:build-outcome:${planId}`); sessionStorage.removeItem(`dsh-vaspflow:build-outcome:${planId}`); } catch { /* in-memory state is authoritative */ }
   buildOutcomeListeners.forEach((listener) => listener());
 }
 
@@ -684,6 +684,19 @@ function BuildInputsToolRow({ block }: { block: any }) {
         if (plan.state === 'repreviewing' || plan.state === 'confirming' || plan.state === 'writing') timer = setTimeout(refresh, 1500);
       } catch (error) {
         if (!active) return;
+        // The plan may be gone after a restart. The tool result itself still
+        // records what was written, so trust it before declaring the card dead.
+        const writtenIndices = (originalPreview.results ?? [])
+          .map((row, index) => (row?.wrote ? index : -1))
+          .filter((index) => index >= 0);
+        if (originalPreview.dryRun === false || writtenIndices.length > 0) {
+          const rows = Object.fromEntries(writtenIndices.map((index) => [index, originalPreview.results![index]]));
+          const doneMessage = `已写入 ${originalPreview.wroteCount ?? writtenIndices.length}/${originalPreview.count ?? tasks.length} 个任务`;
+          saveBuildOutcome(originalPreview.planId, { phase: 'done', selectedIndices: writtenIndices, writeRows: rows, message: doneMessage, requestError: false });
+          setPhase('done');
+          setMessage(doneMessage);
+          return;
+        }
         const nextMessage = error instanceof Error ? error.message : String(error);
         saveBuildOutcome(originalPreview.planId, { phase: 'unavailable', selectedIndices: [], writeRows: {}, message: nextMessage, requestError: true });
         setMessage(nextMessage);
