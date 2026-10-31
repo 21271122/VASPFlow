@@ -115,6 +115,22 @@ if ($NoLaunch) {
   $env:DSH_PROFILE = 'desktop'
   Start-Process -FilePath $DesktopExe -WorkingDirectory (Split-Path $DesktopExe -Parent)
   Write-Host '[4/4] DeepSeek Harness started.'
+
+  # Confirm the child actually uses this home: without DSH_HOME the desktop app
+  # silently falls back to ~\.dsh, where the 'desktop' profile has no plugin and
+  # the sessions are from the 0.1.0 era.
+  $confirmed = $false
+  for ($i = 0; $i -lt 12 -and -not $confirmed; $i++) {
+    Start-Sleep -Milliseconds 700
+    $hit = Get-CimInstance Win32_Process -Filter "Name='DeepSeek Harness.exe'" -ErrorAction SilentlyContinue |
+      Where-Object { $_.CommandLine -and $_.CommandLine.Contains('dsh-desktop-host') -and $_.CommandLine.Contains($DesktopHome) }
+    if ($hit) { $confirmed = $true }
+  }
+  if ($confirmed) {
+    Write-Host '      verified: the running instance uses this DSH_HOME.'
+  } else {
+    Write-Warning 'could not confirm the instance uses this DSH_HOME. If you see old sessions, it fell back to ~\.dsh.'
+  }
 }
 
 if ($Mode -eq 'dev' -and -not $NoWatch) {
