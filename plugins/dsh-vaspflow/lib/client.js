@@ -59803,7 +59803,7 @@ function taskLabel(dir) {
   const parts = toPosix(dir || "").split("/").filter(Boolean);
   return parts.slice(-2).join("/") || dir || "\u4EFB\u52A1";
 }
-function BatchCompare({ batch, projectRoot, projectName, planId }) {
+function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
   const groups = import_react130.default.useMemo(() => groupBatchBySource(batch, projectRoot), [batch, projectRoot]);
   const [openKeys, setOpenKeys] = import_react130.default.useState(() => new Set(groups.slice(0, 1).map((group) => group.key)));
   const [showAll, setShowAll] = import_react130.default.useState(() => /* @__PURE__ */ new Set());
@@ -59816,7 +59816,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId }) {
   const revealAll = (path3) => setShowAll((current) => new Set(current).add(path3));
   const tasks = batch?.tasks ?? [];
   const results = batch?.results ?? [];
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch vaspflow-task-popover", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch vaspflow-task-popover", style: maxWidth ? { width: Math.min(1240, maxWidth) } : void 0, children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { children: "\u6574\u6279\u6765\u6E90" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-note", children: [
@@ -101214,6 +101214,7 @@ function BuildPreviewDetail({ detail }) {
   const [hoverSlot, setHoverSlot] = (0, import_react170.useState)(null);
   const [pinnedSlot, setPinnedSlot] = (0, import_react170.useState)(null);
   const [alignOffset, setAlignOffset] = (0, import_react170.useState)(0);
+  const [cardWidth, setCardWidth] = (0, import_react170.useState)(0);
   const hoverTimer = (0, import_react170.useRef)(null);
   const cancelHoverClose = (0, import_react170.useCallback)(() => {
     if (hoverTimer.current !== null) {
@@ -101237,6 +101238,7 @@ function BuildPreviewDetail({ detail }) {
       const panelRect = panel?.getBoundingClientRect();
       const centerY = panelRect ? panelRect.top + panelRect.height / 2 : window.innerHeight / 2;
       setAlignOffset(centerY - (rect.top + rect.height / 2));
+      setCardWidth(Math.max(560, Math.min(1240, Math.round(rect.left - 32))));
     }
     cancelHoverClose();
     setHoverSlot(slotKey);
@@ -101277,6 +101279,7 @@ function BuildPreviewDetail({ detail }) {
         placement: "left",
         align: { offset: [0, alignOffset], overflow: { adjustX: true, adjustY: true } },
         overlayClassName: "vfp-cmp-popover vfp-batch-popover",
+        zIndex: 2200,
         content: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
           "div",
           {
@@ -101290,7 +101293,8 @@ function BuildPreviewDetail({ detail }) {
                 batch,
                 projectRoot,
                 projectName: basenameOf(projectRoot) || "\u9879\u76EE",
-                planId: detail.planId
+                planId: detail.planId,
+                maxWidth: cardWidth
               }
             )
           }
@@ -101354,6 +101358,7 @@ function BuildPreviewDetail({ detail }) {
             placement: "left",
             align: { offset: [0, alignOffset], overflow: { adjustX: true, adjustY: true } },
             overlayClassName: "vfp-cmp-popover",
+            zIndex: 2100,
             content: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
               "div",
               {
@@ -102460,28 +102465,28 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp-file { color:var(--vfp-text); font-weight:500; }
 .vfp-cmp-ellipsis { color:var(--vfp-muted); }
 /* Batch source view: file type \u2192 source file node \u2192 task nodes. */
-.vfp-batch-popover .ant-popover-inner { width:min(1240px,94vw); }
-.vfp-batch { display:grid; gap:10px; width:100%; max-height:min(86vh,820px); overflow:auto; overscroll-behavior:contain; padding:13px 15px; font-size:12px; scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.38) transparent; }
+.vfp-batch-popover .ant-popover-inner { width:auto; max-width:none; }
+.vfp-batch { display:grid; grid-template-columns:minmax(0,1fr); gap:10px; box-sizing:border-box; max-height:min(86vh,820px); overflow:auto; overscroll-behavior:contain; padding:13px 15px; font-size:12px; scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.38) transparent; }
 .vfp-batch::-webkit-scrollbar { width:8px; }
 .vfp-batch::-webkit-scrollbar-thumb { background:rgba(120,132,150,.34); border-radius:99px; }
 .vfp-batch-head { display:flex; align-items:baseline; gap:8px; padding-bottom:9px; border-bottom:1px solid var(--vfp-line); }
 .vfp-batch-head strong { font-size:13px; }
-.vfp-batch-body { display:grid; gap:6px; }
-.vfp-batch-group { border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; }
+.vfp-batch-body { display:grid; grid-template-columns:minmax(0,1fr); gap:6px; min-width:0; }
+.vfp-batch-group { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; }
 .vfp-batch-group-head { display:flex; align-items:center; gap:8px; width:100%; padding:6px 9px; border:0; background:var(--vfp-soft); color:inherit; font:inherit; cursor:pointer; text-align:left; }
 .vfp-batch-group-head strong { font-size:12px; }
 .vfp-batch-group-head .vfp-cmp-note { margin-left:auto; }
 .vfp-batch-missing { color:var(--vfp-warning); font-size:11px; }
-.vfp-batch-tree { display:grid; gap:7px; padding:9px 10px 10px; }
-.vfp-batch-source { display:block; }
+.vfp-batch-tree { display:grid; grid-template-columns:minmax(0,1fr); gap:7px; min-width:0; padding:9px 10px 10px; }
+.vfp-batch-source { display:block; min-width:0; max-width:100%; overflow:hidden; }
 .vfp-batch-source + .vfp-batch-source { margin-top:10px; }
 .vfp-batch-node { display:flex; align-items:center; gap:6px; min-width:0; }
 .vfp-batch-root { padding:4px 7px; border:1px solid var(--vfp-line); border-radius:6px; background:var(--vfp-surface); }
 .vfp-batch-dot { width:7px; height:7px; border-radius:50%; background:var(--vfp-accent); flex:none; }
 .vfp-batch-path-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1.5 Consolas,"Cascadia Mono",monospace; color:var(--vfp-text); }
 .vfp-batch-count { margin-left:auto; color:var(--vfp-muted); font-size:11px; font-variant-numeric:tabular-nums; }
-.vfp-batch-children { display:flex; flex-wrap:nowrap; gap:8px; margin:6px 0 0 12px; padding:0 0 4px 12px; list-style:none; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
-.vfp-batch-children li { position:relative; flex:0 0 230px; min-width:230px; }
+.vfp-batch-children { display:flex; flex-wrap:nowrap; gap:8px; box-sizing:border-box; width:calc(100% - 12px); margin:6px 0 0 12px; padding:0 0 4px 12px; list-style:none; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
+.vfp-batch-children li { position:relative; flex:0 0 210px; min-width:210px; }
 .vfp-batch-children li::before { content:none; }
 .vfp-batch-task { width:100%; padding:2px 6px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }
 .vfp-batch-task:hover { background:var(--vfp-soft); }
@@ -102490,7 +102495,7 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-branch { display:none; }
 .vfp-batch-dir { margin-left:auto; flex:none; color:var(--vfp-muted); font-size:10.5px; font-variant-numeric:tabular-nums; }
 .vfp-batch-missing-row { color:var(--vfp-warning); font-size:11px; }
-.vfp-batch-source > .vfp-cmp { margin:6px 0 2px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
+.vfp-batch-source > .vfp-cmp, .vfp-batch-source > .vfp-cmp[data-compact] { width:210px; max-width:210px; margin:6px 0 2px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
 .vfp-batch-leaf { margin:0; }
 .vfp-batch-leaf .vfp-cmp { width:100%; max-height:none; overflow:visible; gap:6px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); }
 .vfp-cmp[data-compact] { width:100%; max-height:none; overflow:visible; padding:0; gap:6px; }

@@ -15,6 +15,8 @@ export type BatchCompareProps = {
   projectRoot: string;
   projectName: string;
   planId?: string;
+  /** Upper bound from the anchor position, so the card cannot leave the window. */
+  maxWidth?: number;
 };
 
 /** Nodes rendered per source before the list has to be expanded by hand. */
@@ -29,7 +31,7 @@ function taskLabel(dir?: string): string {
   return parts.slice(-2).join('/') || dir || '任务';
 }
 
-export function BatchCompare({ batch, projectRoot, projectName, planId }: BatchCompareProps) {
+export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }: BatchCompareProps) {
   const groups = React.useMemo(() => groupBatchBySource(batch, projectRoot), [batch, projectRoot]);
   const [openKeys, setOpenKeys] = React.useState<Set<string>>(() => new Set(groups.slice(0, 1).map((group) => group.key)));
   const [showAll, setShowAll] = React.useState<Set<string>>(() => new Set());
@@ -46,7 +48,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId }: BatchC
   const results = batch?.results ?? [];
 
   return (
-    <div className="vfp-batch vaspflow-task-popover">
+    <div className="vfp-batch vaspflow-task-popover" style={maxWidth ? { width: Math.min(1240, maxWidth) } : undefined}>
       <div className="vfp-batch-head">
         <strong>整批来源</strong>
         <span className="vfp-cmp-note">{tasks.length} 个任务 · {groups.length} 类输入文件</span>

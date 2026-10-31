@@ -107,6 +107,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
   const [pinnedSlot, setPinnedSlot] = useState<string | null>(null);
   /** Vertical shift that keeps every card centred on the panel, so it never jumps between rows. */
   const [alignOffset, setAlignOffset] = useState(0);
+  const [cardWidth, setCardWidth] = useState(0);
   /** Small grace period so moving from the row into the card does not close it. */
   const hoverTimer = useRef<number | null>(null);
   const cancelHoverClose = useCallback(() => {
@@ -132,6 +133,8 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
       const panelRect = panel?.getBoundingClientRect();
       const centerY = panelRect ? panelRect.top + panelRect.height / 2 : window.innerHeight / 2;
       setAlignOffset(centerY - (rect.top + rect.height / 2));
+      // Never let the batch card spill past the left edge of the window.
+      setCardWidth(Math.max(560, Math.min(1240, Math.round(rect.left - 32))));
     }
     cancelHoverClose();
     setHoverSlot(slotKey);
@@ -164,6 +167,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
         placement="left"
         align={{ offset: [0, alignOffset], overflow: { adjustX: true, adjustY: true } }}
         overlayClassName="vfp-cmp-popover vfp-batch-popover"
+        zIndex={2200}
         content={<div
           onMouseEnter={() => { cancelHoverClose(); }}
           onMouseLeave={scheduleHoverClose}
@@ -173,6 +177,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
             projectRoot={projectRoot}
             projectName={basenameOf(projectRoot) || '项目'}
             planId={detail.planId}
+            maxWidth={cardWidth}
           />
         </div>}
       >
@@ -217,6 +222,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
               placement="left"
               align={{ offset: [0, alignOffset], overflow: { adjustX: true, adjustY: true } }}
               overlayClassName="vfp-cmp-popover"
+        zIndex={2100}
               content={<div
                 onMouseEnter={() => { cancelHoverClose(); }}
                 onMouseLeave={scheduleHoverClose}
