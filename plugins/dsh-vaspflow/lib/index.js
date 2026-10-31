@@ -37,7 +37,7 @@ import {
   taskDir,
 } from './host/task-files.js';
 import { TaskStore } from './host/task-store.js';
-import { buildInputs } from './host/input-builder.js';
+import { buildInputs, buildOneTask } from './host/input-builder.js';
 import { checkInputs, checkOneDir, buildInputCheck, INPUT_CHECK_PROFILES } from './host/input-checker.js';
 import { srcInspect } from './host/src-inspect.js';
 import { scanTemplates } from './host/scan-templates.js';
@@ -1204,6 +1204,35 @@ export function apply(ctx, config) {
         }
       },
     }), 'dsh-vaspflow: replace preview source');
+
+    // Exact bytes the plan will write for one task file, computed by the same
+    // builder used for the real write, so previews cannot drift from it.
+    ctx.effect(() => webServer.register({
+      kind: 'exact',
+      path: '/plugins/dsh-vaspflow/build-inputs/file',
+      handler: async (req, res) => {
+        if (req.method !== 'GET') return json(res, 405, { error: 'GET required' });
+        const query = parseQuery(req.url ?? '');
+        const plan = getBuildPlan(query.planId);
+        if (!plan) return json(res, 404, { error: '预览已失效，请重新预览' });
+        const index = Number(query.taskIndex);
+        const name = typeof query.name === 'string' ? query.name : '';
+        if (!Number.isInteger(index) || index < 0 || index >= plan.tasks.length) {
+          return json(res, 400, { error: '无效的任务序号' });
+        }
+        if (!name) return json(res, 400, { error: '缺少文件名' });
+        try {
+          const result = await buildOneTask(plan.tasks[index], plan.projectRoot, {
+            dryRun: true, linkPotcar: plan.linkPotcar, previewText: true,
+          });
+          const file = result.previewFiles?.[name];
+          if (!file) return json(res, 404, { error: '该文件没有可预览的文本内容' });
+          return json(res, 200, { name, source: file.source, written: file.written });
+        } catch (error) {
+          return json(res, 500, { error: String(error) });
+        }
+      },
+    }), 'dsh-vaspflow: build file preview');
 
     // A preview creates an opaque server-side plan. Only its selected task
     // indices may be confirmed; the browser cannot submit arbitrary paths.

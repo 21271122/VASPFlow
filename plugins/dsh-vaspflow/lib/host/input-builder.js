@@ -539,6 +539,24 @@ export async function buildOneTask(task, projectRoot, opts) {
     sdNotes.push('NOTE: ' + sdMeta.changedCount + ' 个原子旗标被改写（' + sample
       + (sdMeta.changedCount > 5 ? ' 等' : '') + '；源文件为 ' + sdMeta.coordType + '）');
   }
+  // Optional: hand back the bytes that will be written, so the UI can diff the
+  // source against the real result (POSCAR flags, INCAR overrides) instead of
+  // re-implementing those transforms.
+  const previewFiles = {};
+  if (opts.previewText) {
+    for (const [dest, src] of copies) {
+      let sourceText = null;
+      try {
+        if (fs.statSync(src).size <= 512 * 1024) sourceText = fs.readFileSync(src, 'utf-8');
+      } catch { /* binary or unreadable: skip */ }
+      if (typeof sourceText !== 'string') continue;
+      let written = sourceText;
+      if (dest === 'POSCAR' && typeof newText === 'string') written = newText;
+      else if (dest === 'INCAR' && t.incarOverrides) written = applyIncarOverrides(sourceText, t.incarOverrides);
+      previewFiles[dest] = { source: sourceText, written };
+    }
+  }
+
   return {
     sources: sourcesObj,
     sd: sdMeta ? (sdMeta.fFlags + 'F, ' + sdMeta.tFlags + 'T (' + sdMeta.coordType + ', ' + sdMeta.nAtoms + ' atoms)') : (sdError || 'n/a'),
@@ -547,6 +565,7 @@ export async function buildOneTask(task, projectRoot, opts) {
     errors,
     warnings,
     wrote,
+    ...(opts.previewText ? { previewFiles } : {}),
   };
 }
 

@@ -59647,30 +59647,50 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, source, incarOverrides, note: note2 }) {
-  const [state, setState] = import_react129.default.useState();
+function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, planId, taskIndex, incarOverrides, note: note2 }) {
+  const [compared, setCompared] = import_react129.default.useState();
   import_react129.default.useEffect(() => {
     let cancelled = false;
-    setState(void 0);
-    void readProjectFile(projectRoot, source.path).then((value) => {
-      if (!cancelled) setState(value);
-    });
+    setCompared(void 0);
+    const splitLines = (text) => {
+      const lines = text.replace(/\r\n?/g, "\n").split("\n");
+      if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+      return lines;
+    };
+    const load = async () => {
+      if (planId && taskIndex !== void 0) {
+        try {
+          const url2 = `/plugins/dsh-vaspflow/build-inputs/file?planId=${encodeURIComponent(planId)}&taskIndex=${taskIndex}&name=${encodeURIComponent(fileName)}`;
+          const response = await fetch(url2);
+          if (response.ok) {
+            const payload = await response.json();
+            if (typeof payload.source === "string" && typeof payload.written === "string") {
+              if (!cancelled) setCompared({ source: splitLines(payload.source), written: splitLines(payload.written) });
+              return;
+            }
+          }
+        } catch {
+        }
+      }
+      const state = await readProjectFile(projectRoot, source.path);
+      if (cancelled) return;
+      if (state.error) {
+        setCompared({ source: [], written: [], error: state.error });
+        return;
+      }
+      const written = Object.keys(incarOverrides ?? {}).length ? splitLines(applyIncarOverrides(state.text, incarOverrides)) : state.lines;
+      setCompared({ source: state.lines, written });
+    };
+    void load();
     return () => {
       cancelled = true;
     };
-  }, [projectRoot, source.path]);
+  }, [projectRoot, source.path, fileName, planId, taskIndex, incarOverrides]);
   const overrideCount = Object.keys(incarOverrides ?? {}).length;
-  const written = import_react129.default.useMemo(() => {
-    if (!state || state.error) return void 0;
-    if (!overrideCount) return state.lines;
-    const text = applyIncarOverrides(state.text, incarOverrides).replace(/\r\n?/g, "\n");
-    const lines = text.split("\n");
-    if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
-    return lines;
-  }, [state, incarOverrides, overrideCount]);
+  const error = compared?.error;
   const marks = import_react129.default.useMemo(
-    () => state && !state.error && written ? markDifferences(state.lines.slice(0, PREVIEW_LINES), written.slice(0, PREVIEW_LINES)) : void 0,
-    [state, written]
+    () => compared && !error ? markDifferences(compared.source.slice(0, PREVIEW_LINES), compared.written.slice(0, PREVIEW_LINES)) : void 0,
+    [compared, error]
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
   const delta = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : void 0;
@@ -59682,7 +59702,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, incarOverr
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: slotLabel }),
       note2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
-      state?.error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
+      error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
         "\u4E0E\u6765\u6E90\u4E0D\u540C",
         delta && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("em", { className: "vfp-cmp-delta", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
@@ -59708,8 +59728,8 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, incarOverr
           step: "\u53C2\u8003\u6765\u6E90",
           path: source.path,
           dirLabel: shortPath(projectRoot, source.path),
-          lines: state?.lines,
-          error: state?.error,
+          lines: compared?.source,
+          error,
           changed: marks?.left
         }
       ),
@@ -59719,7 +59739,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, incarOverr
           step: "\u5C06\u5199\u5165",
           path: source.path,
           dirLabel: shortPath(projectRoot, source.path),
-          lines: written,
+          lines: compared?.written,
           changed: marks?.right
         }
       )
@@ -101129,6 +101149,7 @@ function BuildPreviewDetail({ detail }) {
           slot.key
         );
         if (!slot.path) return row;
+        const destination = slot.key === "submit" ? basenameOf(task.submitSrc) : slot.key;
         const open = hoverSlot === slot.key || pinnedSlot === slot.key;
         return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
           popover_default,
@@ -101153,6 +101174,9 @@ function BuildPreviewDetail({ detail }) {
                     projectName: basenameOf(projectRoot) || "\u9879\u76EE",
                     slotLabel: slot.label,
                     source: { path: slot.path },
+                    fileName: destination,
+                    planId: detail.planId,
+                    taskIndex: detail.taskIndex,
                     incarOverrides: slot.key === "INCAR" ? task.incarOverrides : void 0,
                     note: slot.key === "POSCAR" && result?.sd ? `SD \u5C06\u6539\u5199\u4E3A ${result.sd}` : void 0
                   }
@@ -104250,7 +104274,9 @@ function BuildInputsToolRow({ block }) {
       projectRoot: preview.projectRoot || args.projectRoot || "",
       linkPotcar: !!args.linkPotcar,
       phase: nextPhase,
-      batch: { tasks, results: preview.results ?? [] }
+      batch: { tasks, results: preview.results ?? [] },
+      planId: preview.planId,
+      taskIndex: index2
     });
     panelStore.setOpen(true);
   };

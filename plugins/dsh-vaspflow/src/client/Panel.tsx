@@ -171,6 +171,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
               {slot.shared > 1 ? <span className="vfp-inherit-share" title={`${slot.shared} 个任务使用同一来源`}>×{slot.shared}</span> : null}
             </li>;
             if (!slot.path) return row;
+            const destination = slot.key === 'submit' ? basenameOf(task.submitSrc) : slot.key;
             const open = hoverSlot === slot.key || pinnedSlot === slot.key;
             return <Popover
               key={slot.key}
@@ -189,6 +190,8 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
                   projectName={basenameOf(projectRoot) || '项目'}
                   slotLabel={slot.label}
                   source={{ path: slot.path }}
+                  fileName={destination}
+                  planId={detail.planId} taskIndex={detail.taskIndex}
                   incarOverrides={slot.key === 'INCAR' ? task.incarOverrides : undefined}
                   note={slot.key === 'POSCAR' && result?.sd ? `SD 将改写为 ${result.sd}` : undefined}
                 />

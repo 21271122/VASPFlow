@@ -733,6 +733,7 @@ function BuildInputsToolRow({ block }: { block: any }) {
       projectRoot: preview.projectRoot || args.projectRoot || '',
       linkPotcar: !!args.linkPotcar, phase: nextPhase,
       batch: { tasks, results: preview.results ?? [] },
+      planId: preview.planId, taskIndex: index,
     });
     panelStore.setOpen(true);
   };

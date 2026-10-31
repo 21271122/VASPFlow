@@ -13,6 +13,9 @@ export interface BuildTaskDetail {
   result?: { status?: string; sources?: Record<string, string>; sd?: string; sdNotes?: string[]; potcar?: string; errors?: string[]; warnings?: string[]; wrote?: boolean };
   /** Whole build batch, so the dock can show where this task sits in the group. */
   batch?: { tasks: any[]; results: any[] };
+  /** Build plan identity, used to ask the host for the exact bytes it would write. */
+  planId?: string;
+  taskIndex?: number;
   phase: 'preview' | 'building' | 'done';
   linkPotcar: boolean;
 }

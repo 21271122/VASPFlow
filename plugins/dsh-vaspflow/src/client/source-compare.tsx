@@ -207,33 +207,64 @@ export type SourceCompareProps = {
   slotLabel: string;
   /** The file the build copies from. */
   source: { path: string };
-  /** INCAR parameter overrides the build applies after copying. */
+  /** Destination name inside the task directory (POSCAR, INCAR, submit.sh, …). */
+  fileName: string;
+  /** Build plan identity: lets the host compute the exact bytes it would write. */
+  planId?: string;
+  taskIndex?: number;
+  /** Fallback transform when the plan is gone (old sessions, offline preview). */
   incarOverrides?: Record<string, unknown>;
-  /** Extra transformation the host applies to what it writes (e.g. SD flags). */
+  /** Extra transformation noted next to the title. */
   note?: string;
 };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, source, incarOverrides, note }: SourceCompareProps) {
-  const [state, setState] = React.useState<FileState>();
+type Compared = { source: string[]; written: string[]; error?: string };
+
+export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, planId, taskIndex, incarOverrides, note }: SourceCompareProps) {
+  const [compared, setCompared] = React.useState<Compared>();
+
   React.useEffect(() => {
     let cancelled = false;
-    setState(undefined);
-    void readProjectFile(projectRoot, source.path).then((value) => { if (!cancelled) setState(value); });
+    setCompared(undefined);
+    const splitLines = (text: string) => {
+      const lines = text.replace(/\r\n?/g, '\n').split('\n');
+      if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+      return lines;
+    };
+    const load = async () => {
+      // Preferred: the host runs the same builder it uses for the real write,
+      // so POSCAR flag rewrites and INCAR overrides are reflected exactly.
+      if (planId && taskIndex !== undefined) {
+        try {
+          const url = `/plugins/dsh-vaspflow/build-inputs/file?planId=${encodeURIComponent(planId)}`
+            + `&taskIndex=${taskIndex}&name=${encodeURIComponent(fileName)}`;
+          const response = await fetch(url);
+          if (response.ok) {
+            const payload = await response.json() as { source?: string; written?: string };
+            if (typeof payload.source === 'string' && typeof payload.written === 'string') {
+              if (!cancelled) setCompared({ source: splitLines(payload.source), written: splitLines(payload.written) });
+              return;
+            }
+          }
+        } catch { /* fall back to reading the file directly */ }
+      }
+      const state = await readProjectFile(projectRoot, source.path);
+      if (cancelled) return;
+      if (state.error) { setCompared({ source: [], written: [], error: state.error }); return; }
+      const written = Object.keys(incarOverrides ?? {}).length
+        ? splitLines(applyIncarOverrides(state.text, incarOverrides))
+        : state.lines;
+      setCompared({ source: state.lines, written });
+    };
+    void load();
     return () => { cancelled = true; };
-  }, [projectRoot, source.path]);
+  }, [projectRoot, source.path, fileName, planId, taskIndex, incarOverrides]);
 
   const overrideCount = Object.keys(incarOverrides ?? {}).length;
-  const written = React.useMemo(() => {
-    if (!state || state.error) return undefined;
-    if (!overrideCount) return state.lines;
-    const text = applyIncarOverrides(state.text, incarOverrides).replace(/\r\n?/g, '\n');
-    const lines = text.split('\n');
-    if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
-    return lines;
-  }, [state, incarOverrides, overrideCount]);
+  const error = compared?.error;
   const marks = React.useMemo(
-    () => (state && !state.error && written ? markDifferences(state.lines.slice(0, PREVIEW_LINES), written.slice(0, PREVIEW_LINES)) : undefined),
-    [state, written],
+    () => (compared && !error ? markDifferences(compared.source.slice(0, PREVIEW_LINES), compared.written.slice(0, PREVIEW_LINES)) : undefined),
+    [compared, error],
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
   const delta = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : undefined;
@@ -247,7 +278,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, inc
       <div className="vfp-cmp-head">
         <strong>{slotLabel}</strong>
         {note ? <span className="vfp-cmp-note">{note}</span> : null}
-        {state?.error
+        {error
           ? <span className="vfp-cmp-note">来源不可读</span>
           : marks && (same
             ? <span className="vfp-cmp-same">与来源相同</span>
@@ -256,9 +287,9 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, inc
       </div>
       <div className="vfp-cmp-grid">
         <FilePane step="参考来源" path={source.path} dirLabel={shortPath(projectRoot, source.path)}
-          lines={state?.lines} error={state?.error} changed={marks?.left} />
+          lines={compared?.source} error={error} changed={marks?.left} />
         <FilePane step="将写入" path={source.path} dirLabel={shortPath(projectRoot, source.path)}
-          lines={written} changed={marks?.right} />
+          lines={compared?.written} changed={marks?.right} />
       </div>
       <div className="vfp-cmp-address">
         <div className="vfp-cmp-address-head">来源地址</div>
