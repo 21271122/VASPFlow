@@ -184,6 +184,11 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp-same { color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
 .vfp-cmp-grid[data-single] { grid-template-columns:minmax(0,1fr); }
+/* Pointer-position scrolling: click a pane to arm it, then move to map the
+   pointer's relative position onto both scroll axes. */
+.vfp-cmp-side[data-armed] { outline:1px solid var(--vfp-accent); outline-offset:1px; }
+.vfp-cmp-side[data-armed] > header { background:var(--vfp-selected); }
+.vfp-cmp-side[data-armed] pre { cursor:crosshair; }
 .vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; background:var(--vfp-surface); }
 .vfp-cmp-side>header { display:flex; align-items:center; gap:6px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
 .vfp-cmp-step { flex:none; padding:0 5px; border:1px solid var(--vfp-line); border-radius:4px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }

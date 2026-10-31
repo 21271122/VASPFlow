@@ -154,8 +154,51 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
   changed?: boolean[];
   error?: string;
 }) {
+  const bodyRef = React.useRef<HTMLPreElement>(null);
+  const paneRef = React.useRef<HTMLElement>(null);
+  const [armed, setArmed] = React.useState(false);
+
+  // Only one pane may be armed at a time: arming one releases the others.
+  React.useEffect(() => {
+    const release = (event: Event) => {
+      if ((event as CustomEvent).detail !== paneRef.current) setArmed(false);
+    };
+    window.addEventListener('vfp-pane-arm', release);
+    return () => window.removeEventListener('vfp-pane-arm', release);
+  }, []);
+
+  // While a pane is selected, the pointer position inside it drives both scroll
+  // axes linearly: top-left maps to the start of the file, bottom-right to the
+  // end. Cheaper to aim than a wheel when hopping between many short previews.
+  const mapPointer = (event: React.PointerEvent<HTMLElement>) => {
+    if (!armed) return;
+    const body = bodyRef.current;
+    if (!body) return;
+    const rect = body.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const ratioX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    const ratioY = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    body.scrollTop = ratioY * (body.scrollHeight - body.clientHeight);
+    body.scrollLeft = ratioX * (body.scrollWidth - body.clientWidth);
+  };
+
   return (
-    <section className="vfp-cmp-side" data-side={step === '将写入' ? 'write' : 'read'} data-loading={!lines && !error ? '' : undefined}>
+    <section
+      ref={paneRef}
+      className="vfp-cmp-side"
+      data-side={step === '将写入' ? 'write' : 'read'}
+      data-loading={!lines && !error ? '' : undefined}
+      data-armed={armed ? '' : undefined}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        const next = !armed;
+        setArmed(next);
+        if (next) window.dispatchEvent(new CustomEvent('vfp-pane-arm', { detail: paneRef.current }));
+      }}
+      onPointerMove={mapPointer}
+      title={armed ? '已选中：移动鼠标控制滚动位置' : '点击选中后，可用鼠标位置定位内容'}
+    >
       <header>
         <span className="vfp-cmp-step">{step}</span>
         <code className="vfp-cmp-dir" title={path}>{dirLabel}</code>
@@ -163,7 +206,7 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
       {error ? <div className="vfp-cmp-empty" data-error="" title={error}>{error}</div>
         : !lines ? <div className="vfp-cmp-empty">读取中…</div>
           : lines.length === 0 || (lines.length === 1 && lines[0] === '') ? <div className="vfp-cmp-empty">空文件</div>
-            : <pre>
+            : <pre ref={bodyRef}>
               {lines.slice(0, PREVIEW_LINES).map((line, index) => (
                 <span key={index} className="vfp-cmp-line" data-changed={changed?.[index] ? '' : undefined}>
                   <i>{index + 1}</i>{line || ' '}

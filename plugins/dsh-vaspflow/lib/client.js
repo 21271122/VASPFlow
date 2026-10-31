@@ -59635,16 +59635,56 @@ function shortPath(projectRoot, absolutePath) {
   return `${prefix2}/${name}`;
 }
 function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "vfp-cmp-side", "data-side": step === "\u5C06\u5199\u5165" ? "write" : "read", "data-loading": !lines && !error ? "" : void 0, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-step", children: step }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "vfp-cmp-dir", title: path3, children: dirLabel })
-    ] }),
-    error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", "data-error": "", title: error, children: error }) : !lines ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : lines.length === 0 || lines.length === 1 && lines[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { children: lines.slice(0, PREVIEW_LINES).map((line2, index2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[index2] ? "" : void 0, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { children: index2 + 1 }),
-      line2 || " "
-    ] }, index2)) })
-  ] });
+  const bodyRef = import_react129.default.useRef(null);
+  const paneRef = import_react129.default.useRef(null);
+  const [armed, setArmed] = import_react129.default.useState(false);
+  import_react129.default.useEffect(() => {
+    const release = (event) => {
+      if (event.detail !== paneRef.current) setArmed(false);
+    };
+    window.addEventListener("vfp-pane-arm", release);
+    return () => window.removeEventListener("vfp-pane-arm", release);
+  }, []);
+  const mapPointer = (event) => {
+    if (!armed) return;
+    const body = bodyRef.current;
+    if (!body) return;
+    const rect = body.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const ratioX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    const ratioY = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    body.scrollTop = ratioY * (body.scrollHeight - body.clientHeight);
+    body.scrollLeft = ratioX * (body.scrollWidth - body.clientWidth);
+  };
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+    "section",
+    {
+      ref: paneRef,
+      className: "vfp-cmp-side",
+      "data-side": step === "\u5C06\u5199\u5165" ? "write" : "read",
+      "data-loading": !lines && !error ? "" : void 0,
+      "data-armed": armed ? "" : void 0,
+      onPointerDown: (event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        const next2 = !armed;
+        setArmed(next2);
+        if (next2) window.dispatchEvent(new CustomEvent("vfp-pane-arm", { detail: paneRef.current }));
+      },
+      onPointerMove: mapPointer,
+      title: armed ? "\u5DF2\u9009\u4E2D\uFF1A\u79FB\u52A8\u9F20\u6807\u63A7\u5236\u6EDA\u52A8\u4F4D\u7F6E" : "\u70B9\u51FB\u9009\u4E2D\u540E\uFF0C\u53EF\u7528\u9F20\u6807\u4F4D\u7F6E\u5B9A\u4F4D\u5185\u5BB9",
+      children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-step", children: step }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "vfp-cmp-dir", title: path3, children: dirLabel })
+        ] }),
+        error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", "data-error": "", title: error, children: error }) : !lines ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : lines.length === 0 || lines.length === 1 && lines[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { ref: bodyRef, children: lines.slice(0, PREVIEW_LINES).map((line2, index2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[index2] ? "" : void 0, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { children: index2 + 1 }),
+          line2 || " "
+        ] }, index2)) })
+      ]
+    }
+  );
 }
 function buildAddressTree(projectName, projectRoot, absolutePath) {
   const parts = toPosix(projectRelative(projectRoot, absolutePath)).split("/").filter(Boolean);
@@ -102430,6 +102470,11 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp-same { color:var(--vfp-success); }
 .vfp-cmp-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; }
 .vfp-cmp-grid[data-single] { grid-template-columns:minmax(0,1fr); }
+/* Pointer-position scrolling: click a pane to arm it, then move to map the
+   pointer's relative position onto both scroll axes. */
+.vfp-cmp-side[data-armed] { outline:1px solid var(--vfp-accent); outline-offset:1px; }
+.vfp-cmp-side[data-armed] > header { background:var(--vfp-selected); }
+.vfp-cmp-side[data-armed] pre { cursor:crosshair; }
 .vfp-cmp-side { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; background:var(--vfp-surface); }
 .vfp-cmp-side>header { display:flex; align-items:center; gap:6px; padding:6px 9px; background:var(--vfp-soft); border-bottom:1px solid var(--vfp-line); }
 .vfp-cmp-step { flex:none; padding:0 5px; border:1px solid var(--vfp-line); border-radius:4px; background:var(--vfp-surface); color:var(--vfp-muted); font-size:10.5px; line-height:16px; }
