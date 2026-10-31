@@ -59667,7 +59667,7 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2 }) {
+function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2, compact, variant = "both" }) {
   const [compared, setCompared] = import_react129.default.useState();
   import_react129.default.useEffect(() => {
     let cancelled = false;
@@ -59684,7 +59684,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
         if (!cancelled) setCompared({ source: splitLines(baked.source), written: splitLines(baked.written) });
         return;
       }
-      if (planId && taskIndex !== void 0) {
+      if (variant !== "source" && planId && taskIndex !== void 0) {
         try {
           const url2 = `/plugins/dsh-vaspflow/build-inputs/file?planId=${encodeURIComponent(planId)}&taskIndex=${taskIndex}&name=${encodeURIComponent(fileName)}`;
           const response = await fetch(url2);
@@ -59713,7 +59713,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
     return () => {
       cancelled = true;
     };
-  }, [projectRoot, source.path, fileName, files, planId, taskIndex, incarOverrides, rewritten]);
+  }, [projectRoot, source.path, fileName, files, planId, taskIndex, incarOverrides, rewritten, variant]);
   const overrideCount = Object.keys(incarOverrides ?? {}).length;
   const error = compared?.error;
   const marks = import_react129.default.useMemo(
@@ -59726,11 +59726,11 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
     () => buildAddressTree(projectName, projectRoot, source.path),
     [projectName, projectRoot, source.path]
   );
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", "data-compact": compact ? "" : void 0, "data-variant": variant, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: slotLabel }),
+      variant !== "source" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: slotLabel }),
       note2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
-      error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
+      variant !== "source" && (error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
         "\u4E0E\u6765\u6E90\u4E0D\u540C",
         delta && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("em", { className: "vfp-cmp-delta", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
@@ -59742,30 +59742,30 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
             delta.removed
           ] })
         ] })
-      ] })),
-      compared?.notice ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
-      overrideCount > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-note", children: [
+      ] }))),
+      compared?.notice && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
+      overrideCount > 0 && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-note", children: [
         "\u53C2\u6570\u8986\u76D6 ",
         overrideCount,
         " \u9879"
-      ] })
+      ] }) : null
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", "data-single": variant === "both" ? void 0 : "", children: [
+      variant !== "written" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         FilePane,
         {
-          step: "\u53C2\u8003\u6765\u6E90",
+          step: variant === "source" ? "\u6A21\u677F\u5185\u5BB9" : "\u53C2\u8003\u6765\u6E90",
           path: source.path,
           dirLabel: shortPath(projectRoot, source.path),
           lines: compared?.source,
           error,
-          changed: marks?.left
+          changed: variant === "both" ? marks?.left : void 0
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+      variant !== "source" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         FilePane,
         {
-          step: "\u5C06\u5199\u5165",
+          step: variant === "written" ? "\u672C\u4EFB\u52A1\u5199\u5165" : "\u5C06\u5199\u5165",
           path: source.path,
           dirLabel: shortPath(projectRoot, source.path),
           lines: compared?.written,
@@ -59773,7 +59773,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
         }
       )
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-address", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-address", hidden: compact, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-address-head", children: "\u6765\u6E90\u5730\u5740" }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
         tree_default,
@@ -59792,50 +59792,30 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
 // src/client/batch-compare.tsx
 var import_react130 = __toESM(require("react"), 1);
 var import_jsx_runtime2 = require("react/jsx-runtime");
+var NODE_LIMIT = 5;
 var FILE_NAME_BY_SLOT = {
   POSCAR: "POSCAR",
   INCAR: "INCAR",
   KPOINTS: "KPOINTS",
   POTCAR: "POTCAR"
 };
+function taskLabel(dir) {
+  const parts = toPosix(dir || "").split("/").filter(Boolean);
+  return parts.slice(-2).join("/") || dir || "\u4EFB\u52A1";
+}
 function BatchCompare({ batch, projectRoot, projectName, planId }) {
   const groups = import_react130.default.useMemo(() => groupBatchBySource(batch, projectRoot), [batch, projectRoot]);
   const [openKeys, setOpenKeys] = import_react130.default.useState(() => new Set(groups.slice(0, 1).map((group) => group.key)));
-  const [picked, setPicked] = import_react130.default.useState(null);
+  const [showAll, setShowAll] = import_react130.default.useState(() => /* @__PURE__ */ new Set());
   const toggle = (key) => setOpenKeys((current) => {
     const next2 = new Set(current);
     if (next2.has(key)) next2.delete(key);
     else next2.add(key);
     return next2;
   });
-  const detailRef = import_react130.default.useRef(null);
-  import_react130.default.useEffect(() => {
-    if (picked) detailRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [picked]);
+  const revealAll = (path3) => setShowAll((current) => new Set(current).add(path3));
   const tasks = batch?.tasks ?? [];
   const results = batch?.results ?? [];
-  let detail = /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-batch-hint", children: "\u70B9\u4EFB\u610F\u4EFB\u52A1\u8282\u70B9\uFF0C\u5728\u8FD9\u91CC\u770B\u5B83\u4E0E\u6765\u6E90\u6587\u4EF6\u7684\u5DEE\u5F02" });
-  if (picked) {
-    const task = tasks[picked.index];
-    const result = results[picked.index];
-    const fileName = picked.slotKey === "submit" ? basenameOf(task?.submitSrc) : FILE_NAME_BY_SLOT[picked.slotKey] ?? picked.slotKey;
-    detail = /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-      SourceCompare,
-      {
-        projectRoot,
-        projectName,
-        slotLabel: picked.slotKey === "submit" ? "\u63D0\u4EA4\u811A\u672C" : picked.slotKey,
-        source: { path: picked.sourcePath },
-        fileName,
-        planId,
-        taskIndex: picked.index,
-        incarOverrides: picked.slotKey === "INCAR" ? task?.incarOverrides : void 0,
-        rewritten: picked.slotKey === "POSCAR",
-        note: picked.slotKey === "POSCAR" && result?.sd ? `SD \u5C06\u6539\u5199\u4E3A ${result.sd}` : void 0
-      },
-      `${picked.slotKey}-${picked.index}`
-    );
-  }
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch vaspflow-task-popover", children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-head", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { children: "\u6574\u6279\u6765\u6E90" }),
@@ -59848,6 +59828,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId }) {
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-batch-body", children: groups.map((group) => {
       const open = openKeys.has(group.key);
+      const total = group.sources.reduce((sum, source) => sum + source.tasks.length, 0);
       return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "vfp-batch-group", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", className: "vfp-batch-group-head", "aria-expanded": open, onClick: () => toggle(group.key), children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { "aria-hidden": "true", children: open ? "\u25BE" : "\u25B8" }),
@@ -59855,7 +59836,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId }) {
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-note", children: [
             group.sources.length,
             " \u4E2A\u6765\u6E90 \xB7 ",
-            group.sources.reduce((sum, source) => sum + source.tasks.length, 0),
+            total,
             " \u4E2A\u4EFB\u52A1"
           ] }),
           group.missing.length ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-batch-missing", children: [
@@ -59864,47 +59845,68 @@ function BatchCompare({ batch, projectRoot, projectName, planId }) {
           ] }) : null
         ] }),
         open && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-tree", children: [
-          group.sources.map((source) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-source", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-node vfp-batch-root", title: source.path, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-batch-dot", "aria-hidden": "true" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "vfp-batch-path-label", children: source.rel }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-batch-count", children: [
-                "\xD7",
-                source.tasks.length
-              ] })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ul", { className: "vfp-batch-children", children: source.tasks.map((index2) => {
-              const fullDir = tasks[index2]?.dir || `\u4EFB\u52A1 ${index2 + 1}`;
-              const parts = toPosix(fullDir).split("/").filter(Boolean);
-              const label = parts.slice(-2).join("/") || fullDir;
-              const active = picked && picked.slotKey === group.key && picked.index === index2;
-              return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-                "button",
+          group.sources.map((source) => {
+            const shown = showAll.has(source.path) ? source.tasks : source.tasks.slice(0, NODE_LIMIT);
+            const hidden = source.tasks.length - shown.length;
+            return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-source", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-node vfp-batch-root", title: source.path, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-batch-dot", "aria-hidden": "true" }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "vfp-batch-path-label", children: source.rel }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-batch-count", children: [
+                  "\xD7",
+                  source.tasks.length
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                SourceCompare,
                 {
-                  type: "button",
-                  className: "vfp-batch-node vfp-batch-task",
-                  "data-active": active ? "" : void 0,
-                  title: `${toPosix(fullDir)} \xB7 \u7B2C ${index2 + 1} \u4E2A\u4EFB\u52A1`,
-                  onClick: () => setPicked({ slotKey: group.key, index: index2, sourcePath: source.path }),
-                  children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-batch-name", children: label }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-batch-dir", children: [
-                      "#",
-                      index2 + 1
-                    ] })
-                  ]
+                  compact: true,
+                  variant: "source",
+                  projectRoot,
+                  projectName,
+                  slotLabel: group.label,
+                  source: { path: source.path },
+                  fileName: ""
                 }
-              ) }, `${group.key}-${index2}`);
-            }) })
-          ] }, source.path)),
+              ),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("ul", { className: "vfp-batch-children", children: [
+                shown.map((index2) => {
+                  const task = tasks[index2];
+                  const result = results[index2];
+                  const fileName = group.key === "submit" ? toPosix(task?.submitSrc || "").split("/").pop() || "submit.sh" : FILE_NAME_BY_SLOT[group.key] ?? group.key;
+                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { className: "vfp-batch-leaf", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    SourceCompare,
+                    {
+                      compact: true,
+                      variant: "written",
+                      projectRoot,
+                      projectName,
+                      slotLabel: taskLabel(task?.dir),
+                      source: { path: source.path },
+                      fileName,
+                      planId,
+                      taskIndex: index2,
+                      incarOverrides: group.key === "INCAR" ? task?.incarOverrides : void 0,
+                      rewritten: group.key === "POSCAR",
+                      note: group.key === "POSCAR" && result?.sd ? `SD \u5C06\u6539\u5199\u4E3A ${result.sd}` : void 0
+                    }
+                  ) }, `${group.key}-${index2}`);
+                }),
+                hidden > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { className: "vfp-batch-more", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", onClick: () => revealAll(source.path), children: [
+                  "\u8FD8\u6709 ",
+                  hidden,
+                  " \u4E2A\u4EFB\u52A1\uFF0C\u5C55\u5F00"
+                ] }) }) : null
+              ] })
+            ] }, source.path);
+          }),
           group.missing.length ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-missing-row", children: [
             "\u7F3A\u5931\uFF1A",
-            group.missing.map((index2) => basenameOf(tasks[index2]?.dir) || `\u4EFB\u52A1 ${index2 + 1}`).join("\u3001")
+            group.missing.map((index2) => taskLabel(tasks[index2]?.dir)).join("\u3001")
           ] }) : null
         ] })
       ] }, group.key);
-    }) }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-batch-detail", ref: detailRef, children: detail })
+    }) })
   ] });
 }
 
@@ -102478,9 +102480,9 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-dot { width:7px; height:7px; border-radius:50%; background:var(--vfp-accent); flex:none; }
 .vfp-batch-path-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1.5 Consolas,"Cascadia Mono",monospace; color:var(--vfp-text); }
 .vfp-batch-count { margin-left:auto; color:var(--vfp-muted); font-size:11px; font-variant-numeric:tabular-nums; }
-.vfp-batch-children { display:grid; gap:1px; margin:4px 0 0 9px; padding:0 0 0 16px; list-style:none; border-left:1px dashed var(--vfp-line); }
+.vfp-batch-children { display:grid; gap:1px; margin:6px 0 0 12px; padding:0 0 0 18px; list-style:none; border-left:1px solid var(--vfp-line); }
 .vfp-batch-children li { position:relative; }
-.vfp-batch-children li::before { content:""; position:absolute; left:-16px; top:50%; width:12px; border-top:1px dashed var(--vfp-line); }
+.vfp-batch-children li::before { content:""; position:absolute; left:-18px; top:20px; width:14px; border-top:1px solid var(--vfp-line); }
 .vfp-batch-task { width:100%; padding:2px 6px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }
 .vfp-batch-task:hover { background:var(--vfp-soft); }
 .vfp-batch-task[data-active] { background:var(--vfp-selected); }
@@ -102488,9 +102490,19 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-branch { display:none; }
 .vfp-batch-dir { margin-left:auto; flex:none; color:var(--vfp-muted); font-size:10.5px; font-variant-numeric:tabular-nums; }
 .vfp-batch-missing-row { color:var(--vfp-warning); font-size:11px; }
-.vfp-batch-detail { border-top:1px solid var(--vfp-line); padding-top:10px; }
-.vfp-batch-detail .vfp-cmp { width:100%; max-height:none; overflow:visible; padding:0; gap:10px; }
-.vfp-batch-hint { padding:10px 2px; color:var(--vfp-muted); font-size:11.5px; }
+.vfp-batch-source > .vfp-cmp { margin:6px 0 2px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
+.vfp-batch-leaf { margin:3px 0 7px; }
+.vfp-batch-leaf .vfp-cmp { width:100%; max-height:none; overflow:visible; gap:6px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); }
+.vfp-cmp[data-compact] { width:100%; max-height:none; overflow:visible; padding:0; gap:6px; }
+.vfp-cmp[data-compact] .vfp-cmp-head { padding-bottom:5px; }
+.vfp-cmp[data-compact] .vfp-cmp-head strong { font-size:12px; }
+.vfp-cmp[data-compact] .vfp-cmp-side > header { padding:3px 7px; }
+.vfp-cmp[data-compact] .vfp-cmp-side > header code { font-size:10px; }
+.vfp-cmp[data-compact] .vfp-cmp-side pre { max-height:132px; }
+.vfp-cmp[data-compact] .vfp-cmp-line { padding:0 7px; }
+.vfp-batch-more { margin:2px 0 4px; }
+.vfp-batch-more button { border:1px dashed var(--vfp-line); border-radius:6px; background:transparent; color:var(--vfp-muted); font:inherit; font-size:11px; padding:3px 8px; cursor:pointer; }
+.vfp-batch-more button:hover { background:var(--vfp-soft); }
 .vfp-batch-trigger { cursor:pointer; border-radius:8px; }
 .vfp-batch-trigger[data-pinned] { outline:1px solid var(--vfp-accent); outline-offset:2px; }
 .vfp-inherit-row { cursor:pointer; }

@@ -220,11 +220,15 @@ export type SourceCompareProps = {
   rewritten?: boolean;
   /** Extra transformation noted next to the title. */
   note?: string;
+  /** Embedded in a node: smaller panes, no address tree. */
+  compact?: boolean;
+  /** both = 参考来源 + 将写入; source = only the source; written = only the result. */
+  variant?: 'both' | 'source' | 'written';
 };
 
 type Compared = { source: string[]; written: string[]; error?: string; notice?: string };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note }: SourceCompareProps) {
+export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note, compact, variant = 'both' }: SourceCompareProps) {
   const [compared, setCompared] = React.useState<Compared>();
 
   React.useEffect(() => {
@@ -245,7 +249,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
       }
       // Preferred: the host runs the same builder it uses for the real write,
       // so POSCAR flag rewrites and INCAR overrides are reflected exactly.
-      if (planId && taskIndex !== undefined) {
+      if (variant !== 'source' && planId && taskIndex !== undefined) {
         try {
           const url = `/plugins/dsh-vaspflow/build-inputs/file?planId=${encodeURIComponent(planId)}`
             + `&taskIndex=${taskIndex}&name=${encodeURIComponent(fileName)}`;
@@ -273,7 +277,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
     };
     void load();
     return () => { cancelled = true; };
-  }, [projectRoot, source.path, fileName, files, planId, taskIndex, incarOverrides, rewritten]);
+  }, [projectRoot, source.path, fileName, files, planId, taskIndex, incarOverrides, rewritten, variant]);
 
   const overrideCount = Object.keys(incarOverrides ?? {}).length;
   const error = compared?.error;
@@ -289,25 +293,29 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
   );
 
   return (
-    <div className="vfp-cmp vaspflow-task-popover">
+    <div className="vfp-cmp vaspflow-task-popover" data-compact={compact ? '' : undefined} data-variant={variant}>
       <div className="vfp-cmp-head">
-        <strong>{slotLabel}</strong>
+        {variant !== 'source' && <strong>{slotLabel}</strong>}
         {note ? <span className="vfp-cmp-note">{note}</span> : null}
-        {error
+        {variant !== 'source' && (error
           ? <span className="vfp-cmp-note">来源不可读</span>
           : marks && (same
             ? <span className="vfp-cmp-same">与来源相同</span>
-            : <span className="vfp-cmp-diff">与来源不同{delta && <em className="vfp-cmp-delta"><b>+{delta.added}</b><b>−{delta.removed}</b></em>}</span>)}
-        {compared?.notice ? <span className="vfp-cmp-note">{compared.notice}</span> : null}
-        {overrideCount > 0 && <span className="vfp-cmp-note">参数覆盖 {overrideCount} 项</span>}
+            : <span className="vfp-cmp-diff">与来源不同{delta && <em className="vfp-cmp-delta"><b>+{delta.added}</b><b>−{delta.removed}</b></em>}</span>))}
+        {compared?.notice && variant !== 'source' ? <span className="vfp-cmp-note">{compared.notice}</span> : null}
+        {overrideCount > 0 && variant !== 'source' ? <span className="vfp-cmp-note">参数覆盖 {overrideCount} 项</span> : null}
       </div>
-      <div className="vfp-cmp-grid">
-        <FilePane step="参考来源" path={source.path} dirLabel={shortPath(projectRoot, source.path)}
-          lines={compared?.source} error={error} changed={marks?.left} />
-        <FilePane step="将写入" path={source.path} dirLabel={shortPath(projectRoot, source.path)}
-          lines={compared?.written} changed={marks?.right} />
+      <div className="vfp-cmp-grid" data-single={variant === 'both' ? undefined : ''}>
+        {variant !== 'written' && (
+          <FilePane step={variant === 'source' ? '模板内容' : '参考来源'} path={source.path} dirLabel={shortPath(projectRoot, source.path)}
+            lines={compared?.source} error={error} changed={variant === 'both' ? marks?.left : undefined} />
+        )}
+        {variant !== 'source' && (
+          <FilePane step={variant === 'written' ? '本任务写入' : '将写入'} path={source.path} dirLabel={shortPath(projectRoot, source.path)}
+            lines={compared?.written} changed={marks?.right} />
+        )}
       </div>
-      <div className="vfp-cmp-address">
+      <div className="vfp-cmp-address" hidden={compact}>
         <div className="vfp-cmp-address-head">来源地址</div>
         <Tree
           treeData={addressTree as any}

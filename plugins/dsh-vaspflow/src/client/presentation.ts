@@ -239,9 +239,9 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-dot { width:7px; height:7px; border-radius:50%; background:var(--vfp-accent); flex:none; }
 .vfp-batch-path-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1.5 Consolas,"Cascadia Mono",monospace; color:var(--vfp-text); }
 .vfp-batch-count { margin-left:auto; color:var(--vfp-muted); font-size:11px; font-variant-numeric:tabular-nums; }
-.vfp-batch-children { display:grid; gap:1px; margin:4px 0 0 9px; padding:0 0 0 16px; list-style:none; border-left:1px dashed var(--vfp-line); }
+.vfp-batch-children { display:grid; gap:1px; margin:6px 0 0 12px; padding:0 0 0 18px; list-style:none; border-left:1px solid var(--vfp-line); }
 .vfp-batch-children li { position:relative; }
-.vfp-batch-children li::before { content:""; position:absolute; left:-16px; top:50%; width:12px; border-top:1px dashed var(--vfp-line); }
+.vfp-batch-children li::before { content:""; position:absolute; left:-18px; top:20px; width:14px; border-top:1px solid var(--vfp-line); }
 .vfp-batch-task { width:100%; padding:2px 6px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }
 .vfp-batch-task:hover { background:var(--vfp-soft); }
 .vfp-batch-task[data-active] { background:var(--vfp-selected); }
@@ -249,9 +249,19 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-branch { display:none; }
 .vfp-batch-dir { margin-left:auto; flex:none; color:var(--vfp-muted); font-size:10.5px; font-variant-numeric:tabular-nums; }
 .vfp-batch-missing-row { color:var(--vfp-warning); font-size:11px; }
-.vfp-batch-detail { border-top:1px solid var(--vfp-line); padding-top:10px; }
-.vfp-batch-detail .vfp-cmp { width:100%; max-height:none; overflow:visible; padding:0; gap:10px; }
-.vfp-batch-hint { padding:10px 2px; color:var(--vfp-muted); font-size:11.5px; }
+.vfp-batch-source > .vfp-cmp { margin:6px 0 2px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
+.vfp-batch-leaf { margin:3px 0 7px; }
+.vfp-batch-leaf .vfp-cmp { width:100%; max-height:none; overflow:visible; gap:6px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); }
+.vfp-cmp[data-compact] { width:100%; max-height:none; overflow:visible; padding:0; gap:6px; }
+.vfp-cmp[data-compact] .vfp-cmp-head { padding-bottom:5px; }
+.vfp-cmp[data-compact] .vfp-cmp-head strong { font-size:12px; }
+.vfp-cmp[data-compact] .vfp-cmp-side > header { padding:3px 7px; }
+.vfp-cmp[data-compact] .vfp-cmp-side > header code { font-size:10px; }
+.vfp-cmp[data-compact] .vfp-cmp-side pre { max-height:132px; }
+.vfp-cmp[data-compact] .vfp-cmp-line { padding:0 7px; }
+.vfp-batch-more { margin:2px 0 4px; }
+.vfp-batch-more button { border:1px dashed var(--vfp-line); border-radius:6px; background:transparent; color:var(--vfp-muted); font:inherit; font-size:11px; padding:3px 8px; cursor:pointer; }
+.vfp-batch-more button:hover { background:var(--vfp-soft); }
 .vfp-batch-trigger { cursor:pointer; border-radius:8px; }
 .vfp-batch-trigger[data-pinned] { outline:1px solid var(--vfp-accent); outline-offset:2px; }
 .vfp-inherit-row { cursor:pointer; }
