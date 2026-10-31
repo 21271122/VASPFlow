@@ -18,12 +18,13 @@
  * (resolved through the shell's shared require at runtime); antd / recharts /
  * three are bundled in.
  */
-import { build } from 'esbuild';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { build, context } from 'esbuild';
+import { statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const watch = process.argv.includes('--watch');
 
 const banner = [
   'window.__ModuleLoader__.load({',
@@ -40,7 +41,7 @@ const footer = [
   '});',
 ].join('\n');
 
-const result = await build({
+const options = {
   entryPoints: [resolve(root, 'src/client/index.tsx')],
   bundle: true,
   format: 'cjs',
@@ -64,6 +65,14 @@ const result = await build({
   define: {
     'process.env.NODE_ENV': '"production"',
   },
-});
+};
 
-console.log(`[build-client] wrote lib/client.js (${result.outputFiles?.[0]?.contents?.length ?? '?'} bytes)`);
+if (watch) {
+  const ctx = await context(options);
+  await ctx.watch();
+  console.log('[build-client] watching src/client/** — refresh the DSH page after each rebuild');
+} else {
+  await build(options);
+  const size = statSync(resolve(root, 'lib/client.js')).size;
+  console.log(`[build-client] wrote lib/client.js (${size} bytes)`);
+}
