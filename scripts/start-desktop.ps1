@@ -39,28 +39,37 @@ if ($running.Count -gt 0 -and -not $Force) {
   throw 'DeepSeek Harness is running. Quit it completely (tray icon included), then run this script again.'
 }
 
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+  throw 'node was not found on PATH; it is needed to build lib/client.js.'
+}
+
 Write-Host ("[1/4] Building client bundle ...")
 Push-Location $source
 try { & node scripts/build-client.mjs } finally { Pop-Location }
 
 function Remove-Link {
   param([string]$Path)
-  # rmdir removes the junction itself and never touches the target.
+  # rmdir removes a junction itself and never touches its target.
   & cmd /c rmdir "$Path" | Out-Null
 }
 
 function Set-DevLink {
   $item = Get-Item $pluginPath -Force -ErrorAction SilentlyContinue
   if ($item -and $item.LinkType -eq 'Junction') {
-    if ($item.Target -eq $source) { Write-Host '[2/4] Already linked to the worktree.'; return }
+    if ((Resolve-Path $item.Target).Path -eq $source) { Write-Host '[2/4] Already linked to the worktree.'; return }
     Remove-Link $pluginPath
+  } elseif ($item -and -not (Get-ChildItem $pluginPath -Force -ErrorAction SilentlyContinue)) {
+    # A previous run left an empty directory behind; drop it.
+    Remove-Item $pluginPath -Force
   } elseif ($item) {
     $backup = "$pluginPath.release-backup"
     if (Test-Path $backup) { Remove-Item $backup -Recurse -Force }
     Move-Item $pluginPath $backup
     Write-Host "[2/4] Previous install kept at $backup"
   }
-  New-Item -ItemType Junction -Path $pluginPath -Target $source | Out-Null
+  # mklink /J works on PowerShell 5.1 too; New-Item -ItemType Junction does not.
+  $made = & cmd /c mklink /J "$pluginPath" "$source" 2>&1
+  if ($LASTEXITCODE -ne 0) { throw "mklink failed: $made" }
   Write-Host '[2/4] node_modules/dsh-vaspflow -> worktree (junction).'
 }
 
