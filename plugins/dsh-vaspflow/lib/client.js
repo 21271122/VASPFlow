@@ -59647,7 +59647,7 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, planId, taskIndex, incarOverrides, note: note2 }) {
+function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2 }) {
   const [compared, setCompared] = import_react129.default.useState();
   import_react129.default.useEffect(() => {
     let cancelled = false;
@@ -59658,6 +59658,11 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
       return lines;
     };
     const load = async () => {
+      const baked = files?.[fileName];
+      if (baked && typeof baked.source === "string" && typeof baked.written === "string") {
+        if (!cancelled) setCompared({ source: splitLines(baked.source), written: splitLines(baked.written) });
+        return;
+      }
       if (planId && taskIndex !== void 0) {
         try {
           const url2 = `/plugins/dsh-vaspflow/build-inputs/file?planId=${encodeURIComponent(planId)}&taskIndex=${taskIndex}&name=${encodeURIComponent(fileName)}`;
@@ -59679,13 +59684,13 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
         return;
       }
       const written = Object.keys(incarOverrides ?? {}).length ? splitLines(applyIncarOverrides(state.text, incarOverrides)) : state.lines;
-      setCompared({ source: state.lines, written });
+      setCompared({ source: state.lines, written, notice: rewritten ? "\u672A\u53D6\u5F97\u5BBF\u4E3B\u5199\u5165\u5185\u5BB9\uFF0C\u6B64\u5904\u4EC5\u4E3A\u6765\u6E90" : void 0 });
     };
     void load();
     return () => {
       cancelled = true;
     };
-  }, [projectRoot, source.path, fileName, planId, taskIndex, incarOverrides]);
+  }, [projectRoot, source.path, fileName, files, planId, taskIndex, incarOverrides, rewritten]);
   const overrideCount = Object.keys(incarOverrides ?? {}).length;
   const error = compared?.error;
   const marks = import_react129.default.useMemo(
@@ -59715,6 +59720,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
           ] })
         ] })
       ] })),
+      compared?.notice ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
       overrideCount > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-note", children: [
         "\u53C2\u6570\u8986\u76D6 ",
         overrideCount,
@@ -101175,6 +101181,8 @@ function BuildPreviewDetail({ detail }) {
                     slotLabel: slot.label,
                     source: { path: slot.path },
                     fileName: destination,
+                    files: result?.files,
+                    rewritten: slot.key === "POSCAR",
                     planId: detail.planId,
                     taskIndex: detail.taskIndex,
                     incarOverrides: slot.key === "INCAR" ? task.incarOverrides : void 0,

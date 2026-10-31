@@ -10,7 +10,7 @@ export type ViewTab = 'status' | 'chart' | 'structure' | 'files';
 export interface BuildTaskDetail {
   projectRoot: string;
   task: { dir?: string; template?: string; poscarSrc?: string; incarSrc?: string; kpointsSrc?: string; potcarSrc?: string; submitSrc?: string; sources?: Record<string, string>; freeAtoms?: number[]; fixedAtoms?: number[]; sdPolicy?: string; incarOverrides?: Record<string, unknown>; extraFiles?: Array<{ src?: string; dest?: string; fromTemplate?: string }> };
-  result?: { status?: string; sources?: Record<string, string>; sd?: string; sdNotes?: string[]; potcar?: string; errors?: string[]; warnings?: string[]; wrote?: boolean };
+  result?: { status?: string; sources?: Record<string, string>; sd?: string; sdNotes?: string[]; potcar?: string; errors?: string[]; warnings?: string[]; wrote?: boolean; files?: Record<string, { source?: string; written?: string }> };
   /** Whole build batch, so the dock can show where this task sits in the group. */
   batch?: { tasks: any[]; results: any[] };
   /** Build plan identity, used to ask the host for the exact bytes it would write. */

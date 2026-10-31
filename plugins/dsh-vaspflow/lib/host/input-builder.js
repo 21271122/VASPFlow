@@ -576,6 +576,9 @@ export async function buildOneTask(task, projectRoot, opts) {
  */
 export async function buildInputs(projectRoot, tasks, opts = {}) {
   const results = [];
+  // Preview bytes travel with the results only while they stay small; past that
+  // the UI fetches them per file from /build-inputs/file instead.
+  let previewBudget = opts.previewText ? 512 * 1024 : 0;
   for (const task of tasks) {
     let r;
     try {
@@ -584,7 +587,18 @@ export async function buildInputs(projectRoot, tasks, opts = {}) {
       r = { sources: {}, sd: 'n/a', potcar: 'N/A', errors: ['工具执行异常: ' + String(error)], warnings: [], wrote: false };
     }
     const status = r.errors.length > 0 ? 'error' : (r.warnings.length > 0 ? 'warn' : 'ok');
-    results.push({ dir: task.dir, status, sources: r.sources, sd: r.sd, sdNotes: r.sdNotes ?? [], potcar: r.potcar, errors: r.errors, warnings: r.warnings, wrote: r.wrote });
+    // Ship the bytes the build produced alongside the result when the caller
+    // asks for them, so the UI can show exactly what will be / was written.
+    const files = {};
+    if (previewBudget > 0 && r.previewFiles) {
+      for (const [name, value] of Object.entries(r.previewFiles)) {
+        const size = (value.source?.length ?? 0) + (value.written?.length ?? 0);
+        if (size > 64 * 1024 || size > previewBudget) continue;
+        previewBudget -= size;
+        files[name] = value;
+      }
+    }
+    results.push({ dir: task.dir, status, sources: r.sources, sd: r.sd, sdNotes: r.sdNotes ?? [], potcar: r.potcar, errors: r.errors, warnings: r.warnings, wrote: r.wrote, ...(Object.keys(files).length ? { files } : {}) });
   }
   const okCount = results.filter((r) => r.status === 'ok').length;
   const warnCount = results.filter((r) => r.status === 'warn').length;

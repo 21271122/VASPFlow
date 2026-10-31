@@ -191,6 +191,8 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
                   slotLabel={slot.label}
                   source={{ path: slot.path }}
                   fileName={destination}
+                  files={result?.files}
+                  rewritten={slot.key === 'POSCAR'}
                   planId={detail.planId} taskIndex={detail.taskIndex}
                   incarOverrides={slot.key === 'INCAR' ? task.incarOverrides : undefined}
                   note={slot.key === 'POSCAR' && result?.sd ? `SD 将改写为 ${result.sd}` : undefined}

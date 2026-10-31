@@ -209,18 +209,22 @@ export type SourceCompareProps = {
   source: { path: string };
   /** Destination name inside the task directory (POSCAR, INCAR, submit.sh, …). */
   fileName: string;
-  /** Build plan identity: lets the host compute the exact bytes it would write. */
+  /** Bytes the host computed for this file when it built the plan. */
+  files?: Record<string, { source?: string; written?: string }>;
+  /** Build plan identity: lets the host recompute the exact bytes if the row has none. */
   planId?: string;
   taskIndex?: number;
   /** Fallback transform when the plan is gone (old sessions, offline preview). */
   incarOverrides?: Record<string, unknown>;
+  /** The host rewrites this file on write (POSCAR flags), so a read-only fallback is not the result. */
+  rewritten?: boolean;
   /** Extra transformation noted next to the title. */
   note?: string;
 };
 
-type Compared = { source: string[]; written: string[]; error?: string };
+type Compared = { source: string[]; written: string[]; error?: string; notice?: string };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, planId, taskIndex, incarOverrides, note }: SourceCompareProps) {
+export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note }: SourceCompareProps) {
   const [compared, setCompared] = React.useState<Compared>();
 
   React.useEffect(() => {
@@ -232,6 +236,12 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
       return lines;
     };
     const load = async () => {
+      // 1) Bytes the host computed for this exact plan — authoritative.
+      const baked = files?.[fileName];
+      if (baked && typeof baked.source === 'string' && typeof baked.written === 'string') {
+        if (!cancelled) setCompared({ source: splitLines(baked.source), written: splitLines(baked.written) });
+        return;
+      }
       // Preferred: the host runs the same builder it uses for the real write,
       // so POSCAR flag rewrites and INCAR overrides are reflected exactly.
       if (planId && taskIndex !== undefined) {
@@ -254,11 +264,11 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
       const written = Object.keys(incarOverrides ?? {}).length
         ? splitLines(applyIncarOverrides(state.text, incarOverrides))
         : state.lines;
-      setCompared({ source: state.lines, written });
+      setCompared({ source: state.lines, written, notice: rewritten ? '未取得宿主写入内容，此处仅为来源' : undefined });
     };
     void load();
     return () => { cancelled = true; };
-  }, [projectRoot, source.path, fileName, planId, taskIndex, incarOverrides]);
+  }, [projectRoot, source.path, fileName, files, planId, taskIndex, incarOverrides, rewritten]);
 
   const overrideCount = Object.keys(incarOverrides ?? {}).length;
   const error = compared?.error;
@@ -283,6 +293,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
           : marks && (same
             ? <span className="vfp-cmp-same">与来源相同</span>
             : <span className="vfp-cmp-diff">与来源不同{delta && <em className="vfp-cmp-delta"><b>+{delta.added}</b><b>−{delta.removed}</b></em>}</span>)}
+        {compared?.notice ? <span className="vfp-cmp-note">{compared.notice}</span> : null}
         {overrideCount > 0 && <span className="vfp-cmp-note">参数覆盖 {overrideCount} 项</span>}
       </div>
       <div className="vfp-cmp-grid">

@@ -729,7 +729,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
       const dryRun = buildMode.dryRun;
       try {
         const projectRoot = args.projectRoot ?? workspaceOf(exec);
-        const result = await buildInputs(projectRoot, args.tasks ?? [], { dryRun, linkPotcar: !!args.linkPotcar });
+        const result = await buildInputs(projectRoot, args.tasks ?? [], { dryRun, linkPotcar: !!args.linkPotcar, previewText: true });
         if (dryRun && Array.isArray(args.tasks) && args.tasks.length > 0) {
           for (const [id, plan] of buildPlans) {
             if (Date.now() - plan.createdAt > 24 * 60 * 60 * 1000) buildPlans.delete(id);
@@ -1000,9 +1000,16 @@ export function apply(ctx, config) {
   let savedPlans = {};
   try { savedPlans = JSON.parse(readFileSync(planFile, 'utf8')); } catch { /* no prior plans */ }
   const buildPlans = new Map(Object.entries(savedPlans).filter(([, plan]) => plan && Array.isArray(plan.tasks)));
+  /** Preview bytes stay in memory for the session; the plan file keeps only the summaries. */
+  const withoutFiles = (plan) => {
+    const strip = (payload) => (payload && Array.isArray(payload.results)
+      ? { ...payload, results: payload.results.map(({ files, ...rest }) => rest) }
+      : payload);
+    return { ...plan, preview: strip(plan.preview), ...(plan.result ? { result: strip(plan.result) } : {}) };
+  };
   const saveBuildPlans = () => {
     try {
-      writeJsonAtomic(planFile, Object.fromEntries([...buildPlans].slice(-40)));
+      writeJsonAtomic(planFile, Object.fromEntries([...buildPlans].slice(-40).map(([id, plan]) => [id, withoutFiles(plan)])));
     } catch { /* live session still retains plans */ }
   };
   let savedOutcomes = {};
@@ -1129,9 +1136,11 @@ export function apply(ctx, config) {
         const planId = parseQuery(req.url ?? '').planId;
         const plan = getBuildPlan(planId);
         if (!plan) return json(res, 404, { error: '未找到构建计划，请重新预览' });
+        // Status polling does not need the preview bytes; the tool result carries them.
+        const light = withoutFiles(plan);
         return json(res, 200, {
-          planId, state: plan.state, revision: plan.revision, projectRoot: plan.projectRoot, tasks: plan.tasks,
-          preview: plan.preview, selectedIndices: plan.selectedIndices, result: plan.result,
+          planId, state: light.state, revision: light.revision, projectRoot: light.projectRoot, tasks: light.tasks,
+          preview: light.preview, selectedIndices: light.selectedIndices, result: light.result,
         });
       },
     }), 'dsh-vaspflow: build plan status');
@@ -1188,7 +1197,7 @@ export function apply(ctx, config) {
           }
           plan.state = 'repreviewing';
           saveBuildPlans();
-          const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar });
+          const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar, previewText: true });
           plan.tasks = tasks;
           plan.revision += 1;
           plan.preview = preview;
@@ -1278,15 +1287,18 @@ export function apply(ctx, config) {
           }
           markPlan(planId, plan, 'confirming');
           const tasks = selectedIndices.map((index) => plan.tasks[index]);
-          const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar });
+          const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar, previewText: true });
           if (preview.errorCount > 0) {
             markPlan(planId, plan, 'invalidated');
             return json(res, 409, { error: '任务预览已出现错误，请重新检查', ...preview });
           }
           markPlan(planId, plan, 'writing');
-          const result = await buildInputs(plan.projectRoot, tasks, { dryRun: false, linkPotcar: plan.linkPotcar });
+          const result = await buildInputs(plan.projectRoot, tasks, { dryRun: false, linkPotcar: plan.linkPotcar, previewText: true });
           if (enableDirect === true && result.errorCount === 0 && result.wroteCount === tasks.length) buildMode.dryRun = false;
-          const response = { ...result, projectRoot: plan.projectRoot, dryRunMode: buildMode.dryRun, error: '' };
+          // Keep the write result free of preview bytes: it stays small, and a
+          // retry after restart returns the same payload. The card asks
+          // /build-inputs/file for the bytes when it needs them.
+          const response = withoutFiles({ result: { ...result, projectRoot: plan.projectRoot, dryRunMode: buildMode.dryRun, error: '' } }).result;
           plan.result = response;
           plan.selectedIndices = selectedIndices;
           plan.enableDirect = !!enableDirect;
