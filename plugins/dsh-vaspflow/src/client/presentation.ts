@@ -274,6 +274,7 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 /* Directory graph: one node per folder, edges are nesting. */
 .vfp-dirtree { margin:2px 0 4px; padding:10px 12px 12px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); }
 .vfp-dirtree-head { display:flex; align-items:baseline; gap:10px; margin-bottom:8px; }
+.vfp-dirtree > .vfp-dirtree-head:not(:has(strong)) { margin-bottom:6px; justify-content:flex-end; }
 .vfp-dirtree-head strong { font-size:12px; }
 .vfp-dirtree-legend { display:flex; align-items:center; gap:5px; margin-left:auto; color:var(--vfp-muted); font-size:10.5px; }
 .vfp-dirtree-legend i { width:7px; height:7px; border-radius:50%; display:inline-block; }

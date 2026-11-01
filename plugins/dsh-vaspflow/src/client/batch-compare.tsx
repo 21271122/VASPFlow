@@ -172,7 +172,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
 }
 
 /** Directory graph: every node is a folder, edges are nesting. */
-export function DirTree({ root }: { root: DirNode }) {
+export function DirTree({ root, showTitle = true }: { root: DirNode; showTitle?: boolean }) {
   const render = (node: DirNode) => (
     <li className="vfp-dir-item" data-kind={node.kind} key={node.path || node.name}>
       <span className="vfp-dir-label" title={node.path}>
@@ -188,7 +188,7 @@ export function DirTree({ root }: { root: DirNode }) {
   return (
     <div className="vfp-dirtree">
       <div className="vfp-dirtree-head">
-        <strong>相对目录</strong>
+        {showTitle ? <strong>相对目录</strong> : null}
         <span className="vfp-dirtree-legend">
           <i data-kind="template" aria-hidden="true" />模板
           <i data-kind="task" aria-hidden="true" />任务

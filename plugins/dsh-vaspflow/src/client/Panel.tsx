@@ -274,7 +274,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
             ? absoluteTaskPath(projectRoot, task.template)
             : (Object.values(result?.sources ?? {}) as string[]).slice(0, 1).map((value) => toPosix(value).split('/').slice(0, -1).join('/'))[0] || '';
           const tree = buildRelativeTree(templateDir ? [templateDir] : [], [absoluteTaskPath(projectRoot, task.dir)], projectRoot);
-          return tree ? <DirTree root={tree} /> : <div className="vfp-inherit-empty">暂无可比较的目录</div>;
+          return tree ? <DirTree root={tree} showTitle={false} /> : <div className="vfp-inherit-empty">暂无可比较的目录</div>;
         })()}
       </div>
       <div className="vfp-build-detail-section"><b>构建设置与检查</b>

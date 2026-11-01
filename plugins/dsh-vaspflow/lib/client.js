@@ -60116,7 +60116,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
     }) })
   ] });
 }
-function DirTree({ root }) {
+function DirTree({ root, showTitle = true }) {
   const render2 = (node2) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("li", { className: "vfp-dir-item", "data-kind": node2.kind, children: [
     /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "vfp-dir-label", title: node2.path, children: [
       /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { className: "vfp-dir-dot", "aria-hidden": "true" }),
@@ -60129,7 +60129,7 @@ function DirTree({ root }) {
   ] }, node2.path || node2.name);
   return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-dirtree", children: [
     /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-dirtree-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("strong", { children: "\u76F8\u5BF9\u76EE\u5F55" }),
+      showTitle ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("strong", { children: "\u76F8\u5BF9\u76EE\u5F55" }) : null,
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "vfp-dirtree-legend", children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { "data-kind": "template", "aria-hidden": "true" }),
         "\u6A21\u677F",
@@ -101657,7 +101657,7 @@ function BuildPreviewDetail({ detail }) {
       (() => {
         const templateDir = task.template ? absoluteTaskPath(projectRoot, task.template) : Object.values(result?.sources ?? {}).slice(0, 1).map((value) => toPosix(value).split("/").slice(0, -1).join("/"))[0] || "";
         const tree = buildRelativeTree(templateDir ? [templateDir] : [], [absoluteTaskPath(projectRoot, task.dir)], projectRoot);
-        return tree ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(DirTree, { root: tree }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-inherit-empty", children: "\u6682\u65E0\u53EF\u6BD4\u8F83\u7684\u76EE\u5F55" });
+        return tree ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(DirTree, { root: tree, showTitle: false }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-inherit-empty", children: "\u6682\u65E0\u53EF\u6BD4\u8F83\u7684\u76EE\u5F55" });
       })()
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-build-detail-section", children: [
@@ -102761,6 +102761,7 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 /* Directory graph: one node per folder, edges are nesting. */
 .vfp-dirtree { margin:2px 0 4px; padding:10px 12px 12px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); }
 .vfp-dirtree-head { display:flex; align-items:baseline; gap:10px; margin-bottom:8px; }
+.vfp-dirtree > .vfp-dirtree-head:not(:has(strong)) { margin-bottom:6px; justify-content:flex-end; }
 .vfp-dirtree-head strong { font-size:12px; }
 .vfp-dirtree-legend { display:flex; align-items:center; gap:5px; margin-left:auto; color:var(--vfp-muted); font-size:10.5px; }
 .vfp-dirtree-legend i { width:7px; height:7px; border-radius:50%; display:inline-block; }
