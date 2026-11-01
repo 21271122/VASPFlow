@@ -263,6 +263,8 @@ export type SourceCompareProps = {
   rewritten?: boolean;
   /** Extra transformation noted next to the title. */
   note?: string;
+  /** Header text for the write pane; defaults to the source path. */
+  writtenLabel?: string;
   /** Embedded in a node: smaller panes, no address tree. */
   compact?: boolean;
   /** both = 参考来源 + 将写入; source = only the source; written = only the result. */
@@ -271,7 +273,7 @@ export type SourceCompareProps = {
 
 type Compared = { source: string[]; written: string[]; error?: string; notice?: string };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note, compact, variant = 'both' }: SourceCompareProps) {
+export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note, compact, writtenLabel, variant = 'both' }: SourceCompareProps) {
   const [compared, setCompared] = React.useState<Compared>();
 
   React.useEffect(() => {
@@ -360,7 +362,8 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
             lines={compared?.source} error={error} changed={variant === 'both' ? marks?.left : undefined} />
         )}
         {variant !== 'source' && (
-          <FilePane step={variant === 'written' ? '本任务写入' : '将写入'} path={source.path} dirLabel={shortPath(projectRoot, source.path)}
+          <FilePane step={variant === 'written' ? '本任务写入' : '将写入'} path={source.path}
+            dirLabel={writtenLabel ?? shortPath(projectRoot, source.path)}
             lines={compared?.written} changed={marks?.right} />
         )}
       </div>

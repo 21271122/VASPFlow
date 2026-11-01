@@ -210,8 +210,72 @@ export function groupBatchBySource(batch: BuildBatch, projectRoot: string): Batc
   }).filter((group) => group.sources.length > 0 || group.missing.length > 0);
 }
 
-export function summarizeBatch(batch: BuildBatch, projectRoot: string): BuildBatchSummary | null {
-  const tasks = batch?.tasks ?? [];
+export type DirKind = 'plain' | 'template' | 'task' | 'both';
+
+export type DirNode = {
+  name: string;
+  /** Project-root-relative path of this directory. */
+  path: string;
+  kind: DirKind;
+  taskCount: number;
+  children: DirNode[];
+};
+
+/**
+ * Directory picture for one file group: the directory each template lives in
+ * and the directory of every task, laid out under their deepest shared
+ * ancestor. Directories are plain nodes; the ones that hold a template or a
+ * task are marked so the UI can colour them.
+ */
+export function buildRelativeTree(sources: string[], taskDirs: string[], projectRoot: string): DirNode | null {
+  const split = (value: string) => toPosix(value).split('/').filter(Boolean);
+  const toRel = (value: string) => split(projectRelative(projectRoot, value));
+  const templatePaths = sources.map(toRel).filter((parts) => parts.length > 0);
+  const taskPaths = taskDirs.map(toRel).filter((parts) => parts.length > 0);
+  const all = [...templatePaths, ...taskPaths];
+  if (all.length === 0) return null;
+
+  let common = all[0].slice();
+  for (const parts of all.slice(1)) {
+    let index = 0;
+    while (index < common.length && index < parts.length && common[index].toLowerCase() === parts[index].toLowerCase()) index += 1;
+    common = common.slice(0, index);
+  }
+
+  const root: DirNode = { name: common[common.length - 1] ?? '.', path: common.join('/'), kind: 'plain', taskCount: 0, children: [] };
+  const ensure = (parts: string[]): DirNode => {
+    let node = root;
+    for (let index = common.length; index < parts.length; index += 1) {
+      const name = parts[index];
+      let child = node.children.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
+      if (!child) {
+        child = { name, path: [...parts.slice(0, index + 1)].join('/'), kind: 'plain', taskCount: 0, children: [] };
+        node.children.push(child);
+      }
+      node = child;
+    }
+    return node;
+  };
+
+  for (const parts of templatePaths) {
+    const node = ensure(parts);
+    if (node.kind !== 'task') node.kind = 'template';
+  }
+  for (const parts of taskPaths) {
+    const node = ensure(parts);
+    node.taskCount += 1;
+    node.kind = node.kind === 'template' ? 'both' : 'task';
+  }
+
+  const sort = (node: DirNode) => {
+    node.children.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN', { numeric: true }));
+    node.children.forEach(sort);
+  };
+  sort(root);
+  return root;
+}
+
+export function summarizeBatch(batch: BuildBatch, projectRoot: string): BuildBatchSummary | null {  const tasks = batch?.tasks ?? [];
   if (tasks.length < 2) return null;
   const templates = new Map<string, { name: string; rel: string; count: number }>();
   const slots = BUILD_SLOTS.map((slot) => ({ key: slot.key as string, label: slot.label, fromTemplate: slot.fromTemplate, inherit: 0, explicit: 0, missing: 0 }));

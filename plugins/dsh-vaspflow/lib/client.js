@@ -59483,6 +59483,49 @@ function groupBatchBySource(batch, projectRoot) {
     return { key: slot.key, label: slot.label, fromTemplate: slot.fromTemplate, sources, missing };
   }).filter((group) => group.sources.length > 0 || group.missing.length > 0);
 }
+function buildRelativeTree(sources, taskDirs, projectRoot) {
+  const split = (value) => toPosix(value).split("/").filter(Boolean);
+  const toRel = (value) => split(projectRelative(projectRoot, value));
+  const templatePaths = sources.map(toRel).filter((parts) => parts.length > 0);
+  const taskPaths = taskDirs.map(toRel).filter((parts) => parts.length > 0);
+  const all = [...templatePaths, ...taskPaths];
+  if (all.length === 0) return null;
+  let common2 = all[0].slice();
+  for (const parts of all.slice(1)) {
+    let index2 = 0;
+    while (index2 < common2.length && index2 < parts.length && common2[index2].toLowerCase() === parts[index2].toLowerCase()) index2 += 1;
+    common2 = common2.slice(0, index2);
+  }
+  const root = { name: common2[common2.length - 1] ?? ".", path: common2.join("/"), kind: "plain", taskCount: 0, children: [] };
+  const ensure = (parts) => {
+    let node2 = root;
+    for (let index2 = common2.length; index2 < parts.length; index2 += 1) {
+      const name = parts[index2];
+      let child = node2.children.find((entry) => entry.name.toLowerCase() === name.toLowerCase());
+      if (!child) {
+        child = { name, path: [...parts.slice(0, index2 + 1)].join("/"), kind: "plain", taskCount: 0, children: [] };
+        node2.children.push(child);
+      }
+      node2 = child;
+    }
+    return node2;
+  };
+  for (const parts of templatePaths) {
+    const node2 = ensure(parts);
+    if (node2.kind !== "task") node2.kind = "template";
+  }
+  for (const parts of taskPaths) {
+    const node2 = ensure(parts);
+    node2.taskCount += 1;
+    node2.kind = node2.kind === "template" ? "both" : "task";
+  }
+  const sort = (node2) => {
+    node2.children.sort((a2, b) => a2.name.localeCompare(b.name, "zh-CN", { numeric: true }));
+    node2.children.forEach(sort);
+  };
+  sort(root);
+  return root;
+}
 function summarizeBatch(batch, projectRoot) {
   const tasks = batch?.tasks ?? [];
   if (tasks.length < 2) return null;
@@ -59701,7 +59744,7 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2, compact, variant = "both" }) {
+function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2, compact, writtenLabel, variant = "both" }) {
   const [compared, setCompared] = import_react129.default.useState();
   import_react129.default.useEffect(() => {
     let cancelled = false;
@@ -59803,7 +59846,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
         {
           step: variant === "written" ? "\u672C\u4EFB\u52A1\u5199\u5165" : "\u5C06\u5199\u5165",
           path: source.path,
-          dirLabel: shortPath(projectRoot, source.path),
+          dirLabel: writtenLabel ?? shortPath(projectRoot, source.path),
           lines: compared?.written,
           changed: marks?.right
         }
@@ -59843,8 +59886,15 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
   const groups = import_react130.default.useMemo(() => groupBatchBySource(batch, projectRoot), [batch, projectRoot]);
   const [openKey, setOpenKey] = import_react130.default.useState(() => groups[0]?.key ?? null);
   const [showAll, setShowAll] = import_react130.default.useState(() => /* @__PURE__ */ new Set());
+  const [treeKeys, setTreeKeys] = import_react130.default.useState(() => /* @__PURE__ */ new Set());
   const toggle = (key) => setOpenKey((current) => current === key ? null : key);
   const revealAll = (path3) => setShowAll((current) => new Set(current).add(path3));
+  const toggleTree = (key) => setTreeKeys((current) => {
+    const next2 = new Set(current);
+    if (next2.has(key)) next2.delete(key);
+    else next2.add(key);
+    return next2;
+  });
   const tasks = batch?.tasks ?? [];
   const results = batch?.results ?? [];
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch vaspflow-task-popover", style: maxWidth ? { width: Math.min(1240, maxWidth) } : void 0, children: [
@@ -59861,19 +59911,32 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
       const open = openKey === group.key;
       const total = group.sources.reduce((sum, source) => sum + source.tasks.length, 0);
       return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "vfp-batch-group", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", className: "vfp-batch-group-head", "aria-expanded": open, onClick: () => toggle(group.key), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { "aria-hidden": "true", children: open ? "\u25BE" : "\u25B8" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { children: group.label }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-note", children: [
-            group.sources.length,
-            " \u4E2A\u6765\u6E90 \xB7 ",
-            total,
-            " \u4E2A\u4EFB\u52A1"
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-group-head", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", className: "vfp-batch-group-toggle", "aria-expanded": open, onClick: () => toggle(group.key), children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { "aria-hidden": "true", children: open ? "\u25BE" : "\u25B8" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { children: group.label }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-note", children: [
+              group.sources.length,
+              " \u4E2A\u6765\u6E90 \xB7 ",
+              total,
+              " \u4E2A\u4EFB\u52A1"
+            ] }),
+            group.missing.length ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-batch-missing", children: [
+              group.missing.length,
+              " \u7F3A\u5931"
+            ] }) : null
           ] }),
-          group.missing.length ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-batch-missing", children: [
-            group.missing.length,
-            " \u7F3A\u5931"
-          ] }) : null
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "vfp-batch-dirbutton",
+              "aria-pressed": treeKeys.has(group.key),
+              title: "\u67E5\u770B\u6A21\u677F\u4E0E\u4EFB\u52A1\u7684\u76F8\u5BF9\u76EE\u5F55\u7ED3\u6784",
+              onClick: () => toggleTree(group.key),
+              children: "\u76EE\u5F55"
+            }
+          )
         ] }),
         open && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-tree", children: [
           group.sources.map((source) => {
@@ -59919,7 +59982,8 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
                       taskIndex: index2,
                       incarOverrides: group.key === "INCAR" ? task?.incarOverrides : void 0,
                       rewritten: group.key === "POSCAR",
-                      note: group.key === "POSCAR" && result?.sd ? `SD \u5C06\u6539\u5199\u4E3A ${result.sd}` : void 0
+                      note: group.key === "POSCAR" && result?.sd ? `SD \u5C06\u6539\u5199\u4E3A ${result.sd}` : void 0,
+                      writtenLabel: fileName
                     }
                   ) }, `${group.key}-${index2}`);
                 }),
@@ -59934,10 +59998,44 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
           group.missing.length ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-missing-row", children: [
             "\u7F3A\u5931\uFF1A",
             group.missing.map((index2) => taskLabel(tasks[index2]?.dir)).join("\u3001")
-          ] }) : null
+          ] }) : null,
+          treeKeys.has(group.key) ? (() => {
+            const tree = buildRelativeTree(
+              group.sources.map((source) => toPosix(source.path).split("/").slice(0, -1).join("/")),
+              group.sources.flatMap((source) => source.tasks.map((index2) => absoluteTaskPath(projectRoot, tasks[index2]?.dir || "."))),
+              projectRoot
+            );
+            return tree ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(DirTree, { root: tree }) : null;
+          })() : null
         ] })
       ] }, group.key);
     }) })
+  ] });
+}
+function DirTree({ root }) {
+  const render2 = (node2) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("li", { className: "vfp-dir-item", "data-kind": node2.kind, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-dir-label", title: node2.path, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "vfp-dir-dot", "aria-hidden": "true" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: node2.name }),
+      node2.kind === "template" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("em", { className: "vfp-dir-tag", children: "\u6A21\u677F" }) : null,
+      node2.kind === "task" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("em", { className: "vfp-dir-tag", children: node2.taskCount > 1 ? `\u4EFB\u52A1 \xD7${node2.taskCount}` : "\u4EFB\u52A1" }) : null,
+      node2.kind === "both" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("em", { className: "vfp-dir-tag", children: "\u6A21\u677F + \u4EFB\u52A1" }) : null
+    ] }),
+    node2.children.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ul", { children: node2.children.map((child) => render2(child)) }) : null
+  ] }, node2.path || node2.name);
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-dirtree", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-dirtree-head", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { children: "\u76F8\u5BF9\u76EE\u5F55" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-dirtree-legend", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { "data-kind": "template", "aria-hidden": "true" }),
+        "\u6A21\u677F",
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { "data-kind": "task", "aria-hidden": "true" }),
+        "\u4EFB\u52A1",
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { "data-kind": "plain", "aria-hidden": "true" }),
+        "\u4E0A\u7EA7"
+      ] })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ul", { className: "vfp-dirtree-root", children: render2(root) })
   ] });
 }
 
@@ -102513,9 +102611,14 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-head strong { font-size:13px; }
 .vfp-batch-body { display:grid; grid-template-columns:minmax(0,1fr); gap:6px; min-width:0; }
 .vfp-batch-group { min-width:0; border:1px solid var(--vfp-line); border-radius:8px; overflow:hidden; }
-.vfp-batch-group-head { display:flex; align-items:center; gap:8px; width:100%; padding:6px 9px; border:0; background:var(--vfp-soft); color:inherit; font:inherit; cursor:pointer; text-align:left; }
-.vfp-batch-group-head strong { font-size:12px; }
-.vfp-batch-group-head .vfp-cmp-note { margin-left:auto; }
+.vfp-batch-group-head { display:flex; align-items:center; gap:6px; padding:3px 6px 3px 3px; background:var(--vfp-soft); }
+.vfp-batch-group-toggle { display:flex; align-items:center; gap:8px; flex:1 1 auto; min-width:0; padding:5px 6px; border:0; border-radius:6px; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }
+.vfp-batch-group-toggle:hover { background:var(--vfp-surface); }
+.vfp-batch-group-toggle strong { font-size:12px; }
+.vfp-batch-group-toggle .vfp-cmp-note { margin-left:auto; }
+.vfp-batch-dirbutton { flex:none; padding:2px 9px; border:1px solid var(--vfp-line); border-radius:99px; background:var(--vfp-surface); color:var(--vfp-muted); font:inherit; font-size:11px; line-height:16px; cursor:pointer; }
+.vfp-batch-dirbutton:hover { color:var(--vfp-text); }
+.vfp-batch-dirbutton[aria-pressed="true"] { color:var(--vfp-accent); border-color:rgba(57,107,215,.42); background:rgba(57,107,215,.09); }
 .vfp-batch-missing { color:var(--vfp-warning); font-size:11px; }
 .vfp-batch-tree { display:grid; grid-template-columns:minmax(0,1fr); gap:7px; min-width:0; padding:9px 10px 10px; }
 .vfp-batch-source { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; max-width:100%; overflow:hidden; }
@@ -102534,10 +102637,42 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-name { flex:none; font-weight:500; }
 .vfp-batch-branch { display:none; }
 .vfp-batch-dir { margin-left:auto; flex:none; color:var(--vfp-muted); font-size:10.5px; font-variant-numeric:tabular-nums; }
+/* Directory graph: one node per folder, edges are nesting. */
+.vfp-dirtree { margin:2px 0 4px; padding:10px 12px 12px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); }
+.vfp-dirtree-head { display:flex; align-items:baseline; gap:10px; margin-bottom:8px; }
+.vfp-dirtree-head strong { font-size:12px; }
+.vfp-dirtree-legend { display:flex; align-items:center; gap:5px; margin-left:auto; color:var(--vfp-muted); font-size:10.5px; }
+.vfp-dirtree-legend i { width:7px; height:7px; border-radius:50%; display:inline-block; }
+.vfp-dirtree-legend i[data-kind="template"] { background:var(--vfp-warning); }
+.vfp-dirtree-legend i[data-kind="task"] { margin-left:9px; background:var(--vfp-accent); }
+.vfp-dirtree-legend i[data-kind="plain"] { margin-left:9px; background:var(--vfp-line); }
+.vfp-dirtree ul { margin:0; padding:0 0 0 15px; list-style:none; }
+.vfp-dirtree-root { padding-left:0; }
+.vfp-dir-item { position:relative; padding:1px 0 1px 14px; }
+.vfp-dirtree ul ul > .vfp-dir-item::before { content:""; position:absolute; left:0; top:0; bottom:0; border-left:1px solid var(--vfp-line); }
+.vfp-dirtree ul ul > .vfp-dir-item:last-child::before { bottom:auto; height:13px; }
+.vfp-dirtree ul ul > .vfp-dir-item::after { content:""; position:absolute; left:0; top:13px; width:9px; border-top:1px solid var(--vfp-line); }
+.vfp-dir-label { display:inline-flex; align-items:center; gap:7px; font:12px/1.65 Consolas,"Cascadia Mono",monospace; color:var(--vfp-text); }
+.vfp-dir-dot { flex:none; width:7px; height:7px; border-radius:50%; background:var(--vfp-line); }
+.vfp-dir-item[data-kind="template"] .vfp-dir-dot { background:var(--vfp-warning); }
+.vfp-dir-item[data-kind="task"] .vfp-dir-dot { background:var(--vfp-accent); }
+.vfp-dir-item[data-kind="both"] .vfp-dir-dot { background:linear-gradient(90deg,var(--vfp-warning) 50%,var(--vfp-accent) 50%); }
+.vfp-dir-item[data-kind="template"] > .vfp-dir-label b { color:var(--vfp-warning); font-weight:600; }
+.vfp-dir-item[data-kind="task"] > .vfp-dir-label b,
+.vfp-dir-item[data-kind="both"] > .vfp-dir-label b { color:var(--vfp-accent); font-weight:600; }
+.vfp-dir-item[data-kind="plain"] > .vfp-dir-label b { color:var(--vfp-text); font-weight:400; }
+.vfp-dir-tag { padding:0 6px; border-radius:99px; font-style:normal; font-size:10px; line-height:15px; color:var(--vfp-warning); background:rgba(196,132,20,.13); }
+.vfp-dir-item[data-kind="task"] .vfp-dir-tag,
+.vfp-dir-item[data-kind="both"] .vfp-dir-tag { color:var(--vfp-accent); background:rgba(57,107,215,.11); }
 .vfp-batch-missing-row { color:var(--vfp-warning); font-size:11px; }
-.vfp-batch-source > .vfp-cmp, .vfp-batch-source > .vfp-cmp[data-compact] { width:190px; max-width:190px; margin:0; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-soft); }
+.vfp-batch-source > .vfp-cmp, .vfp-batch-source > .vfp-cmp[data-compact] { width:190px; max-width:190px; margin:0; padding:8px 9px 9px; border:1px solid var(--vfp-line); border-radius:10px; background:var(--vfp-soft); box-shadow:0 1px 2px rgba(16,24,40,.05); }
 .vfp-batch-leaf { margin:0; }
-.vfp-batch-leaf .vfp-cmp { width:100%; max-height:none; overflow:visible; gap:6px; padding:7px 9px; border:1px solid var(--vfp-line); border-radius:8px; background:var(--vfp-surface); }
+.vfp-batch-leaf .vfp-cmp { width:100%; max-height:none; overflow:visible; gap:7px; padding:8px 9px 9px; border:1px solid var(--vfp-line); border-radius:10px; background:var(--vfp-surface); box-shadow:0 1px 2px rgba(16,24,40,.05); }
+.vfp-cmp[data-compact] .vfp-cmp-side { border-radius:7px; }
+.vfp-cmp[data-compact] .vfp-cmp-side > header { padding:4px 8px; gap:6px; }
+.vfp-cmp[data-compact] .vfp-cmp-step { padding:0 4px; line-height:15px; font-size:10px; }
+.vfp-cmp[data-compact] .vfp-cmp-dir { font-size:10px; }
+.vfp-cmp[data-compact] .vfp-cmp-side pre { padding:5px 0 6px; }
 .vfp-cmp[data-compact] { width:100%; max-height:none; overflow:visible; padding:0; gap:6px; }
 .vfp-cmp[data-compact] .vfp-cmp-head { padding-bottom:5px; flex-wrap:nowrap; gap:6px; align-items:baseline; }
 .vfp-cmp[data-compact] .vfp-cmp-title { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -102545,6 +102680,14 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp[data-compact] .vfp-cmp-head strong { font-size:12px; }
 .vfp-cmp[data-compact] .vfp-cmp-side > header { padding:3px 7px; }
 .vfp-cmp[data-compact] .vfp-cmp-side > header code { font-size:10px; }
+/* Slim, self-effacing scrollbars inside a preview pane. */
+.vfp-cmp-side pre::-webkit-scrollbar { width:9px; height:9px; }
+.vfp-cmp-side pre::-webkit-scrollbar-track { background:transparent; }
+.vfp-cmp-side pre::-webkit-scrollbar-corner { background:transparent; }
+.vfp-cmp-side pre::-webkit-scrollbar-thumb { border:2px solid transparent; border-radius:99px; background:rgba(120,132,150,.30); background-clip:content-box; }
+.vfp-cmp-side pre::-webkit-scrollbar-thumb:hover { background:rgba(120,132,150,.52); background-clip:content-box; }
+.vfp-cmp[data-compact] .vfp-cmp-step { border-color:transparent; background:rgba(57,107,215,.07); color:var(--vfp-accent); }
+.vfp-cmp[data-compact] .vfp-cmp-side[data-side="read"] .vfp-cmp-step { background:rgba(120,132,150,.10); color:var(--vfp-muted); }
 .vfp-cmp[data-compact] .vfp-cmp-side pre { max-height:150px; }
 .vfp-cmp[data-compact] .vfp-cmp-line { padding:0 7px; }
 .vfp-batch-more { margin:2px 0 4px; }

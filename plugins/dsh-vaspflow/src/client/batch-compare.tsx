@@ -8,7 +8,8 @@
  */
 import React from 'react';
 import { SourceCompare } from './source-compare';
-import { groupBatchBySource, toPosix } from './inheritance';
+import { absoluteTaskPath, buildRelativeTree, groupBatchBySource, toPosix } from './inheritance';
+import type { DirNode } from './inheritance';
 
 export type BatchCompareProps = {
   batch: { tasks: any[]; results: any[] } | undefined;
@@ -37,10 +38,16 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
   // previews is on screen at a time.
   const [openKey, setOpenKey] = React.useState<string | null>(() => groups[0]?.key ?? null);
   const [showAll, setShowAll] = React.useState<Set<string>>(() => new Set());
+  const [treeKeys, setTreeKeys] = React.useState<Set<string>>(() => new Set());
 
   const toggle = (key: string) => setOpenKey((current) => (current === key ? null : key));
 
   const revealAll = (path: string) => setShowAll((current) => new Set(current).add(path));
+  const toggleTree = (key: string) => setTreeKeys((current) => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
   const tasks = batch?.tasks ?? [];
   const results = batch?.results ?? [];
@@ -57,12 +64,23 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
           const total = group.sources.reduce((sum, source) => sum + source.tasks.length, 0);
           return (
             <section className="vfp-batch-group" key={group.key}>
-              <button type="button" className="vfp-batch-group-head" aria-expanded={open} onClick={() => toggle(group.key)}>
-                <span aria-hidden="true">{open ? '▾' : '▸'}</span>
-                <strong>{group.label}</strong>
-                <span className="vfp-cmp-note">{group.sources.length} 个来源 · {total} 个任务</span>
-                {group.missing.length ? <span className="vfp-batch-missing">{group.missing.length} 缺失</span> : null}
-              </button>
+              <div className="vfp-batch-group-head">
+                <button type="button" className="vfp-batch-group-toggle" aria-expanded={open} onClick={() => toggle(group.key)}>
+                  <span aria-hidden="true">{open ? '▾' : '▸'}</span>
+                  <strong>{group.label}</strong>
+                  <span className="vfp-cmp-note">{group.sources.length} 个来源 · {total} 个任务</span>
+                  {group.missing.length ? <span className="vfp-batch-missing">{group.missing.length} 缺失</span> : null}
+                </button>
+                <button
+                  type="button"
+                  className="vfp-batch-dirbutton"
+                  aria-pressed={treeKeys.has(group.key)}
+                  title="查看模板与任务的相对目录结构"
+                  onClick={() => toggleTree(group.key)}
+                >
+                  目录
+                </button>
+              </div>
               {open && (
                 <div className="vfp-batch-tree">
                   {group.sources.map((source) => {
@@ -106,6 +124,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                                   incarOverrides={group.key === 'INCAR' ? task?.incarOverrides : undefined}
                                   rewritten={group.key === 'POSCAR'}
                                   note={group.key === 'POSCAR' && result?.sd ? `SD 将改写为 ${result.sd}` : undefined}
+                                  writtenLabel={fileName}
                                 />
                               </li>
                             );
@@ -124,12 +143,49 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                       缺失：{group.missing.map((index) => taskLabel(tasks[index]?.dir)).join('、')}
                     </div>
                   ) : null}
+                  {treeKeys.has(group.key) ? (() => {
+                    const tree = buildRelativeTree(
+                      group.sources.map((source) => toPosix(source.path).split('/').slice(0, -1).join('/')),
+                      group.sources.flatMap((source) => source.tasks.map((index) => absoluteTaskPath(projectRoot, tasks[index]?.dir || '.'))),
+                      projectRoot,
+                    );
+                    return tree ? <DirTree root={tree} /> : null;
+                  })() : null}
                 </div>
               )}
             </section>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** Directory graph: every node is a folder, edges are nesting. */
+function DirTree({ root }: { root: DirNode }) {
+  const render = (node: DirNode) => (
+    <li className="vfp-dir-item" data-kind={node.kind} key={node.path || node.name}>
+      <span className="vfp-dir-label" title={node.path}>
+        <i className="vfp-dir-dot" aria-hidden="true" />
+        <b>{node.name}</b>
+        {node.kind === 'template' ? <em className="vfp-dir-tag">模板</em> : null}
+        {node.kind === 'task' ? <em className="vfp-dir-tag">{node.taskCount > 1 ? `任务 ×${node.taskCount}` : '任务'}</em> : null}
+        {node.kind === 'both' ? <em className="vfp-dir-tag">模板 + 任务</em> : null}
+      </span>
+      {node.children.length > 0 ? <ul>{node.children.map((child) => render(child))}</ul> : null}
+    </li>
+  );
+  return (
+    <div className="vfp-dirtree">
+      <div className="vfp-dirtree-head">
+        <strong>相对目录</strong>
+        <span className="vfp-dirtree-legend">
+          <i data-kind="template" aria-hidden="true" />模板
+          <i data-kind="task" aria-hidden="true" />任务
+          <i data-kind="plain" aria-hidden="true" />上级
+        </span>
+      </div>
+      <ul className="vfp-dirtree-root">{render(root)}</ul>
     </div>
   );
 }
