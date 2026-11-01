@@ -59952,7 +59952,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
                   projectRoot,
                   projectName,
                   slotLabel: source.tasks.length > 1 ? `${sourceName} \xD7${source.tasks.length}` : sourceName,
-                  hint: source.path,
+                  hint: projectRelative(projectRoot, source.path),
                   source: { path: source.path },
                   fileName: ""
                 }
@@ -59970,7 +59970,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
                       projectRoot,
                       projectName,
                       slotLabel: taskLabel(task?.dir),
-                      hint: task?.dir,
+                      hint: toPosix(task?.dir || ""),
                       source: { path: source.path },
                       fileName,
                       planId,

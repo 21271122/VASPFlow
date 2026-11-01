@@ -8,7 +8,7 @@
  */
 import React from 'react';
 import { SourceCompare } from './source-compare';
-import { absoluteTaskPath, buildRelativeTree, groupBatchBySource, toPosix } from './inheritance';
+import { absoluteTaskPath, buildRelativeTree, groupBatchBySource, projectRelative, toPosix } from './inheritance';
 import type { DirNode } from './inheritance';
 
 export type BatchCompareProps = {
@@ -98,7 +98,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                             projectRoot={projectRoot}
                             projectName={projectName}
                             slotLabel={source.tasks.length > 1 ? `${sourceName} ×${source.tasks.length}` : sourceName}
-                            hint={source.path}
+                            hint={projectRelative(projectRoot, source.path)}
                             source={{ path: source.path }}
                             fileName=""
                           />
@@ -118,7 +118,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                                   projectRoot={projectRoot}
                                   projectName={projectName}
                                   slotLabel={taskLabel(task?.dir)}
-                                  hint={task?.dir}
+                                  hint={toPosix(task?.dir || "")}
                                   source={{ path: source.path }}
                                   fileName={fileName}
                                   planId={planId}
