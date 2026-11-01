@@ -246,15 +246,15 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-dirbutton[aria-pressed="true"] { color:var(--vfp-accent); border-color:rgba(57,107,215,.42); background:rgba(57,107,215,.09); }
 .vfp-batch-missing { color:var(--vfp-warning); font-size:11px; }
 .vfp-batch-tree { display:grid; grid-template-columns:minmax(0,1fr); gap:7px; min-width:0; padding:9px 10px 10px; }
-.vfp-batch-source { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; max-width:100%; overflow:hidden; }
-.vfp-batch-source + .vfp-batch-source { margin-top:10px; }
+.vfp-batch-source { display:flex; flex-direction:column; align-items:flex-start; gap:6px; min-width:0; max-width:100%; overflow:hidden; }
+.vfp-batch-source + .vfp-batch-source { margin-top:12px; padding-top:12px; border-top:1px dashed var(--vfp-line); }
 .vfp-batch-node { display:flex; align-items:center; gap:6px; min-width:0; }
-.vfp-batch-root { display:inline-flex; align-self:center; max-width:100%; padding:4px 7px; border:1px solid var(--vfp-line); border-radius:6px; background:var(--vfp-surface); }
+.vfp-batch-root { display:inline-flex; align-self:flex-start; max-width:100%; padding:4px 7px; border:1px solid var(--vfp-line); border-radius:6px; background:var(--vfp-surface); }
 .vfp-batch-dot { width:7px; height:7px; border-radius:50%; background:var(--vfp-accent); flex:none; }
 .vfp-batch-path-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1.5 Consolas,"Cascadia Mono",monospace; color:var(--vfp-text); }
 .vfp-batch-count { margin-left:auto; color:var(--vfp-muted); font-size:11px; font-variant-numeric:tabular-nums; }
-.vfp-batch-children { display:flex; flex-wrap:nowrap; justify-content:safe center; gap:8px; box-sizing:border-box; width:100%; margin:0; padding:0 0 4px; list-style:none; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
-.vfp-batch-children li { position:relative; flex:0 0 190px; min-width:190px; }
+.vfp-batch-children { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:8px; box-sizing:border-box; width:100%; margin:0; padding:0 0 2px; list-style:none; }
+
 .vfp-batch-children li::before { content:none; }
 .vfp-batch-task { width:100%; padding:2px 6px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }
 .vfp-batch-task:hover { background:var(--vfp-soft); }
@@ -291,8 +291,12 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-dir-item[data-kind="both"] .vfp-dir-tag { color:var(--vfp-accent); background:rgba(57,107,215,.11); }
 .vfp-batch-missing-row { color:var(--vfp-warning); font-size:11px; }
 .vfp-batch-source > .vfp-cmp, .vfp-batch-source > .vfp-cmp[data-compact] { width:190px; max-width:190px; margin:0; padding:8px 9px 9px; border:1px solid var(--vfp-line); border-radius:10px; background:var(--vfp-soft); box-shadow:0 1px 2px rgba(16,24,40,.05); }
+/* The template is the first tile of the row, so a 1:1 batch reads as
+   template → task pairs instead of a tall centred column. */
+.vfp-batch-leaf-source { flex:0 0 190px; }\n.vfp-batch-leaf-source .vfp-cmp { border-color:rgba(196,132,20,.34); background:rgba(196,132,20,.055); }
+.vfp-batch-leaf-source .vfp-cmp-step { border-color:transparent; background:rgba(196,132,20,.14); color:var(--vfp-warning); }
 .vfp-batch-leaf { margin:0; }
-.vfp-batch-leaf .vfp-cmp { width:100%; max-height:none; overflow:visible; gap:7px; padding:8px 9px 9px; border:1px solid var(--vfp-line); border-radius:10px; background:var(--vfp-surface); box-shadow:0 1px 2px rgba(16,24,40,.05); }
+.vfp-batch-leaf { flex:0 0 190px; min-width:190px; }\n.vfp-batch-leaf .vfp-cmp { width:100%; max-height:none; overflow:visible; gap:7px; padding:8px 9px 9px; border:1px solid var(--vfp-line); border-radius:10px; background:var(--vfp-surface); box-shadow:0 1px 2px rgba(16,24,40,.05); }
 .vfp-cmp[data-compact] .vfp-cmp-side { border-radius:7px; }
 .vfp-cmp[data-compact] .vfp-cmp-side > header { padding:4px 8px; gap:6px; }
 .vfp-cmp[data-compact] .vfp-cmp-step { padding:0 4px; line-height:15px; font-size:10px; }

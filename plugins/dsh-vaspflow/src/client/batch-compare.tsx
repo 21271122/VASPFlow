@@ -83,26 +83,23 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
               </div>
               {open && (
                 <div className="vfp-batch-tree">
-                  {group.sources.map((source) => {
-                    const shown = showAll.has(source.path) ? source.tasks : source.tasks.slice(0, NODE_LIMIT);
-                    const hidden = source.tasks.length - shown.length;
-                    return (
-                      <div className="vfp-batch-source" key={source.path}>
-                        <div className="vfp-batch-node vfp-batch-root" title={source.path}>
-                          <span className="vfp-batch-dot" aria-hidden="true" />
-                          <code className="vfp-batch-path-label">{source.rel}</code>
-                          <span className="vfp-batch-count">×{source.tasks.length}</span>
-                        </div>
-                        <SourceCompare
-                          compact
-                          variant="source"
-                          projectRoot={projectRoot}
-                          projectName={projectName}
-                          slotLabel={group.label}
-                          source={{ path: source.path }}
-                          fileName=""
-                        />
-                        <ul className="vfp-batch-children">
+                  <ul className="vfp-batch-children">
+                    {group.sources.map((source) => {
+                      const shown = showAll.has(source.path) ? source.tasks : source.tasks.slice(0, NODE_LIMIT);
+                      const hidden = source.tasks.length - shown.length;
+                      return (
+                        <React.Fragment key={source.path}>
+                          <li className="vfp-batch-leaf vfp-batch-leaf-source">
+                            <SourceCompare
+                              compact
+                              variant="source"
+                              projectRoot={projectRoot}
+                              projectName={projectName}
+                              slotLabel={source.tasks.length > 1 ? `模板 ×${source.tasks.length}` : '模板'}
+                              source={{ path: source.path }}
+                              fileName=""
+                            />
+                          </li>
                           {shown.map((index) => {
                             const task = tasks[index];
                             const result = results[index];
@@ -134,10 +131,10 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                               <button type="button" onClick={() => revealAll(source.path)}>还有 {hidden} 个任务，展开</button>
                             </li>
                           ) : null}
-                        </ul>
-                      </div>
-                    );
-                  })}
+                        </React.Fragment>
+                      );
+                    })}
+                  </ul>
                   {group.missing.length ? (
                     <div className="vfp-batch-missing-row">
                       缺失：{group.missing.map((index) => taskLabel(tasks[index]?.dir)).join('、')}

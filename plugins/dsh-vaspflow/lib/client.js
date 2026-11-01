@@ -59805,7 +59805,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
   );
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", "data-compact": compact ? "" : void 0, "data-variant": variant, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
-      variant !== "source" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { className: "vfp-cmp-title", children: slotLabel }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { className: "vfp-cmp-title", children: variant === "source" ? "\u6A21\u677F" : slotLabel }),
       !compact && (note2 || compared?.notice || overrideCount > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-notes", children: [
         note2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
         compared?.notice && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
@@ -59939,62 +59939,52 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
           )
         ] }),
         open && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-tree", children: [
-          group.sources.map((source) => {
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ul", { className: "vfp-batch-children", children: group.sources.map((source) => {
             const shown = showAll.has(source.path) ? source.tasks : source.tasks.slice(0, NODE_LIMIT);
             const hidden = source.tasks.length - shown.length;
-            return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-source", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-node vfp-batch-root", title: source.path, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-batch-dot", "aria-hidden": "true" }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "vfp-batch-path-label", children: source.rel }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-batch-count", children: [
-                  "\xD7",
-                  source.tasks.length
-                ] })
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_react130.default.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { className: "vfp-batch-leaf vfp-batch-leaf-source", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                 SourceCompare,
                 {
                   compact: true,
                   variant: "source",
                   projectRoot,
                   projectName,
-                  slotLabel: group.label,
+                  slotLabel: source.tasks.length > 1 ? `\u6A21\u677F \xD7${source.tasks.length}` : "\u6A21\u677F",
                   source: { path: source.path },
                   fileName: ""
                 }
-              ),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("ul", { className: "vfp-batch-children", children: [
-                shown.map((index2) => {
-                  const task = tasks[index2];
-                  const result = results[index2];
-                  const fileName = group.key === "submit" ? toPosix(task?.submitSrc || "").split("/").pop() || "submit.sh" : FILE_NAME_BY_SLOT[group.key] ?? group.key;
-                  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { className: "vfp-batch-leaf", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                    SourceCompare,
-                    {
-                      compact: true,
-                      variant: "written",
-                      projectRoot,
-                      projectName,
-                      slotLabel: taskLabel(task?.dir),
-                      source: { path: source.path },
-                      fileName,
-                      planId,
-                      taskIndex: index2,
-                      incarOverrides: group.key === "INCAR" ? task?.incarOverrides : void 0,
-                      rewritten: group.key === "POSCAR",
-                      note: group.key === "POSCAR" && result?.sd ? `SD \u5C06\u6539\u5199\u4E3A ${result.sd}` : void 0,
-                      writtenLabel: fileName
-                    }
-                  ) }, `${group.key}-${index2}`);
-                }),
-                hidden > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { className: "vfp-batch-more", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", onClick: () => revealAll(source.path), children: [
-                  "\u8FD8\u6709 ",
-                  hidden,
-                  " \u4E2A\u4EFB\u52A1\uFF0C\u5C55\u5F00"
-                ] }) }) : null
-              ] })
+              ) }),
+              shown.map((index2) => {
+                const task = tasks[index2];
+                const result = results[index2];
+                const fileName = group.key === "submit" ? toPosix(task?.submitSrc || "").split("/").pop() || "submit.sh" : FILE_NAME_BY_SLOT[group.key] ?? group.key;
+                return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { className: "vfp-batch-leaf", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                  SourceCompare,
+                  {
+                    compact: true,
+                    variant: "written",
+                    projectRoot,
+                    projectName,
+                    slotLabel: taskLabel(task?.dir),
+                    source: { path: source.path },
+                    fileName,
+                    planId,
+                    taskIndex: index2,
+                    incarOverrides: group.key === "INCAR" ? task?.incarOverrides : void 0,
+                    rewritten: group.key === "POSCAR",
+                    note: group.key === "POSCAR" && result?.sd ? `SD \u5C06\u6539\u5199\u4E3A ${result.sd}` : void 0,
+                    writtenLabel: fileName
+                  }
+                ) }, `${group.key}-${index2}`);
+              }),
+              hidden > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { className: "vfp-batch-more", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", onClick: () => revealAll(source.path), children: [
+                "\u8FD8\u6709 ",
+                hidden,
+                " \u4E2A\u4EFB\u52A1\uFF0C\u5C55\u5F00"
+              ] }) }) : null
             ] }, source.path);
-          }),
+          }) }),
           group.missing.length ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-missing-row", children: [
             "\u7F3A\u5931\uFF1A",
             group.missing.map((index2) => taskLabel(tasks[index2]?.dir)).join("\u3001")
@@ -102621,15 +102611,15 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-dirbutton[aria-pressed="true"] { color:var(--vfp-accent); border-color:rgba(57,107,215,.42); background:rgba(57,107,215,.09); }
 .vfp-batch-missing { color:var(--vfp-warning); font-size:11px; }
 .vfp-batch-tree { display:grid; grid-template-columns:minmax(0,1fr); gap:7px; min-width:0; padding:9px 10px 10px; }
-.vfp-batch-source { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; max-width:100%; overflow:hidden; }
-.vfp-batch-source + .vfp-batch-source { margin-top:10px; }
+.vfp-batch-source { display:flex; flex-direction:column; align-items:flex-start; gap:6px; min-width:0; max-width:100%; overflow:hidden; }
+.vfp-batch-source + .vfp-batch-source { margin-top:12px; padding-top:12px; border-top:1px dashed var(--vfp-line); }
 .vfp-batch-node { display:flex; align-items:center; gap:6px; min-width:0; }
-.vfp-batch-root { display:inline-flex; align-self:center; max-width:100%; padding:4px 7px; border:1px solid var(--vfp-line); border-radius:6px; background:var(--vfp-surface); }
+.vfp-batch-root { display:inline-flex; align-self:flex-start; max-width:100%; padding:4px 7px; border:1px solid var(--vfp-line); border-radius:6px; background:var(--vfp-surface); }
 .vfp-batch-dot { width:7px; height:7px; border-radius:50%; background:var(--vfp-accent); flex:none; }
 .vfp-batch-path-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1.5 Consolas,"Cascadia Mono",monospace; color:var(--vfp-text); }
 .vfp-batch-count { margin-left:auto; color:var(--vfp-muted); font-size:11px; font-variant-numeric:tabular-nums; }
-.vfp-batch-children { display:flex; flex-wrap:nowrap; justify-content:safe center; gap:8px; box-sizing:border-box; width:100%; margin:0; padding:0 0 4px; list-style:none; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
-.vfp-batch-children li { position:relative; flex:0 0 190px; min-width:190px; }
+.vfp-batch-children { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:8px; box-sizing:border-box; width:100%; margin:0; padding:0 0 2px; list-style:none; }
+
 .vfp-batch-children li::before { content:none; }
 .vfp-batch-task { width:100%; padding:2px 6px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }
 .vfp-batch-task:hover { background:var(--vfp-soft); }
@@ -102666,7 +102656,13 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-dir-item[data-kind="both"] .vfp-dir-tag { color:var(--vfp-accent); background:rgba(57,107,215,.11); }
 .vfp-batch-missing-row { color:var(--vfp-warning); font-size:11px; }
 .vfp-batch-source > .vfp-cmp, .vfp-batch-source > .vfp-cmp[data-compact] { width:190px; max-width:190px; margin:0; padding:8px 9px 9px; border:1px solid var(--vfp-line); border-radius:10px; background:var(--vfp-soft); box-shadow:0 1px 2px rgba(16,24,40,.05); }
+/* The template is the first tile of the row, so a 1:1 batch reads as
+   template \u2192 task pairs instead of a tall centred column. */
+.vfp-batch-leaf-source { flex:0 0 190px; }
+.vfp-batch-leaf-source .vfp-cmp { border-color:rgba(196,132,20,.34); background:rgba(196,132,20,.055); }
+.vfp-batch-leaf-source .vfp-cmp-step { border-color:transparent; background:rgba(196,132,20,.14); color:var(--vfp-warning); }
 .vfp-batch-leaf { margin:0; }
+.vfp-batch-leaf { flex:0 0 190px; min-width:190px; }
 .vfp-batch-leaf .vfp-cmp { width:100%; max-height:none; overflow:visible; gap:7px; padding:8px 9px 9px; border:1px solid var(--vfp-line); border-radius:10px; background:var(--vfp-surface); box-shadow:0 1px 2px rgba(16,24,40,.05); }
 .vfp-cmp[data-compact] .vfp-cmp-side { border-radius:7px; }
 .vfp-cmp[data-compact] .vfp-cmp-side > header { padding:4px 8px; gap:6px; }

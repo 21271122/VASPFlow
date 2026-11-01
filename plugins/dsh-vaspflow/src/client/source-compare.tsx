@@ -340,7 +340,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
   return (
     <div className="vfp-cmp vaspflow-task-popover" data-compact={compact ? '' : undefined} data-variant={variant}>
       <div className="vfp-cmp-head">
-        {variant !== 'source' && <strong className="vfp-cmp-title">{slotLabel}</strong>}
+        <strong className="vfp-cmp-title">{variant === 'source' ? '模板' : slotLabel}</strong>
         {!compact && (note || compared?.notice || overrideCount > 0) && (
           <div className="vfp-cmp-notes">
             {note ? <span className="vfp-cmp-note">{note}</span> : null}
