@@ -16,6 +16,7 @@ import { Tree } from 'antd';
 import { FileTextOutlined, FolderOutlined } from '@ant-design/icons';
 import { fetchFileContent, openTaskByPath } from './api';
 import { projectRelative, toPosix } from './inheritance';
+import { useCompareGroup } from './compare-group';
 
 type FileState = { text: string; lines: string[]; error?: string; truncated?: boolean };
 
@@ -175,6 +176,46 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
   error?: string;
 }) {
   const bodyRef = React.useRef<HTMLPreElement>(null);
+  const group = useCompareGroup();
+  const [localGapsOpen, setLocalGapsOpen] = React.useState(false);
+  const gapsOpen = group ? group.gapsOpen : localGapsOpen;
+  const toggleGaps = group ? group.toggleGaps : () => setLocalGapsOpen((current) => !current);
+
+  // Panes of one template-and-tasks group keep the same window onto the file:
+  // scrolling any of them broadcasts the relative position, and the siblings
+  // apply it against their own height.
+  React.useEffect(() => {
+    const body = bodyRef.current;
+    if (!body || !group) return;
+    let frame = 0;
+    let applying = false;
+    const broadcast = () => {
+      const maxY = body.scrollHeight - body.clientHeight;
+      const maxX = body.scrollWidth - body.clientWidth;
+      window.dispatchEvent(new CustomEvent('vfp-group-scroll', {
+        detail: { group: group.id, source: body, ratioY: maxY > 0 ? body.scrollTop / maxY : 0, ratioX: maxX > 0 ? body.scrollLeft / maxX : 0 },
+      }));
+    };
+    const onScroll = () => {
+      if (applying || frame) return;
+      frame = requestAnimationFrame(() => { frame = 0; broadcast(); });
+    };
+    const receive = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (!detail || detail.group !== group.id || detail.source === body) return;
+      applying = true;
+      body.scrollTop = detail.ratioY * (body.scrollHeight - body.clientHeight);
+      body.scrollLeft = detail.ratioX * (body.scrollWidth - body.clientWidth);
+      requestAnimationFrame(() => { applying = false; });
+    };
+    body.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('vfp-group-scroll', receive);
+    return () => {
+      body.removeEventListener('scroll', onScroll);
+      window.removeEventListener('vfp-group-scroll', receive);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [group]);
 
   // Moving the pointer inside a pane drives both scroll axes linearly: top-left
   // maps to the start of the file, bottom-right to the end. Cheaper to aim than
@@ -196,6 +237,8 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
     body.scrollLeft = ratioX * (body.scrollWidth - body.clientWidth);
   };
 
+  const rows = React.useMemo(() => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), changed?.slice(0, PREVIEW_LINES), gapsOpen), [lines, changed, gapsOpen]);
+
   return (
     <section
       className="vfp-cmp-side"
@@ -213,14 +256,50 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
         : !lines ? <div className="vfp-cmp-empty">读取中…</div>
           : lines.length === 0 || (lines.length === 1 && lines[0] === '') ? <div className="vfp-cmp-empty">空文件</div>
             : <pre ref={bodyRef}>
-              {lines.slice(0, PREVIEW_LINES).map((line, index) => (
-                <span key={index} className="vfp-cmp-line" data-changed={changed?.[index] ? '' : undefined}>
-                  <i>{index + 1}</i>{line || ' '}
-                </span>
-              ))}
+              {rows.map((row) => row.kind === 'gap'
+                ? <span key={`gap-${row.from}`} className="vfp-cmp-gap">
+                    <button type="button" onClick={toggleGaps}>隐藏 {row.count} 行 无变化</button>
+                  </span>
+                : <span key={row.index} className="vfp-cmp-line" data-changed={changed?.[row.index] ? '' : undefined}>
+                    <i>{row.index + 1}</i>{row.text || ' '}
+                  </span>)}
             </pre>}
     </section>
   );
+}
+
+type PaneRow = { kind: 'line'; index: number; text: string } | { kind: 'gap'; from: number; count: number };
+
+/**
+ * Collapse runs of unchanged lines so a compare shows what actually differs.
+ * A short file, or one with no differences, renders whole: hiding two lines
+ * would only add noise.
+ */
+function collapseUnchanged(lines: string[] | undefined, changed: boolean[] | undefined, expanded: boolean): PaneRow[] {
+  if (!lines) return [];
+  const allLines = lines.map((text, index) => ({ kind: 'line' as const, index, text }));
+  if (expanded || !changed || changed.length === 0) return allLines;
+  const MIN_RUN = 4;
+  const rows: PaneRow[] = [];
+  let index = 0;
+  while (index < lines.length) {
+    if (changed[index]) {
+      rows.push({ kind: 'line', index, text: lines[index] });
+      index += 1;
+      continue;
+    }
+    let end = index;
+    while (end < lines.length && !changed[end]) end += 1;
+    const count = end - index;
+    if (count >= MIN_RUN) {
+      rows.push({ kind: 'gap', from: index, count });
+      index = end;
+      continue;
+    }
+    for (let cursor = index; cursor < end; cursor += 1) rows.push({ kind: 'line', index: cursor, text: lines[cursor] });
+    index = end;
+  }
+  return rows;
 }
 
 type PathNode = { title: React.ReactNode; key: string; icon?: React.ReactNode; children?: PathNode[] };

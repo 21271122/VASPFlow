@@ -8,6 +8,7 @@
  */
 import React from 'react';
 import { SourceCompare } from './source-compare';
+import { CompareGroupProvider } from './compare-group';
 import { absoluteTaskPath, buildRelativeTree, groupBatchBySource, projectRelative, toPosix } from './inheritance';
 import type { DirNode } from './inheritance';
 
@@ -90,7 +91,8 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                       .map((index) => results[index]?.files?.[slotFileName]?.written)
                       .filter((text) => typeof text === 'string') as string[];
                     return (
-                      <div className="vfp-batch-row" key={source.path}>
+                      <CompareGroupProvider id={source.path} key={source.path}>
+                      <div className="vfp-batch-row">
                         <div className="vfp-batch-row-source">
                           <SourceCompare
                             compact
@@ -135,6 +137,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                           })}
                         </ul>
                       </div>
+                      </CompareGroupProvider>
                     );
                   })}
                   {group.missing.length ? (

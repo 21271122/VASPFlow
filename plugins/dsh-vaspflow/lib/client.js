@@ -5471,7 +5471,7 @@ __export(index_exports, {
   setProjectPathForPrefill: () => setProjectPathForPrefill
 });
 module.exports = __toCommonJS(index_exports);
-var import_react172 = __toESM(require("react"), 1);
+var import_react173 = __toESM(require("react"), 1);
 
 // node_modules/.pnpm/@babel+runtime@7.29.7/node_modules/@babel/runtime/helpers/esm/extends.js
 function _extends() {
@@ -59055,7 +59055,7 @@ var typography_default = Typography2;
 var import_zh_CN2 = __toESM(require_zh_CN7(), 1);
 
 // src/client/Panel.tsx
-var import_react170 = __toESM(require("react"), 1);
+var import_react171 = __toESM(require("react"), 1);
 
 // node_modules/.pnpm/@ant-design+icons@5.6.1_rea_e7698d4cd1fc8436afad1b188c3665aa/node_modules/@ant-design/icons/es/icons/AppstoreOutlined.js
 var React392 = __toESM(require("react"));
@@ -59563,9 +59563,25 @@ function originLabel(origin) {
 }
 
 // src/client/source-compare.tsx
-var import_react129 = __toESM(require("react"), 1);
+var import_react130 = __toESM(require("react"), 1);
 init_api();
+
+// src/client/compare-group.tsx
+var import_react129 = __toESM(require("react"), 1);
 var import_jsx_runtime = require("react/jsx-runtime");
+var CompareGroupContext = import_react129.default.createContext(null);
+function CompareGroupProvider({ id, children }) {
+  const [gapsOpen, setGapsOpen] = import_react129.default.useState(false);
+  const toggleGaps = import_react129.default.useCallback(() => setGapsOpen((current) => !current), []);
+  const value = import_react129.default.useMemo(() => ({ id, gapsOpen, toggleGaps }), [id, gapsOpen, toggleGaps]);
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CompareGroupContext.Provider, { value, children });
+}
+function useCompareGroup() {
+  return import_react129.default.useContext(CompareGroupContext);
+}
+
+// src/client/source-compare.tsx
+var import_jsx_runtime2 = require("react/jsx-runtime");
 var fileCache = /* @__PURE__ */ new Map();
 var pending = /* @__PURE__ */ new Map();
 async function readProjectFile(projectRoot, absolutePath) {
@@ -59690,7 +59706,48 @@ function positionRatio(offset3, size, band2) {
   return (offset3 - band2) / Math.max(1, size - band2 * 2);
 }
 function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
-  const bodyRef = import_react129.default.useRef(null);
+  const bodyRef = import_react130.default.useRef(null);
+  const group = useCompareGroup();
+  const [localGapsOpen, setLocalGapsOpen] = import_react130.default.useState(false);
+  const gapsOpen = group ? group.gapsOpen : localGapsOpen;
+  const toggleGaps = group ? group.toggleGaps : () => setLocalGapsOpen((current) => !current);
+  import_react130.default.useEffect(() => {
+    const body = bodyRef.current;
+    if (!body || !group) return;
+    let frame = 0;
+    let applying = false;
+    const broadcast = () => {
+      const maxY = body.scrollHeight - body.clientHeight;
+      const maxX = body.scrollWidth - body.clientWidth;
+      window.dispatchEvent(new CustomEvent("vfp-group-scroll", {
+        detail: { group: group.id, source: body, ratioY: maxY > 0 ? body.scrollTop / maxY : 0, ratioX: maxX > 0 ? body.scrollLeft / maxX : 0 }
+      }));
+    };
+    const onScroll = () => {
+      if (applying || frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        broadcast();
+      });
+    };
+    const receive = (event) => {
+      const detail = event.detail;
+      if (!detail || detail.group !== group.id || detail.source === body) return;
+      applying = true;
+      body.scrollTop = detail.ratioY * (body.scrollHeight - body.clientHeight);
+      body.scrollLeft = detail.ratioX * (body.scrollWidth - body.clientWidth);
+      requestAnimationFrame(() => {
+        applying = false;
+      });
+    };
+    body.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("vfp-group-scroll", receive);
+    return () => {
+      body.removeEventListener("scroll", onScroll);
+      window.removeEventListener("vfp-group-scroll", receive);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [group]);
   const mapPointer = (event) => {
     const body = bodyRef.current;
     if (!body) return;
@@ -59703,7 +59760,8 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
     body.scrollTop = ratioY * (body.scrollHeight - body.clientHeight);
     body.scrollLeft = ratioX * (body.scrollWidth - body.clientWidth);
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+  const rows = import_react130.default.useMemo(() => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), changed?.slice(0, PREVIEW_LINES), gapsOpen), [lines, changed, gapsOpen]);
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
     "section",
     {
       className: "vfp-cmp-side",
@@ -59716,42 +59774,72 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
       },
       title: "\u9F20\u6807\u5728\u6846\u5185\u79FB\u52A8\u5373\u53EF\u5B9A\u4F4D\u5185\u5BB9",
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-step", children: step }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("code", { className: "vfp-cmp-dir", title: path3, children: dirLabel })
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("header", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-step", children: step }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "vfp-cmp-dir", title: path3, children: dirLabel })
         ] }),
-        error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", "data-error": "", title: error, children: error }) : !lines ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : lines.length === 0 || lines.length === 1 && lines[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("pre", { ref: bodyRef, children: lines.slice(0, PREVIEW_LINES).map((line2, index2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[index2] ? "" : void 0, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("i", { children: index2 + 1 }),
-          line2 || " "
-        ] }, index2)) })
+        error ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-empty", "data-error": "", title: error, children: error }) : !lines ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : lines.length === 0 || lines.length === 1 && lines[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { ref: bodyRef, children: rows.map((row) => row.kind === "gap" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-gap", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", onClick: toggleGaps, children: [
+          "\u9690\u85CF ",
+          row.count,
+          " \u884C \u65E0\u53D8\u5316"
+        ] }) }, `gap-${row.from}`) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[row.index] ? "" : void 0, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { children: row.index + 1 }),
+          row.text || " "
+        ] }, row.index)) })
       ]
     }
   );
+}
+function collapseUnchanged(lines, changed, expanded) {
+  if (!lines) return [];
+  const allLines = lines.map((text, index3) => ({ kind: "line", index: index3, text }));
+  if (expanded || !changed || changed.length === 0) return allLines;
+  const MIN_RUN = 4;
+  const rows = [];
+  let index2 = 0;
+  while (index2 < lines.length) {
+    if (changed[index2]) {
+      rows.push({ kind: "line", index: index2, text: lines[index2] });
+      index2 += 1;
+      continue;
+    }
+    let end = index2;
+    while (end < lines.length && !changed[end]) end += 1;
+    const count = end - index2;
+    if (count >= MIN_RUN) {
+      rows.push({ kind: "gap", from: index2, count });
+      index2 = end;
+      continue;
+    }
+    for (let cursor = index2; cursor < end; cursor += 1) rows.push({ kind: "line", index: cursor, text: lines[cursor] });
+    index2 = end;
+  }
+  return rows;
 }
 function buildAddressTree(projectName, projectRoot, absolutePath) {
   const parts = toPosix(projectRelative(projectRoot, absolutePath)).split("/").filter(Boolean);
   const file = parts.at(-1) ?? "";
   const dirs = parts.slice(0, -1);
   const shown = dirs.length > 4 ? [dirs[0], dirs[1], "\u2026", dirs[dirs.length - 2], dirs[dirs.length - 1]] : dirs;
-  const root = { title: projectName, key: "root", icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderOutlined_default2, {}), children: [] };
+  const root = { title: projectName, key: "root", icon: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(FolderOutlined_default2, {}), children: [] };
   let node2 = root;
   shown.forEach((segment) => {
     const key = `${node2.key}/${segment}`;
     const child = {
-      title: segment === "\u2026" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-ellipsis", children: "\u2026" }) : segment,
+      title: segment === "\u2026" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-ellipsis", children: "\u2026" }) : segment,
       key,
-      icon: segment === "\u2026" ? void 0 : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FolderOutlined_default2, {}),
+      icon: segment === "\u2026" ? void 0 : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(FolderOutlined_default2, {}),
       children: []
     };
     node2.children = [...node2.children ?? [], child];
     node2 = child;
   });
-  node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
+  node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
 function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2, compact, writtenLabel, hint, compareWith, variant = "both" }) {
-  const [compared, setCompared] = import_react129.default.useState();
-  import_react129.default.useEffect(() => {
+  const [compared, setCompared] = import_react130.default.useState();
+  import_react130.default.useEffect(() => {
     let cancelled = false;
     setCompared(void 0);
     let hostStale = false;
@@ -59798,13 +59886,13 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
   }, [projectRoot, source.path, fileName, files, planId, taskIndex, incarOverrides, rewritten, variant]);
   const overrideCount = Object.keys(incarOverrides ?? {}).length;
   const error = compared?.error;
-  const marks = import_react129.default.useMemo(
+  const marks = import_react130.default.useMemo(
     () => compared && !error ? markDifferences(compared.source.slice(0, PREVIEW_LINES), compared.written.slice(0, PREVIEW_LINES)) : void 0,
     [compared, error]
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
   const delta = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : void 0;
-  const unionMarks = import_react129.default.useMemo(() => {
+  const unionMarks = import_react130.default.useMemo(() => {
     if (variant !== "source" || !compareWith?.length || !compared?.source?.length) return void 0;
     const flags = new Array(compared.source.length).fill(false);
     for (const text of compareWith) {
@@ -59816,38 +59904,38 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
     }
     return flags;
   }, [variant, compareWith, compared]);
-  const addressTree = import_react129.default.useMemo(
+  const addressTree = import_react130.default.useMemo(
     () => buildAddressTree(projectName, projectRoot, source.path),
     [projectName, projectRoot, source.path]
   );
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", "data-compact": compact ? "" : void 0, "data-variant": variant, title: hint, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { className: "vfp-cmp-title", children: slotLabel || "\u6A21\u677F" }),
-      !compact && (note2 || compared?.notice || overrideCount > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-notes", children: [
-        note2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
-        compared?.notice && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
-        overrideCount > 0 && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-chip", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", "data-compact": compact ? "" : void 0, "data-variant": variant, title: hint, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-cmp-head", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { className: "vfp-cmp-title", children: slotLabel || "\u6A21\u677F" }),
+      !compact && (note2 || compared?.notice || overrideCount > 0) && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-cmp-notes", children: [
+        note2 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
+        compared?.notice && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
+        overrideCount > 0 && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-chip", children: [
           "\u8986\u76D6 ",
           overrideCount,
           " \u9879"
         ] }) : null
       ] }),
-      variant !== "source" && (error ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", "data-tone": "muted", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-same", children: compact ? "\u76F8\u540C" : "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "vfp-cmp-diff", children: [
+      variant !== "source" && (error ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-same", "data-tone": "muted", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-same", children: compact ? "\u76F8\u540C" : "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-diff", children: [
         compact ? "\u4E0D\u540C" : "\u4E0E\u6765\u6E90\u4E0D\u540C",
-        delta && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("em", { className: "vfp-cmp-delta", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
+        delta && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("em", { className: "vfp-cmp-delta", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("b", { children: [
             "+",
             delta.added
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("b", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("b", { children: [
             "\u2212",
             delta.removed
           ] })
         ] })
       ] })))
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-grid", "data-single": variant === "both" ? void 0 : "", children: [
-      variant !== "written" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-cmp-grid", "data-single": variant === "both" ? void 0 : "", children: [
+      variant !== "written" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         FilePane,
         {
           step: variant === "source" ? "\u6A21\u677F\u5185\u5BB9" : "\u53C2\u8003\u6765\u6E90",
@@ -59858,7 +59946,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
           changed: variant === "source" ? unionMarks : variant === "both" ? marks?.left : void 0
         }
       ),
-      variant !== "source" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+      variant !== "source" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         FilePane,
         {
           step: variant === "written" ? "\u672C\u4EFB\u52A1\u5199\u5165" : "\u5C06\u5199\u5165",
@@ -59869,9 +59957,9 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
         }
       )
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-address", hidden: compact, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "vfp-cmp-address-head", children: "\u6765\u6E90\u5730\u5740" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-cmp-address", hidden: compact, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-address-head", children: "\u6765\u6E90\u5730\u5740" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         tree_default,
         {
           treeData: addressTree,
@@ -59886,8 +59974,8 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
 }
 
 // src/client/batch-compare.tsx
-var import_react130 = __toESM(require("react"), 1);
-var import_jsx_runtime2 = require("react/jsx-runtime");
+var import_react131 = __toESM(require("react"), 1);
+var import_jsx_runtime3 = require("react/jsx-runtime");
 var FILE_NAME_BY_SLOT = {
   POSCAR: "POSCAR",
   INCAR: "INCAR",
@@ -59899,9 +59987,9 @@ function taskLabel(dir) {
   return parts[parts.length - 1] || dir || "\u4EFB\u52A1";
 }
 function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
-  const groups = import_react130.default.useMemo(() => groupBatchBySource(batch, projectRoot), [batch, projectRoot]);
-  const [openKey, setOpenKey] = import_react130.default.useState(() => groups[0]?.key ?? null);
-  const [treeKeys, setTreeKeys] = import_react130.default.useState(() => /* @__PURE__ */ new Set());
+  const groups = import_react131.default.useMemo(() => groupBatchBySource(batch, projectRoot), [batch, projectRoot]);
+  const [openKey, setOpenKey] = import_react131.default.useState(() => groups[0]?.key ?? null);
+  const [treeKeys, setTreeKeys] = import_react131.default.useState(() => /* @__PURE__ */ new Set());
   const toggle = (key) => setOpenKey((current) => current === key ? null : key);
   const toggleTree = (key) => setTreeKeys((current) => {
     const next2 = new Set(current);
@@ -59911,36 +59999,36 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
   });
   const tasks = batch?.tasks ?? [];
   const results = batch?.results ?? [];
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch vaspflow-task-popover", style: maxWidth ? { width: Math.min(1240, maxWidth) } : void 0, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { children: "\u6574\u6279\u6765\u6E90" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-note", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-batch vaspflow-task-popover", style: maxWidth ? { width: Math.min(1240, maxWidth) } : void 0, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-batch-head", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("strong", { children: "\u6574\u6279\u6765\u6E90" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "vfp-cmp-note", children: [
         tasks.length,
         " \u4E2A\u4EFB\u52A1 \xB7 ",
         groups.length,
         " \u7C7B\u8F93\u5165\u6587\u4EF6"
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-batch-body", children: groups.map((group) => {
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "vfp-batch-body", children: groups.map((group) => {
       const open = openKey === group.key;
       const total = group.sources.reduce((sum, source) => sum + source.tasks.length, 0);
-      return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "vfp-batch-group", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-group-head", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", className: "vfp-batch-group-toggle", "aria-expanded": open, onClick: () => toggle(group.key), children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { "aria-hidden": "true", children: open ? "\u25BE" : "\u25B8" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { children: group.label }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-note", children: [
+      return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("section", { className: "vfp-batch-group", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-batch-group-head", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("button", { type: "button", className: "vfp-batch-group-toggle", "aria-expanded": open, onClick: () => toggle(group.key), children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { "aria-hidden": "true", children: open ? "\u25BE" : "\u25B8" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("strong", { children: group.label }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "vfp-cmp-note", children: [
               group.sources.length,
               " \u4E2A\u6765\u6E90 \xB7 ",
               total,
               " \u4E2A\u4EFB\u52A1"
             ] }),
-            group.missing.length ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-batch-missing", children: [
+            group.missing.length ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "vfp-batch-missing", children: [
               group.missing.length,
               " \u7F3A\u5931"
             ] }) : null
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
             "button",
             {
               type: "button",
@@ -59952,14 +60040,14 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
             }
           )
         ] }),
-        open && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-tree", children: [
+        open && /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-batch-tree", children: [
           group.sources.map((source) => {
             const shown = source.tasks;
             const sourceName = toPosix(source.path).split("/").filter(Boolean).slice(-2, -1)[0] || "\u6A21\u677F";
             const slotFileName = group.key === "submit" ? toPosix(tasks[source.tasks[0]]?.submitSrc || "").split("/").pop() || "submit.sh" : FILE_NAME_BY_SLOT[group.key] ?? group.key;
             const compareWith = source.tasks.map((index2) => results[index2]?.files?.[slotFileName]?.written).filter((text) => typeof text === "string");
-            return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-row", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-batch-row-source", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CompareGroupProvider, { id: source.path, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-batch-row", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "vfp-batch-row-source", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                 SourceCompare,
                 {
                   compact: true,
@@ -59973,11 +60061,11 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
                   fileName: ""
                 }
               ) }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ul", { className: "vfp-batch-children", children: shown.map((index2) => {
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("ul", { className: "vfp-batch-children", children: shown.map((index2) => {
                 const task = tasks[index2];
                 const result = results[index2];
                 const fileName = group.key === "submit" ? toPosix(task?.submitSrc || "").split("/").pop() || "submit.sh" : FILE_NAME_BY_SLOT[group.key] ?? group.key;
-                return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { className: "vfp-batch-leaf", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("li", { className: "vfp-batch-leaf", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                   SourceCompare,
                   {
                     compact: true,
@@ -59998,9 +60086,9 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
                   }
                 ) }, `${group.key}-${index2}`);
               }) })
-            ] }, source.path);
+            ] }) }, source.path);
           }),
-          group.missing.length ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-missing-row", children: [
+          group.missing.length ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-batch-missing-row", children: [
             "\u7F3A\u5931\uFF1A",
             group.missing.map((index2) => taskLabel(tasks[index2]?.dir)).join("\u3001")
           ] }) : null,
@@ -60010,7 +60098,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
               group.sources.flatMap((source) => source.tasks.map((index2) => absoluteTaskPath(projectRoot, tasks[index2]?.dir || "."))),
               projectRoot
             );
-            return tree ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(DirTree, { root: tree }) : null;
+            return tree ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(DirTree, { root: tree }) : null;
           })() : null
         ] })
       ] }, group.key);
@@ -60018,29 +60106,29 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
   ] });
 }
 function DirTree({ root }) {
-  const render2 = (node2) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("li", { className: "vfp-dir-item", "data-kind": node2.kind, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-dir-label", title: node2.path, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { className: "vfp-dir-dot", "aria-hidden": "true" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { children: node2.name }),
-      node2.kind === "template" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("em", { className: "vfp-dir-tag", children: "\u6A21\u677F" }) : null,
-      node2.kind === "task" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("em", { className: "vfp-dir-tag", children: node2.taskCount > 1 ? `\u4EFB\u52A1 \xD7${node2.taskCount}` : "\u4EFB\u52A1" }) : null,
-      node2.kind === "both" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("em", { className: "vfp-dir-tag", children: "\u6A21\u677F + \u4EFB\u52A1" }) : null
+  const render2 = (node2) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("li", { className: "vfp-dir-item", "data-kind": node2.kind, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "vfp-dir-label", title: node2.path, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { className: "vfp-dir-dot", "aria-hidden": "true" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("b", { children: node2.name }),
+      node2.kind === "template" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("em", { className: "vfp-dir-tag", children: "\u6A21\u677F" }) : null,
+      node2.kind === "task" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("em", { className: "vfp-dir-tag", children: node2.taskCount > 1 ? `\u4EFB\u52A1 \xD7${node2.taskCount}` : "\u4EFB\u52A1" }) : null,
+      node2.kind === "both" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("em", { className: "vfp-dir-tag", children: "\u6A21\u677F + \u4EFB\u52A1" }) : null
     ] }),
-    node2.children.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ul", { children: node2.children.map((child) => render2(child)) }) : null
+    node2.children.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("ul", { children: node2.children.map((child) => render2(child)) }) : null
   ] }, node2.path || node2.name);
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-dirtree", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-dirtree-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("strong", { children: "\u76F8\u5BF9\u76EE\u5F55" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-dirtree-legend", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { "data-kind": "template", "aria-hidden": "true" }),
+  return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-dirtree", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-dirtree-head", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("strong", { children: "\u76F8\u5BF9\u76EE\u5F55" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "vfp-dirtree-legend", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { "data-kind": "template", "aria-hidden": "true" }),
         "\u6A21\u677F",
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { "data-kind": "task", "aria-hidden": "true" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { "data-kind": "task", "aria-hidden": "true" }),
         "\u4EFB\u52A1",
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { "data-kind": "plain", "aria-hidden": "true" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { "data-kind": "plain", "aria-hidden": "true" }),
         "\u4E0A\u7EA7"
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ul", { className: "vfp-dirtree-root", children: render2(root) })
+    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("ul", { className: "vfp-dirtree-root", children: render2(root) })
   ] });
 }
 
@@ -60070,13 +60158,13 @@ function readStructureDrag(dataTransfer) {
 init_api();
 
 // src/client/components.tsx
-var import_react132 = __toESM(require("react"), 1);
+var import_react133 = __toESM(require("react"), 1);
 
 // src/client/tree-scroll.ts
-var import_react131 = require("react");
+var import_react132 = require("react");
 function useTreeScrollPath(ref, version4) {
-  const [path3, setPath] = (0, import_react131.useState)("");
-  (0, import_react131.useEffect)(() => {
+  const [path3, setPath] = (0, import_react132.useState)("");
+  (0, import_react132.useEffect)(() => {
     const container = ref.current;
     if (!container) return;
     let frame = 0;
@@ -60143,7 +60231,7 @@ function scrollExpandedTreeRow(row) {
 }
 
 // src/client/components.tsx
-var import_jsx_runtime3 = require("react/jsx-runtime");
+var import_jsx_runtime4 = require("react/jsx-runtime");
 var STATUS_META = {
   NO_OUTPUT_EVIDENCE: { label: "\u672A\u53D1\u73B0\u8BA1\u7B97\u8F93\u51FA", color: "#faad14", tag: "gold", icon: FileOutlined_default2 },
   TASK_COMPLETED: { label: "\u4EFB\u52A1\u5B8C\u6210", color: "#52c41a", tag: "green", icon: CheckCircleFilled_default2 },
@@ -60163,12 +60251,12 @@ function StatusBadge({ task, compact = false }) {
   const Icon3 = meta.icon;
   const title = task.status_record?.reason || meta.label;
   if (compact) {
-    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(tooltip_default, { title: `${meta.label}\uFF1A${title}`, mouseEnterDelay: 0.4, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, color: meta.color }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { width: 6, height: 6, borderRadius: "50%", background: meta.color } }),
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon3, { spin: code === "RUNNING", style: { fontSize: 12 } })
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(tooltip_default, { title: `${meta.label}\uFF1A${title}`, mouseEnterDelay: 0.4, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { display: "inline-flex", alignItems: "center", gap: 2, color: meta.color }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { width: 6, height: 6, borderRadius: "50%", background: meta.color } }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Icon3, { spin: code === "RUNNING", style: { fontSize: 12 } })
     ] }) });
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(tooltip_default, { title, mouseEnterDelay: 0.4, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(tag_default, { color: meta.tag, style: { marginInlineEnd: 0 }, icon: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon3, { spin: code === "RUNNING" }), children: meta.label }) });
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(tooltip_default, { title, mouseEnterDelay: 0.4, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(tag_default, { color: meta.tag, style: { marginInlineEnd: 0 }, icon: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Icon3, { spin: code === "RUNNING" }), children: meta.label }) });
 }
 function normalizePath(path3) {
   return path3.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "") || ".";
@@ -60203,7 +60291,7 @@ function buildProjectTree(directories, tasks, pendingDirectories = [], failedDir
         node2 = {
           title: i === parts.length - 1 && label ? label : parts[i],
           key: `dir:${currentPath}`,
-          icon: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(FolderOutlined_default2, { style: { color: "#faad14" } }),
+          icon: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FolderOutlined_default2, { style: { color: "#faad14" } }),
           children: [],
           __rel_path: currentPath
         };
@@ -60224,14 +60312,14 @@ function buildProjectTree(directories, tasks, pendingDirectories = [], failedDir
     node2.title = task.label;
     node2.__task = task;
     node2.__rel_path = normalizePath(task.rel_path);
-    node2.icon = task.is_vasp_task === false ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(FolderOutlined_default2, { style: { color: "#8c8c8c" } }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(StatusBadge, { task, compact: true });
+    node2.icon = task.is_vasp_task === false ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FolderOutlined_default2, { style: { color: "#8c8c8c" } }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(StatusBadge, { task, compact: true });
   });
   pendingDirectories.forEach((dir) => {
     const node2 = ensureDir(dir.rel_path, dir.label);
     if (node2.__task) return;
     node2.__pending = true;
     node2.title = `\u6B63\u5728\u68C0\u67E5\u76EE\u5F55 ${dir.label}`;
-    node2.icon = /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(LoadingOutlined_default2, { spin: true, style: { color: "#1677ff" } });
+    node2.icon = /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(LoadingOutlined_default2, { spin: true, style: { color: "#1677ff" } });
   });
   failedDirectories.forEach((dir) => {
     const node2 = ensureDir(dir.rel_path, dir.label);
@@ -60239,7 +60327,7 @@ function buildProjectTree(directories, tasks, pendingDirectories = [], failedDir
     node2.__pending = false;
     node2.__failedReason = dir.reason || "\u65E0\u6CD5\u8BFB\u53D6\u76EE\u5F55";
     node2.title = `\u65E0\u6CD5\u626B\u63CF\u76EE\u5F55 ${dir.label}`;
-    node2.icon = /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CloseCircleFilled_default2, { style: { color: "#ff4d4f" } });
+    node2.icon = /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CloseCircleFilled_default2, { style: { color: "#ff4d4f" } });
   });
   return sortNodes(roots);
 }
@@ -60283,7 +60371,7 @@ function collectKeys(nodes) {
 }
 function TaskTable({ onTaskSelected }) {
   const { projectPath, tasks, loading, filterStatus, filterConverged, searchText, selectedTask } = usePanelStore();
-  const filteredTasks = import_react132.default.useMemo(() => {
+  const filteredTasks = import_react133.default.useMemo(() => {
     let result = tasks;
     if (filterStatus) result = result.filter((t) => taskStatusCode(t) === filterStatus);
     if (filterConverged !== null) result = result.filter((t) => t.is_converged === filterConverged);
@@ -60312,7 +60400,7 @@ function TaskTable({ onTaskSelected }) {
       key: "label",
       width: 140,
       sorter: (a2, b) => a2.label.localeCompare(b.label),
-      render: (v, record) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("a", { onClick: () => {
+      render: (v, record) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("a", { onClick: () => {
         panelStore.setSelectedTask(record);
         panelStore.setViewTab("status");
         onTaskSelected?.(record);
@@ -60338,9 +60426,9 @@ function TaskTable({ onTaskSelected }) {
         { text: "\u5F85\u68C0\u67E5", value: "UNKNOWN" }
       ],
       onFilter: (value, record) => taskStatusCode(record) === value,
-      render: (_, record) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(space_default, { direction: "vertical", size: 2, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(StatusBadge, { task: record }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { color: "#8c8c8c", fontSize: 10 }, children: record.input_check?.label ?? "\u672A\u6307\u5B9A\u68C0\u67E5\u89C4\u5219" })
+      render: (_, record) => /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(space_default, { direction: "vertical", size: 2, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(StatusBadge, { task: record }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { color: "#8c8c8c", fontSize: 10 }, children: record.input_check?.label ?? "\u672A\u6307\u5B9A\u68C0\u67E5\u89C4\u5219" })
       ] })
     },
     {
@@ -60354,8 +60442,8 @@ function TaskTable({ onTaskSelected }) {
       ],
       onFilter: (value, record) => record.is_converged === value,
       render: (v) => {
-        if (v === void 0) return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(tag_default, { children: "\u2014" });
-        return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(tag_default, { color: v ? "green" : "red", children: v ? "\u662F" : "\u5426" });
+        if (v === void 0) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(tag_default, { children: "\u2014" });
+        return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(tag_default, { color: v ? "green" : "red", children: v ? "\u662F" : "\u5426" });
       }
     },
     {
@@ -60377,22 +60465,22 @@ function TaskTable({ onTaskSelected }) {
       title: "\u64CD\u4F5C",
       key: "actions",
       width: 110,
-      render: (_, record) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(space_default, { size: 0, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(tooltip_default, { title: "\u67E5\u770B\u6536\u655B\u66F2\u7EBF", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      render: (_, record) => /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(space_default, { size: 0, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(tooltip_default, { title: "\u67E5\u770B\u6536\u655B\u66F2\u7EBF", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
           button_default2,
           {
             type: "link",
             size: "small",
-            icon: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(LineChartOutlined_default2, {}),
+            icon: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(LineChartOutlined_default2, {}),
             onClick: () => handleConvergence(record)
           }
         ) }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(tooltip_default, { title: "\u67E5\u770B 3D \u7ED3\u6784", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(tooltip_default, { title: "\u67E5\u770B 3D \u7ED3\u6784", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
           button_default2,
           {
             type: "link",
             size: "small",
-            icon: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(EyeOutlined_default2, {}),
+            icon: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(EyeOutlined_default2, {}),
             onClick: () => handleStructure(record)
           }
         ) })
@@ -60400,7 +60488,7 @@ function TaskTable({ onTaskSelected }) {
     }
   ];
   if (tasks.length === 0) return null;
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
     table_default,
     {
       columns,
@@ -60444,14 +60532,14 @@ function TreeView({ onTaskSelected }) {
     filterConverged,
     searchText
   } = usePanelStore();
-  const [expandedKeys, setExpandedKeys] = import_react132.default.useState([]);
-  const fullTree = import_react132.default.useMemo(() => buildProjectTree(directories, tasks, pendingDirectories, failedDirectories), [directories, tasks, pendingDirectories, failedDirectories]);
-  const visibleTree = import_react132.default.useMemo(
+  const [expandedKeys, setExpandedKeys] = import_react133.default.useState([]);
+  const fullTree = import_react133.default.useMemo(() => buildProjectTree(directories, tasks, pendingDirectories, failedDirectories), [directories, tasks, pendingDirectories, failedDirectories]);
+  const visibleTree = import_react133.default.useMemo(
     () => filterTaskTree(fullTree, filterStatus, filterConverged, searchText),
     [fullTree, filterStatus, filterConverged, searchText]
   );
-  import_react132.default.useEffect(() => setExpandedKeys([]), [projectPath]);
-  import_react132.default.useEffect(() => {
+  import_react133.default.useEffect(() => setExpandedKeys([]), [projectPath]);
+  import_react133.default.useEffect(() => {
     const visibleKeys = new Set(collectKeys(visibleTree));
     setExpandedKeys((prev2) => prev2.filter((key) => visibleKeys.has(String(key))));
   }, [visibleTree]);
@@ -60491,26 +60579,26 @@ function TreeView({ onTaskSelected }) {
     const treeNode = node2;
     const task = treeNode.__task;
     if (treeNode.__pending) {
-      return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { fontSize: 12, color: "#1677ff" }, children: node2.title });
+      return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12, color: "#1677ff" }, children: node2.title });
     }
     if (treeNode.__failedReason) {
-      return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(tooltip_default, { title: treeNode.__failedReason, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { fontSize: 12, color: "#ff4d4f" }, children: node2.title }) });
+      return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(tooltip_default, { title: treeNode.__failedReason, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12, color: "#ff4d4f" }, children: node2.title }) });
     }
-    const content = task && task.is_vasp_task !== false ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+    const content = task && task.is_vasp_task !== false ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
       tooltip_default,
       {
         title: `\u4F53\u7CFB: ${task.system} | ${task.status_record?.label ?? task.status}\uFF1A${task.status_record?.reason ?? ""} | \u6700\u8FD1\u89C2\u5BDF: ${task.status_record?.observedAt ?? "-"} `,
         mouseEnterDelay: 0.5,
-        children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { fontSize: 12 }, children: [
+        children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { fontSize: 12 }, children: [
           node2.title,
-          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { color: "var(--dsw-alias-label-tertiary, #999)", marginLeft: 8, fontSize: 10 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { color: "var(--dsw-alias-label-tertiary, #999)", marginLeft: 8, fontSize: 10 }, children: [
             task.n_ion_steps,
             "\u6B65"
           ] })
         ] })
       }
-    ) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { fontSize: 12, color: task ? "var(--dsw-alias-label-secondary, #555)" : "var(--dsw-alias-label-tertiary, #666)" }, children: node2.title });
-    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+    ) : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12, color: task ? "var(--dsw-alias-label-secondary, #555)" : "var(--dsw-alias-label-tertiary, #666)" }, children: node2.title });
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
       "span",
       {
         style: { userSelect: "none", cursor: task || treeNode.__rel_path ? "grab" : void 0 },
@@ -60526,10 +60614,10 @@ function TreeView({ onTaskSelected }) {
       }
     );
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "0 2px 4px", position: "relative" }, children: visibleTree.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { style: { textAlign: "center", color: "#bbb", marginTop: 30, fontSize: 12 }, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(FolderOpenOutlined_default2, { style: { fontSize: 32, marginBottom: 8, display: "block" } }),
+  return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: { display: "flex", flexDirection: "column", minHeight: 0, flex: 1 }, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "0 2px 4px", position: "relative" }, children: visibleTree.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { textAlign: "center", color: "#bbb", marginTop: 30, fontSize: 12 }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(FolderOpenOutlined_default2, { style: { fontSize: 32, marginBottom: 8, display: "block" } }),
     tasks.length === 0 && directories.length === 0 ? "\u8F93\u5165\u8DEF\u5F84\u5E76\u6253\u5F00\u9879\u76EE" : loading ? "\u6B63\u5728\u626B\u63CF..." : "\u672A\u627E\u5230\u76EE\u5F55\u6216\u4EFB\u52A1"
-  ] }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+  ] }) : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
     tree_default,
     {
       treeData: visibleTree,
@@ -60551,10 +60639,10 @@ function TreeView({ onTaskSelected }) {
 }
 
 // src/client/ConvergenceChart.tsx
-var import_react167 = require("react");
+var import_react168 = require("react");
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/container/Surface.js
-var import_react135 = __toESM(require("react"));
+var import_react136 = __toESM(require("react"));
 
 // node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs
 function r(e) {
@@ -60578,7 +60666,7 @@ var import_isNil2 = __toESM(require_isNil());
 var import_isString2 = __toESM(require_isString());
 var import_isFunction = __toESM(require_isFunction());
 var import_isObject2 = __toESM(require_isObject());
-var import_react134 = require("react");
+var import_react135 = require("react");
 var import_react_is2 = __toESM(require_react_is());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/DataUtils.js
@@ -60706,7 +60794,7 @@ function shallowEqual(a2, b) {
 }
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/types.js
-var import_react133 = require("react");
+var import_react134 = require("react");
 var import_isObject = __toESM(require_isObject());
 function _typeof2(o) {
   "@babel/helpers - typeof";
@@ -61039,7 +61127,7 @@ var adaptEventHandlers = function adaptEventHandlers2(props, newHandler) {
     return null;
   }
   var inputProps = props;
-  if (/* @__PURE__ */ (0, import_react133.isValidElement)(props)) {
+  if (/* @__PURE__ */ (0, import_react134.isValidElement)(props)) {
     inputProps = props.props;
   }
   if (!(0, import_isObject.default)(inputProps)) {
@@ -61145,7 +61233,7 @@ var toArray7 = function toArray8(children) {
     return lastResult;
   }
   var result = [];
-  import_react134.Children.forEach(children, function(child) {
+  import_react135.Children.forEach(children, function(child) {
     if ((0, import_isNil2.default)(child)) return;
     if ((0, import_react_is2.isFragment)(child)) {
       result = result.concat(toArray8(child.props.children));
@@ -61206,7 +61294,7 @@ var filterProps = function filterProps2(props, includeEvents, svgElementType) {
     return null;
   }
   var inputProps = props;
-  if (/* @__PURE__ */ (0, import_react134.isValidElement)(props)) {
+  if (/* @__PURE__ */ (0, import_react135.isValidElement)(props)) {
     inputProps = props.props;
   }
   if (!(0, import_isObject2.default)(inputProps)) {
@@ -61225,8 +61313,8 @@ var isChildrenEqual = function isChildrenEqual2(nextChildren, prevChildren) {
   if (nextChildren === prevChildren) {
     return true;
   }
-  var count = import_react134.Children.count(nextChildren);
-  if (count !== import_react134.Children.count(prevChildren)) {
+  var count = import_react135.Children.count(nextChildren);
+  if (count !== import_react135.Children.count(prevChildren)) {
     return false;
   }
   if (count === 0) {
@@ -61345,17 +61433,17 @@ function Surface(props) {
     y: 0
   };
   var layerClass = clsx_default("recharts-surface", className);
-  return /* @__PURE__ */ import_react135.default.createElement("svg", _extends2({}, filterProps(others, true, "svg"), {
+  return /* @__PURE__ */ import_react136.default.createElement("svg", _extends2({}, filterProps(others, true, "svg"), {
     className: layerClass,
     width,
     height,
     style: style2,
     viewBox: "".concat(svgView.x, " ").concat(svgView.y, " ").concat(svgView.width, " ").concat(svgView.height)
-  }), /* @__PURE__ */ import_react135.default.createElement("title", null, title), /* @__PURE__ */ import_react135.default.createElement("desc", null, desc), children);
+  }), /* @__PURE__ */ import_react136.default.createElement("title", null, title), /* @__PURE__ */ import_react136.default.createElement("desc", null, desc), children);
 }
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/container/Layer.js
-var import_react136 = __toESM(require("react"));
+var import_react137 = __toESM(require("react"));
 var _excluded61 = ["children", "className"];
 function _extends3() {
   _extends3 = Object.assign ? Object.assign.bind() : function(target) {
@@ -61397,10 +61485,10 @@ function _objectWithoutPropertiesLoose4(source, excluded) {
   }
   return target;
 }
-var Layer = /* @__PURE__ */ import_react136.default.forwardRef(function(props, ref) {
+var Layer = /* @__PURE__ */ import_react137.default.forwardRef(function(props, ref) {
   var children = props.children, className = props.className, others = _objectWithoutProperties4(props, _excluded61);
   var layerClass = clsx_default("recharts-layer", className);
-  return /* @__PURE__ */ import_react136.default.createElement("g", _extends3({
+  return /* @__PURE__ */ import_react137.default.createElement("g", _extends3({
     className: layerClass
   }, filterProps(others, true), {
     ref
@@ -61408,10 +61496,10 @@ var Layer = /* @__PURE__ */ import_react136.default.forwardRef(function(props, r
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/Legend.js
-var import_react139 = __toESM(require("react"));
+var import_react140 = __toESM(require("react"));
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/DefaultLegendContent.js
-var import_react138 = __toESM(require("react"));
+var import_react139 = __toESM(require("react"));
 var import_isFunction2 = __toESM(require_isFunction());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/LogUtils.js
@@ -61438,7 +61526,7 @@ var warn = function warn2(condition, format3) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Symbols.js
-var import_react137 = __toESM(require("react"));
+var import_react138 = __toESM(require("react"));
 var import_upperFirst = __toESM(require_upperFirst());
 
 // node_modules/.pnpm/d3-shape@3.2.0/node_modules/d3-shape/src/constant.js
@@ -62559,7 +62647,7 @@ var Symbols = function Symbols2(_ref) {
   var className = props.className, cx = props.cx, cy = props.cy;
   var filteredProps = filterProps(props, true);
   if (cx === +cx && cy === +cy && size === +size) {
-    return /* @__PURE__ */ import_react137.default.createElement("path", _extends4({}, filteredProps, {
+    return /* @__PURE__ */ import_react138.default.createElement("path", _extends4({}, filteredProps, {
       className: clsx_default("recharts-symbols", className),
       transform: "translate(".concat(cx, ", ").concat(cy, ")"),
       d: getPath5()
@@ -62726,7 +62814,7 @@ var DefaultLegendContent = /* @__PURE__ */ (function(_PureComponent) {
         var thirdSize = SIZE / 3;
         var color2 = data.inactive ? inactiveColor : data.color;
         if (data.type === "plainline") {
-          return /* @__PURE__ */ import_react138.default.createElement("line", {
+          return /* @__PURE__ */ import_react139.default.createElement("line", {
             strokeWidth: 4,
             fill: "none",
             stroke: color2,
@@ -62739,7 +62827,7 @@ var DefaultLegendContent = /* @__PURE__ */ (function(_PureComponent) {
           });
         }
         if (data.type === "line") {
-          return /* @__PURE__ */ import_react138.default.createElement("path", {
+          return /* @__PURE__ */ import_react139.default.createElement("path", {
             strokeWidth: 4,
             fill: "none",
             stroke: color2,
@@ -62748,19 +62836,19 @@ var DefaultLegendContent = /* @__PURE__ */ (function(_PureComponent) {
           });
         }
         if (data.type === "rect") {
-          return /* @__PURE__ */ import_react138.default.createElement("path", {
+          return /* @__PURE__ */ import_react139.default.createElement("path", {
             stroke: "none",
             fill: color2,
             d: "M0,".concat(SIZE / 8, "h").concat(SIZE, "v").concat(SIZE * 3 / 4, "h").concat(-SIZE, "z"),
             className: "recharts-legend-icon"
           });
         }
-        if (/* @__PURE__ */ import_react138.default.isValidElement(data.legendIcon)) {
+        if (/* @__PURE__ */ import_react139.default.isValidElement(data.legendIcon)) {
           var iconProps = _objectSpread3({}, data);
           delete iconProps.legendIcon;
-          return /* @__PURE__ */ import_react138.default.cloneElement(data.legendIcon, iconProps);
+          return /* @__PURE__ */ import_react139.default.cloneElement(data.legendIcon, iconProps);
         }
-        return /* @__PURE__ */ import_react138.default.createElement(Symbols, {
+        return /* @__PURE__ */ import_react139.default.createElement(Symbols, {
           fill: color2,
           cx: halfSize,
           cy: halfSize,
@@ -62809,16 +62897,16 @@ var DefaultLegendContent = /* @__PURE__ */ (function(_PureComponent) {
           // eslint-disable-line max-len
         );
         var color2 = entry.inactive ? inactiveColor : entry.color;
-        return /* @__PURE__ */ import_react138.default.createElement("li", _extends5({
+        return /* @__PURE__ */ import_react139.default.createElement("li", _extends5({
           className,
           style: itemStyle,
           key: "legend-item-".concat(i)
-        }, adaptEventsOfChild(_this.props, entry, i)), /* @__PURE__ */ import_react138.default.createElement(Surface, {
+        }, adaptEventsOfChild(_this.props, entry, i)), /* @__PURE__ */ import_react139.default.createElement(Surface, {
           width: iconSize,
           height: iconSize,
           viewBox,
           style: svgStyle
-        }, _this.renderIcon(entry)), /* @__PURE__ */ import_react138.default.createElement("span", {
+        }, _this.renderIcon(entry)), /* @__PURE__ */ import_react139.default.createElement("span", {
           className: "recharts-legend-item-text",
           style: {
             color: color2
@@ -62838,13 +62926,13 @@ var DefaultLegendContent = /* @__PURE__ */ (function(_PureComponent) {
         margin: 0,
         textAlign: layout === "horizontal" ? align : "left"
       };
-      return /* @__PURE__ */ import_react138.default.createElement("ul", {
+      return /* @__PURE__ */ import_react139.default.createElement("ul", {
         className: "recharts-default-legend",
         style: finalStyle
       }, this.renderItems());
     }
   }]);
-})(import_react138.PureComponent);
+})(import_react139.PureComponent);
 _defineProperty3(DefaultLegendContent, "displayName", "Legend");
 _defineProperty3(DefaultLegendContent, "defaultProps", {
   iconSize: 14,
@@ -63019,14 +63107,14 @@ function defaultUniqBy(entry) {
   return entry.value;
 }
 function renderContent(content, props) {
-  if (/* @__PURE__ */ import_react139.default.isValidElement(content)) {
-    return /* @__PURE__ */ import_react139.default.cloneElement(content, props);
+  if (/* @__PURE__ */ import_react140.default.isValidElement(content)) {
+    return /* @__PURE__ */ import_react140.default.cloneElement(content, props);
   }
   if (typeof content === "function") {
-    return /* @__PURE__ */ import_react139.default.createElement(content, props);
+    return /* @__PURE__ */ import_react140.default.createElement(content, props);
   }
   var ref = props.ref, otherProps = _objectWithoutProperties6(props, _excluded63);
-  return /* @__PURE__ */ import_react139.default.createElement(DefaultLegendContent, otherProps);
+  return /* @__PURE__ */ import_react140.default.createElement(DefaultLegendContent, otherProps);
 }
 var EPS = 1;
 var Legend = /* @__PURE__ */ (function(_PureComponent) {
@@ -63142,7 +63230,7 @@ var Legend = /* @__PURE__ */ (function(_PureComponent) {
         width: width || "auto",
         height: height || "auto"
       }, this.getDefaultPosition(wrapperStyle)), wrapperStyle);
-      return /* @__PURE__ */ import_react139.default.createElement("div", {
+      return /* @__PURE__ */ import_react140.default.createElement("div", {
         className: "recharts-legend-wrapper",
         style: outerStyle,
         ref: function ref(node2) {
@@ -63169,7 +63257,7 @@ var Legend = /* @__PURE__ */ (function(_PureComponent) {
       return null;
     }
   }]);
-})(import_react139.PureComponent);
+})(import_react140.PureComponent);
 _defineProperty4(Legend, "displayName", "Legend");
 _defineProperty4(Legend, "defaultProps", {
   iconSize: 14,
@@ -63179,10 +63267,10 @@ _defineProperty4(Legend, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/Tooltip.js
-var import_react142 = __toESM(require("react"));
+var import_react143 = __toESM(require("react"));
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/DefaultTooltipContent.js
-var import_react140 = __toESM(require("react"));
+var import_react141 = __toESM(require("react"));
 var import_sortBy = __toESM(require_sortBy());
 var import_isNil3 = __toESM(require_isNil());
 function _typeof7(o) {
@@ -63331,22 +63419,22 @@ var DefaultTooltipContent = function DefaultTooltipContent2(props) {
         }
         return (
           // eslint-disable-next-line react/no-array-index-key
-          /* @__PURE__ */ import_react140.default.createElement("li", {
+          /* @__PURE__ */ import_react141.default.createElement("li", {
             className: "recharts-tooltip-item",
             key: "tooltip-item-".concat(i),
             style: finalItemStyle
-          }, isNumOrStr(finalName) ? /* @__PURE__ */ import_react140.default.createElement("span", {
+          }, isNumOrStr(finalName) ? /* @__PURE__ */ import_react141.default.createElement("span", {
             className: "recharts-tooltip-item-name"
-          }, finalName) : null, isNumOrStr(finalName) ? /* @__PURE__ */ import_react140.default.createElement("span", {
+          }, finalName) : null, isNumOrStr(finalName) ? /* @__PURE__ */ import_react141.default.createElement("span", {
             className: "recharts-tooltip-item-separator"
-          }, separator) : null, /* @__PURE__ */ import_react140.default.createElement("span", {
+          }, separator) : null, /* @__PURE__ */ import_react141.default.createElement("span", {
             className: "recharts-tooltip-item-value"
-          }, finalValue), /* @__PURE__ */ import_react140.default.createElement("span", {
+          }, finalValue), /* @__PURE__ */ import_react141.default.createElement("span", {
             className: "recharts-tooltip-item-unit"
           }, entry.unit || ""))
         );
       });
-      return /* @__PURE__ */ import_react140.default.createElement("ul", {
+      return /* @__PURE__ */ import_react141.default.createElement("ul", {
         className: "recharts-tooltip-item-list",
         style: listStyle
       }, items);
@@ -63374,17 +63462,17 @@ var DefaultTooltipContent = function DefaultTooltipContent2(props) {
     role: "status",
     "aria-live": "assertive"
   } : {};
-  return /* @__PURE__ */ import_react140.default.createElement("div", _extends6({
+  return /* @__PURE__ */ import_react141.default.createElement("div", _extends6({
     className: wrapperCN,
     style: finalStyle
-  }, accessibilityAttributes), /* @__PURE__ */ import_react140.default.createElement("p", {
+  }, accessibilityAttributes), /* @__PURE__ */ import_react141.default.createElement("p", {
     className: labelCN,
     style: finalLabelStyle
-  }, /* @__PURE__ */ import_react140.default.isValidElement(finalLabel) ? finalLabel : "".concat(finalLabel)), renderContent3());
+  }, /* @__PURE__ */ import_react141.default.isValidElement(finalLabel) ? finalLabel : "".concat(finalLabel)), renderContent3());
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/TooltipBoundingBox.js
-var import_react141 = __toESM(require("react"));
+var import_react142 = __toESM(require("react"));
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/tooltip/translate.js
 function _typeof8(o) {
@@ -63731,7 +63819,7 @@ var TooltipBoundingBox = /* @__PURE__ */ (function(_PureComponent) {
       return (
         // This element allow listening to the `Escape` key.
         // See https://github.com/recharts/recharts/pull/2925
-        /* @__PURE__ */ import_react141.default.createElement("div", {
+        /* @__PURE__ */ import_react142.default.createElement("div", {
           tabIndex: -1,
           className: cssClasses,
           style: outerStyle,
@@ -63742,7 +63830,7 @@ var TooltipBoundingBox = /* @__PURE__ */ (function(_PureComponent) {
       );
     }
   }]);
-})(import_react141.PureComponent);
+})(import_react142.PureComponent);
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/Global.js
 var parseIsSsrByDefault = function parseIsSsrByDefault2() {
@@ -63892,13 +63980,13 @@ function defaultUniqBy2(entry) {
   return entry.dataKey;
 }
 function renderContent2(content, props) {
-  if (/* @__PURE__ */ import_react142.default.isValidElement(content)) {
-    return /* @__PURE__ */ import_react142.default.cloneElement(content, props);
+  if (/* @__PURE__ */ import_react143.default.isValidElement(content)) {
+    return /* @__PURE__ */ import_react143.default.cloneElement(content, props);
   }
   if (typeof content === "function") {
-    return /* @__PURE__ */ import_react142.default.createElement(content, props);
+    return /* @__PURE__ */ import_react143.default.createElement(content, props);
   }
-  return /* @__PURE__ */ import_react142.default.createElement(DefaultTooltipContent, props);
+  return /* @__PURE__ */ import_react143.default.createElement(DefaultTooltipContent, props);
 }
 var Tooltip4 = /* @__PURE__ */ (function(_PureComponent) {
   function Tooltip5() {
@@ -63918,7 +64006,7 @@ var Tooltip4 = /* @__PURE__ */ (function(_PureComponent) {
         }), payloadUniqBy, defaultUniqBy2);
       }
       var hasPayload = finalPayload.length > 0;
-      return /* @__PURE__ */ import_react142.default.createElement(TooltipBoundingBox, {
+      return /* @__PURE__ */ import_react143.default.createElement(TooltipBoundingBox, {
         allowEscapeViewBox,
         animationDuration,
         animationEasing,
@@ -63937,7 +64025,7 @@ var Tooltip4 = /* @__PURE__ */ (function(_PureComponent) {
       })));
     }
   }]);
-})(import_react142.PureComponent);
+})(import_react143.PureComponent);
 _defineProperty8(Tooltip4, "displayName", "Tooltip");
 _defineProperty8(Tooltip4, "defaultProps", {
   accessibilityLayer: false,
@@ -63976,7 +64064,7 @@ _defineProperty8(Tooltip4, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/ResponsiveContainer.js
-var import_react143 = __toESM(require("react"));
+var import_react144 = __toESM(require("react"));
 var import_throttle = __toESM(require_throttle());
 function _typeof11(o) {
   "@babel/helpers - typeof";
@@ -64073,15 +64161,15 @@ function _iterableToArrayLimit3(r2, l) {
 function _arrayWithHoles3(arr) {
   if (Array.isArray(arr)) return arr;
 }
-var ResponsiveContainer = /* @__PURE__ */ (0, import_react143.forwardRef)(function(_ref, ref) {
+var ResponsiveContainer = /* @__PURE__ */ (0, import_react144.forwardRef)(function(_ref, ref) {
   var aspect2 = _ref.aspect, _ref$initialDimension = _ref.initialDimension, initialDimension = _ref$initialDimension === void 0 ? {
     width: -1,
     height: -1
   } : _ref$initialDimension, _ref$width = _ref.width, width = _ref$width === void 0 ? "100%" : _ref$width, _ref$height = _ref.height, height = _ref$height === void 0 ? "100%" : _ref$height, _ref$minWidth = _ref.minWidth, minWidth = _ref$minWidth === void 0 ? 0 : _ref$minWidth, minHeight = _ref.minHeight, maxHeight = _ref.maxHeight, children = _ref.children, _ref$debounce = _ref.debounce, debounce2 = _ref$debounce === void 0 ? 0 : _ref$debounce, id = _ref.id, className = _ref.className, onResize2 = _ref.onResize, _ref$style = _ref.style, style2 = _ref$style === void 0 ? {} : _ref$style;
-  var containerRef = (0, import_react143.useRef)(null);
-  var onResizeRef = (0, import_react143.useRef)();
+  var containerRef = (0, import_react144.useRef)(null);
+  var onResizeRef = (0, import_react144.useRef)();
   onResizeRef.current = onResize2;
-  (0, import_react143.useImperativeHandle)(ref, function() {
+  (0, import_react144.useImperativeHandle)(ref, function() {
     return Object.defineProperty(containerRef.current, "current", {
       get: function get8() {
         console.warn("The usage of ref.current.current is deprecated and will no longer be supported.");
@@ -64090,11 +64178,11 @@ var ResponsiveContainer = /* @__PURE__ */ (0, import_react143.forwardRef)(functi
       configurable: true
     });
   });
-  var _useState = (0, import_react143.useState)({
+  var _useState = (0, import_react144.useState)({
     containerWidth: initialDimension.width,
     containerHeight: initialDimension.height
   }), _useState2 = _slicedToArray3(_useState, 2), sizes2 = _useState2[0], setSizes = _useState2[1];
-  var setContainerSize = (0, import_react143.useCallback)(function(newWidth, newHeight) {
+  var setContainerSize = (0, import_react144.useCallback)(function(newWidth, newHeight) {
     setSizes(function(prevState) {
       var roundedWidth = Math.round(newWidth);
       var roundedHeight = Math.round(newHeight);
@@ -64107,7 +64195,7 @@ var ResponsiveContainer = /* @__PURE__ */ (0, import_react143.forwardRef)(functi
       };
     });
   }, []);
-  (0, import_react143.useEffect)(function() {
+  (0, import_react144.useEffect)(function() {
     var callback = function callback2(entries) {
       var _onResizeRef$current;
       var _entries$0$contentRec = entries[0].contentRect, containerWidth2 = _entries$0$contentRec.width, containerHeight2 = _entries$0$contentRec.height;
@@ -64128,7 +64216,7 @@ var ResponsiveContainer = /* @__PURE__ */ (0, import_react143.forwardRef)(functi
       observer.disconnect();
     };
   }, [setContainerSize, debounce2]);
-  var chartContent = (0, import_react143.useMemo)(function() {
+  var chartContent = (0, import_react144.useMemo)(function() {
     var containerWidth = sizes2.containerWidth, containerHeight = sizes2.containerHeight;
     if (containerWidth < 0 || containerHeight < 0) {
       return null;
@@ -64149,9 +64237,9 @@ var ResponsiveContainer = /* @__PURE__ */ (0, import_react143.forwardRef)(functi
     }
     warn(calculatedWidth > 0 || calculatedHeight > 0, "The width(%s) and height(%s) of chart should be greater than 0,\n       please check the style of container, or the props width(%s) and height(%s),\n       or add a minWidth(%s) or minHeight(%s) or use aspect(%s) to control the\n       height and width.", calculatedWidth, calculatedHeight, width, height, minWidth, minHeight, aspect2);
     var isCharts = !Array.isArray(children) && getDisplayName(children.type).endsWith("Chart");
-    return import_react143.default.Children.map(children, function(child) {
-      if (/* @__PURE__ */ import_react143.default.isValidElement(child)) {
-        return /* @__PURE__ */ (0, import_react143.cloneElement)(child, _objectSpread8({
+    return import_react144.default.Children.map(children, function(child) {
+      if (/* @__PURE__ */ import_react144.default.isValidElement(child)) {
+        return /* @__PURE__ */ (0, import_react144.cloneElement)(child, _objectSpread8({
           width: calculatedWidth,
           height: calculatedHeight
         }, isCharts ? {
@@ -64166,7 +64254,7 @@ var ResponsiveContainer = /* @__PURE__ */ (0, import_react143.forwardRef)(functi
       return child;
     });
   }, [aspect2, children, height, maxHeight, minHeight, minWidth, sizes2, width]);
-  return /* @__PURE__ */ import_react143.default.createElement("div", {
+  return /* @__PURE__ */ import_react144.default.createElement("div", {
     id: id ? "".concat(id) : void 0,
     className: clsx_default("recharts-responsive-container", className),
     style: _objectSpread8(_objectSpread8({}, style2), {}, {
@@ -64187,7 +64275,7 @@ var Cell2 = function Cell3(_props) {
 Cell2.displayName = "Cell";
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/Text.js
-var import_react144 = __toESM(require("react"));
+var import_react145 = __toESM(require("react"));
 var import_isNil4 = __toESM(require_isNil());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/DOMUtils.js
@@ -64765,7 +64853,7 @@ var getWordsByLines = function getWordsByLines2(_ref4) {
 var DEFAULT_FILL = "#808080";
 var Text2 = function Text3(_ref5) {
   var _ref5$x = _ref5.x, propsX = _ref5$x === void 0 ? 0 : _ref5$x, _ref5$y = _ref5.y, propsY = _ref5$y === void 0 ? 0 : _ref5$y, _ref5$lineHeight = _ref5.lineHeight, lineHeight = _ref5$lineHeight === void 0 ? "1em" : _ref5$lineHeight, _ref5$capHeight = _ref5.capHeight, capHeight = _ref5$capHeight === void 0 ? "0.71em" : _ref5$capHeight, _ref5$scaleToFit = _ref5.scaleToFit, scaleToFit = _ref5$scaleToFit === void 0 ? false : _ref5$scaleToFit, _ref5$textAnchor = _ref5.textAnchor, textAnchor = _ref5$textAnchor === void 0 ? "start" : _ref5$textAnchor, _ref5$verticalAnchor = _ref5.verticalAnchor, verticalAnchor = _ref5$verticalAnchor === void 0 ? "end" : _ref5$verticalAnchor, _ref5$fill = _ref5.fill, fill = _ref5$fill === void 0 ? DEFAULT_FILL : _ref5$fill, props = _objectWithoutProperties7(_ref5, _excluded64);
-  var wordsByLines = (0, import_react144.useMemo)(function() {
+  var wordsByLines = (0, import_react145.useMemo)(function() {
     return getWordsByLines({
       breakAll: props.breakAll,
       children: props.children,
@@ -64805,7 +64893,7 @@ var Text2 = function Text3(_ref5) {
   if (transforms.length) {
     textProps.transform = transforms.join(" ");
   }
-  return /* @__PURE__ */ import_react144.default.createElement("text", _extends7({}, filterProps(textProps, true), {
+  return /* @__PURE__ */ import_react145.default.createElement("text", _extends7({}, filterProps(textProps, true), {
     x: x2,
     y: y2,
     className: clsx_default("recharts-text", className),
@@ -64816,7 +64904,7 @@ var Text2 = function Text3(_ref5) {
     return (
       // duplicate words will cause duplicate keys
       // eslint-disable-next-line react/no-array-index-key
-      /* @__PURE__ */ import_react144.default.createElement("tspan", {
+      /* @__PURE__ */ import_react145.default.createElement("tspan", {
         x: x2,
         dy: index2 === 0 ? startDy : lineHeight,
         key: "".concat(words, "-").concat(index2)
@@ -64826,14 +64914,14 @@ var Text2 = function Text3(_ref5) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/Label.js
-var import_react147 = __toESM(require("react"));
+var import_react148 = __toESM(require("react"));
 var import_isNil7 = __toESM(require_isNil());
 var import_isFunction6 = __toESM(require_isFunction());
 var import_isObject3 = __toESM(require_isObject());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/PolarUtils.js
 var import_isNil6 = __toESM(require_isNil());
-var import_react146 = require("react");
+var import_react147 = require("react");
 var import_isFunction5 = __toESM(require_isFunction());
 
 // node_modules/.pnpm/victory-vendor@36.9.2/node_modules/victory-vendor/es/d3-scale.js
@@ -68110,7 +68198,7 @@ var getTickValues = memoize(getTickValuesFn);
 var getTickValuesFixedDomain = memoize(getTickValuesFixedDomainFn);
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/ErrorBar.js
-var import_react145 = __toESM(require("react"));
+var import_react146 = __toESM(require("react"));
 
 // node_modules/.pnpm/tiny-invariant@1.3.3/node_modules/tiny-invariant/dist/esm/tiny-invariant.js
 var isProduction = true;
@@ -68388,23 +68476,23 @@ var ErrorBar = /* @__PURE__ */ (function(_React$Component) {
             y2: _yMin
           });
         }
-        return /* @__PURE__ */ import_react145.default.createElement(Layer, _extends8({
+        return /* @__PURE__ */ import_react146.default.createElement(Layer, _extends8({
           className: "recharts-errorBar",
           key: "bar-".concat(lineCoordinates.map(function(c2) {
             return "".concat(c2.x1, "-").concat(c2.x2, "-").concat(c2.y1, "-").concat(c2.y2);
           }))
         }, svgProps), lineCoordinates.map(function(coordinates) {
-          return /* @__PURE__ */ import_react145.default.createElement("line", _extends8({}, coordinates, {
+          return /* @__PURE__ */ import_react146.default.createElement("line", _extends8({}, coordinates, {
             key: "line-".concat(coordinates.x1, "-").concat(coordinates.x2, "-").concat(coordinates.y1, "-").concat(coordinates.y2)
           }));
         }));
       });
-      return /* @__PURE__ */ import_react145.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react146.default.createElement(Layer, {
         className: "recharts-errorBars"
       }, errorBars);
     }
   }]);
-})(import_react145.default.Component);
+})(import_react146.default.Component);
 _defineProperty11(ErrorBar, "defaultProps", {
   stroke: "black",
   strokeWidth: 1.5,
@@ -69701,13 +69789,13 @@ var renderRadialLabel = function renderRadialLabel2(labelProps, label, attrs) {
   var endPoint = polarToCartesian(cx, cy, radius2, labelAngle + (direction ? 1 : -1) * 359);
   var path3 = "M".concat(startPoint.x, ",").concat(startPoint.y, "\n    A").concat(radius2, ",").concat(radius2, ",0,1,").concat(direction ? 0 : 1, ",\n    ").concat(endPoint.x, ",").concat(endPoint.y);
   var id = (0, import_isNil7.default)(labelProps.id) ? uniqueId("recharts-radial-line-") : labelProps.id;
-  return /* @__PURE__ */ import_react147.default.createElement("text", _extends9({}, attrs, {
+  return /* @__PURE__ */ import_react148.default.createElement("text", _extends9({}, attrs, {
     dominantBaseline: "central",
     className: clsx_default("recharts-radial-bar-label", className)
-  }), /* @__PURE__ */ import_react147.default.createElement("defs", null, /* @__PURE__ */ import_react147.default.createElement("path", {
+  }), /* @__PURE__ */ import_react148.default.createElement("defs", null, /* @__PURE__ */ import_react148.default.createElement("path", {
     id,
     d: path3
-  })), /* @__PURE__ */ import_react147.default.createElement("textPath", {
+  })), /* @__PURE__ */ import_react148.default.createElement("textPath", {
     xlinkHref: "#".concat(id)
   }, label));
 };
@@ -69908,16 +69996,16 @@ function Label(_ref4) {
     offset: offset3
   }, restProps);
   var viewBox = props.viewBox, position3 = props.position, value = props.value, children = props.children, content = props.content, _props$className = props.className, className = _props$className === void 0 ? "" : _props$className, textBreakAll = props.textBreakAll;
-  if (!viewBox || (0, import_isNil7.default)(value) && (0, import_isNil7.default)(children) && !/* @__PURE__ */ (0, import_react147.isValidElement)(content) && !(0, import_isFunction6.default)(content)) {
+  if (!viewBox || (0, import_isNil7.default)(value) && (0, import_isNil7.default)(children) && !/* @__PURE__ */ (0, import_react148.isValidElement)(content) && !(0, import_isFunction6.default)(content)) {
     return null;
   }
-  if (/* @__PURE__ */ (0, import_react147.isValidElement)(content)) {
-    return /* @__PURE__ */ (0, import_react147.cloneElement)(content, props);
+  if (/* @__PURE__ */ (0, import_react148.isValidElement)(content)) {
+    return /* @__PURE__ */ (0, import_react148.cloneElement)(content, props);
   }
   var label;
   if ((0, import_isFunction6.default)(content)) {
-    label = /* @__PURE__ */ (0, import_react147.createElement)(content, props);
-    if (/* @__PURE__ */ (0, import_react147.isValidElement)(label)) {
+    label = /* @__PURE__ */ (0, import_react148.createElement)(content, props);
+    if (/* @__PURE__ */ (0, import_react148.isValidElement)(label)) {
       return label;
     }
   } else {
@@ -69929,7 +70017,7 @@ function Label(_ref4) {
     return renderRadialLabel(props, label, attrs);
   }
   var positionAttrs = isPolarLabel ? getAttrsOfPolarLabel(props) : getAttrsOfCartesianLabel(props);
-  return /* @__PURE__ */ import_react147.default.createElement(Text2, _extends9({
+  return /* @__PURE__ */ import_react148.default.createElement(Text2, _extends9({
     className: clsx_default("recharts-label", className)
   }, attrs, positionAttrs, {
     breakAll: textBreakAll
@@ -69988,40 +70076,40 @@ var parseLabel = function parseLabel2(label, viewBox) {
     return null;
   }
   if (label === true) {
-    return /* @__PURE__ */ import_react147.default.createElement(Label, {
+    return /* @__PURE__ */ import_react148.default.createElement(Label, {
       key: "label-implicit",
       viewBox
     });
   }
   if (isNumOrStr(label)) {
-    return /* @__PURE__ */ import_react147.default.createElement(Label, {
+    return /* @__PURE__ */ import_react148.default.createElement(Label, {
       key: "label-implicit",
       viewBox,
       value: label
     });
   }
-  if (/* @__PURE__ */ (0, import_react147.isValidElement)(label)) {
+  if (/* @__PURE__ */ (0, import_react148.isValidElement)(label)) {
     if (label.type === Label) {
-      return /* @__PURE__ */ (0, import_react147.cloneElement)(label, {
+      return /* @__PURE__ */ (0, import_react148.cloneElement)(label, {
         key: "label-implicit",
         viewBox
       });
     }
-    return /* @__PURE__ */ import_react147.default.createElement(Label, {
+    return /* @__PURE__ */ import_react148.default.createElement(Label, {
       key: "label-implicit",
       content: label,
       viewBox
     });
   }
   if ((0, import_isFunction6.default)(label)) {
-    return /* @__PURE__ */ import_react147.default.createElement(Label, {
+    return /* @__PURE__ */ import_react148.default.createElement(Label, {
       key: "label-implicit",
       content: label,
       viewBox
     });
   }
   if ((0, import_isObject3.default)(label)) {
-    return /* @__PURE__ */ import_react147.default.createElement(Label, _extends9({
+    return /* @__PURE__ */ import_react148.default.createElement(Label, _extends9({
       viewBox
     }, label, {
       key: "label-implicit"
@@ -70037,7 +70125,7 @@ var renderCallByParent = function renderCallByParent2(parentProps, viewBox) {
   var children = parentProps.children;
   var parentViewBox = parseViewBox(parentProps);
   var explicitChildren = findAllByType(children, Label).map(function(child, index2) {
-    return /* @__PURE__ */ (0, import_react147.cloneElement)(child, {
+    return /* @__PURE__ */ (0, import_react148.cloneElement)(child, {
       viewBox: viewBox || parentViewBox,
       // eslint-disable-next-line react/no-array-index-key
       key: "label-".concat(index2)
@@ -70053,7 +70141,7 @@ Label.parseViewBox = parseViewBox;
 Label.renderCallByParent = renderCallByParent;
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/LabelList.js
-var import_react148 = __toESM(require("react"));
+var import_react149 = __toESM(require("react"));
 var import_isNil8 = __toESM(require_isNil());
 var import_isObject4 = __toESM(require_isObject());
 var import_isFunction7 = __toESM(require_isFunction());
@@ -70186,14 +70274,14 @@ function LabelList(_ref) {
   if (!data || !data.length) {
     return null;
   }
-  return /* @__PURE__ */ import_react148.default.createElement(Layer, {
+  return /* @__PURE__ */ import_react149.default.createElement(Layer, {
     className: "recharts-label-list"
   }, data.map(function(entry, index2) {
     var value = (0, import_isNil8.default)(dataKey) ? valueAccessor(entry, index2) : getValueByDataKey(entry && entry.payload, dataKey);
     var idProps = (0, import_isNil8.default)(id) ? {} : {
       id: "".concat(id, "-").concat(index2)
     };
-    return /* @__PURE__ */ import_react148.default.createElement(Label, _extends10({}, filterProps(entry, true), others, idProps, {
+    return /* @__PURE__ */ import_react149.default.createElement(Label, _extends10({}, filterProps(entry, true), others, idProps, {
       parentViewBox: entry.parentViewBox,
       value,
       textBreakAll,
@@ -70211,20 +70299,20 @@ function parseLabelList(label, data) {
     return null;
   }
   if (label === true) {
-    return /* @__PURE__ */ import_react148.default.createElement(LabelList, {
+    return /* @__PURE__ */ import_react149.default.createElement(LabelList, {
       key: "labelList-implicit",
       data
     });
   }
-  if (/* @__PURE__ */ import_react148.default.isValidElement(label) || (0, import_isFunction7.default)(label)) {
-    return /* @__PURE__ */ import_react148.default.createElement(LabelList, {
+  if (/* @__PURE__ */ import_react149.default.isValidElement(label) || (0, import_isFunction7.default)(label)) {
+    return /* @__PURE__ */ import_react149.default.createElement(LabelList, {
       key: "labelList-implicit",
       data,
       content: label
     });
   }
   if ((0, import_isObject4.default)(label)) {
-    return /* @__PURE__ */ import_react148.default.createElement(LabelList, _extends10({
+    return /* @__PURE__ */ import_react149.default.createElement(LabelList, _extends10({
       data
     }, label, {
       key: "labelList-implicit"
@@ -70239,7 +70327,7 @@ function renderCallByParent3(parentProps, data) {
   }
   var children = parentProps.children;
   var explicitChildren = findAllByType(children, LabelList).map(function(child, index2) {
-    return /* @__PURE__ */ (0, import_react148.cloneElement)(child, {
+    return /* @__PURE__ */ (0, import_react149.cloneElement)(child, {
       data,
       // eslint-disable-next-line react/no-array-index-key
       key: "labelList-".concat(index2)
@@ -70254,7 +70342,7 @@ function renderCallByParent3(parentProps, data) {
 LabelList.renderCallByParent = renderCallByParent3;
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Sector.js
-var import_react149 = __toESM(require("react"));
+var import_react150 = __toESM(require("react"));
 function _typeof20(o) {
   "@babel/helpers - typeof";
   return _typeof20 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
@@ -70468,7 +70556,7 @@ var Sector = function Sector2(sectorProps) {
       endAngle
     });
   }
-  return /* @__PURE__ */ import_react149.default.createElement("path", _extends11({}, filterProps(props, true), {
+  return /* @__PURE__ */ import_react150.default.createElement("path", _extends11({}, filterProps(props, true), {
     className: layerClass,
     d: path3,
     role: "img"
@@ -70476,7 +70564,7 @@ var Sector = function Sector2(sectorProps) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Curve.js
-var React416 = __toESM(require("react"));
+var React417 = __toESM(require("react"));
 var import_upperFirst3 = __toESM(require_upperFirst());
 var import_isFunction8 = __toESM(require_isFunction());
 function _typeof21(o) {
@@ -70623,7 +70711,7 @@ var Curve = function Curve2(props) {
     return null;
   }
   var realPath = points && points.length ? getPath(props) : path3;
-  return /* @__PURE__ */ React416.createElement("path", _extends12({}, filterProps(props, false), adaptEventHandlers(props), {
+  return /* @__PURE__ */ React417.createElement("path", _extends12({}, filterProps(props, false), adaptEventHandlers(props), {
     className: clsx_default("recharts-curve", className),
     d: realPath,
     ref: pathRef
@@ -70631,10 +70719,10 @@ var Curve = function Curve2(props) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Rectangle.js
-var import_react151 = __toESM(require("react"));
+var import_react152 = __toESM(require("react"));
 
 // node_modules/.pnpm/react-smooth@4.0.4_react-do_b6c06f245dfc0c697fe8a346e1e2c144/node_modules/react-smooth/es6/Animate.js
-var import_react150 = __toESM(require("react"));
+var import_react151 = __toESM(require("react"));
 var import_prop_types = __toESM(require_prop_types());
 
 // node_modules/.pnpm/fast-equals@5.4.1/node_modules/fast-equals/dist/es/index.mjs
@@ -72078,7 +72166,7 @@ var Animate = /* @__PURE__ */ (function(_PureComponent) {
     key: "render",
     value: function render2() {
       var _this$props4 = this.props, children = _this$props4.children, begin = _this$props4.begin, duration = _this$props4.duration, attributeName = _this$props4.attributeName, easing = _this$props4.easing, isActive2 = _this$props4.isActive, steps = _this$props4.steps, from2 = _this$props4.from, to = _this$props4.to, canBegin = _this$props4.canBegin, onAnimationEnd2 = _this$props4.onAnimationEnd, shouldReAnimate = _this$props4.shouldReAnimate, onAnimationReStart = _this$props4.onAnimationReStart, others = _objectWithoutProperties11(_this$props4, _excluded68);
-      var count = import_react150.Children.count(children);
+      var count = import_react151.Children.count(children);
       var stateStyle = this.state.style;
       if (typeof children === "function") {
         return children(stateStyle);
@@ -72088,22 +72176,22 @@ var Animate = /* @__PURE__ */ (function(_PureComponent) {
       }
       var cloneContainer = function cloneContainer2(container) {
         var _container$props = container.props, _container$props$styl = _container$props.style, style2 = _container$props$styl === void 0 ? {} : _container$props$styl, className = _container$props.className;
-        var res = /* @__PURE__ */ (0, import_react150.cloneElement)(container, _objectSpread19(_objectSpread19({}, others), {}, {
+        var res = /* @__PURE__ */ (0, import_react151.cloneElement)(container, _objectSpread19(_objectSpread19({}, others), {}, {
           style: _objectSpread19(_objectSpread19({}, style2), stateStyle),
           className
         }));
         return res;
       };
       if (count === 1) {
-        return cloneContainer(import_react150.Children.only(children));
+        return cloneContainer(import_react151.Children.only(children));
       }
-      return /* @__PURE__ */ import_react150.default.createElement("div", null, import_react150.Children.map(children, function(child) {
+      return /* @__PURE__ */ import_react151.default.createElement("div", null, import_react151.Children.map(children, function(child) {
         return cloneContainer(child);
       }));
     }
   }]);
   return Animate2;
-})(import_react150.PureComponent);
+})(import_react151.PureComponent);
 Animate.displayName = "Animate";
 Animate.defaultProps = {
   begin: 0,
@@ -72328,9 +72416,9 @@ var defaultProps2 = {
 };
 var Rectangle = function Rectangle2(rectangleProps) {
   var props = _objectSpread20(_objectSpread20({}, defaultProps2), rectangleProps);
-  var pathRef = (0, import_react151.useRef)();
-  var _useState = (0, import_react151.useState)(-1), _useState2 = _slicedToArray10(_useState, 2), totalLength = _useState2[0], setTotalLength = _useState2[1];
-  (0, import_react151.useEffect)(function() {
+  var pathRef = (0, import_react152.useRef)();
+  var _useState = (0, import_react152.useState)(-1), _useState2 = _slicedToArray10(_useState, 2), totalLength = _useState2[0], setTotalLength = _useState2[1];
+  (0, import_react152.useEffect)(function() {
     if (pathRef.current && pathRef.current.getTotalLength) {
       try {
         var pathTotalLength = pathRef.current.getTotalLength();
@@ -72348,12 +72436,12 @@ var Rectangle = function Rectangle2(rectangleProps) {
   }
   var layerClass = clsx_default("recharts-rectangle", className);
   if (!isUpdateAnimationActive) {
-    return /* @__PURE__ */ import_react151.default.createElement("path", _extends13({}, filterProps(props, true), {
+    return /* @__PURE__ */ import_react152.default.createElement("path", _extends13({}, filterProps(props, true), {
       className: layerClass,
       d: getRectanglePath(x2, y2, width, height, radius2)
     }));
   }
-  return /* @__PURE__ */ import_react151.default.createElement(es6_default, {
+  return /* @__PURE__ */ import_react152.default.createElement(es6_default, {
     canBegin: totalLength > 0,
     from: {
       width,
@@ -72372,7 +72460,7 @@ var Rectangle = function Rectangle2(rectangleProps) {
     isActive: isUpdateAnimationActive
   }, function(_ref) {
     var currWidth = _ref.width, currHeight = _ref.height, currX = _ref.x, currY = _ref.y;
-    return /* @__PURE__ */ import_react151.default.createElement(es6_default, {
+    return /* @__PURE__ */ import_react152.default.createElement(es6_default, {
       canBegin: totalLength > 0,
       from: "0px ".concat(totalLength === -1 ? 1 : totalLength, "px"),
       to: "".concat(totalLength, "px 0px"),
@@ -72381,7 +72469,7 @@ var Rectangle = function Rectangle2(rectangleProps) {
       duration: animationDuration,
       isActive: isAnimationActive,
       easing: animationEasing
-    }, /* @__PURE__ */ import_react151.default.createElement("path", _extends13({}, filterProps(props, true), {
+    }, /* @__PURE__ */ import_react152.default.createElement("path", _extends13({}, filterProps(props, true), {
       className: layerClass,
       d: getRectanglePath(currX, currY, currWidth, currHeight, radius2),
       ref: pathRef
@@ -72390,7 +72478,7 @@ var Rectangle = function Rectangle2(rectangleProps) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Dot.js
-var React419 = __toESM(require("react"));
+var React420 = __toESM(require("react"));
 function _extends14() {
   _extends14 = Object.assign ? Object.assign.bind() : function(target) {
     for (var i = 1; i < arguments.length; i++) {
@@ -72409,7 +72497,7 @@ var Dot3 = function Dot4(props) {
   var cx = props.cx, cy = props.cy, r2 = props.r, className = props.className;
   var layerClass = clsx_default("recharts-dot", className);
   if (cx === +cx && cy === +cy && r2 === +r2) {
-    return /* @__PURE__ */ React419.createElement("circle", _extends14({}, filterProps(props, false), adaptEventHandlers(props), {
+    return /* @__PURE__ */ React420.createElement("circle", _extends14({}, filterProps(props, false), adaptEventHandlers(props), {
       className: layerClass,
       cx,
       cy,
@@ -72420,7 +72508,7 @@ var Dot3 = function Dot4(props) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Cross.js
-var import_react152 = __toESM(require("react"));
+var import_react153 = __toESM(require("react"));
 function _typeof27(o) {
   "@babel/helpers - typeof";
   return _typeof27 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
@@ -72530,21 +72618,21 @@ var Cross = function Cross2(_ref) {
   if (!isNumber(x2) || !isNumber(y2) || !isNumber(width) || !isNumber(height) || !isNumber(top) || !isNumber(left)) {
     return null;
   }
-  return /* @__PURE__ */ import_react152.default.createElement("path", _extends15({}, filterProps(props, true), {
+  return /* @__PURE__ */ import_react153.default.createElement("path", _extends15({}, filterProps(props, true), {
     className: clsx_default("recharts-cross", className),
     d: getPath3(x2, y2, width, height, top, left)
   }));
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/ActiveShapeUtils.js
-var import_react154 = __toESM(require("react"));
+var import_react155 = __toESM(require("react"));
 var import_isFunction9 = __toESM(require_isFunction());
 var import_isPlainObject = __toESM(require_isPlainObject());
 var import_isBoolean = __toESM(require_isBoolean());
 var import_isEqual12 = __toESM(require_isEqual());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/shape/Trapezoid.js
-var import_react153 = __toESM(require("react"));
+var import_react154 = __toESM(require("react"));
 function _typeof28(o) {
   "@babel/helpers - typeof";
   return _typeof28 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
@@ -72677,9 +72765,9 @@ var defaultProps3 = {
 };
 var Trapezoid = function Trapezoid2(props) {
   var trapezoidProps = _objectSpread22(_objectSpread22({}, defaultProps3), props);
-  var pathRef = (0, import_react153.useRef)();
-  var _useState = (0, import_react153.useState)(-1), _useState2 = _slicedToArray11(_useState, 2), totalLength = _useState2[0], setTotalLength = _useState2[1];
-  (0, import_react153.useEffect)(function() {
+  var pathRef = (0, import_react154.useRef)();
+  var _useState = (0, import_react154.useState)(-1), _useState2 = _slicedToArray11(_useState, 2), totalLength = _useState2[0], setTotalLength = _useState2[1];
+  (0, import_react154.useEffect)(function() {
     if (pathRef.current && pathRef.current.getTotalLength) {
       try {
         var pathTotalLength = pathRef.current.getTotalLength();
@@ -72697,12 +72785,12 @@ var Trapezoid = function Trapezoid2(props) {
   }
   var layerClass = clsx_default("recharts-trapezoid", className);
   if (!isUpdateAnimationActive) {
-    return /* @__PURE__ */ import_react153.default.createElement("g", null, /* @__PURE__ */ import_react153.default.createElement("path", _extends16({}, filterProps(trapezoidProps, true), {
+    return /* @__PURE__ */ import_react154.default.createElement("g", null, /* @__PURE__ */ import_react154.default.createElement("path", _extends16({}, filterProps(trapezoidProps, true), {
       className: layerClass,
       d: getTrapezoidPath(x2, y2, upperWidth, lowerWidth, height)
     })));
   }
-  return /* @__PURE__ */ import_react153.default.createElement(es6_default, {
+  return /* @__PURE__ */ import_react154.default.createElement(es6_default, {
     canBegin: totalLength > 0,
     from: {
       upperWidth: 0,
@@ -72723,7 +72811,7 @@ var Trapezoid = function Trapezoid2(props) {
     isActive: isUpdateAnimationActive
   }, function(_ref) {
     var currUpperWidth = _ref.upperWidth, currLowerWidth = _ref.lowerWidth, currHeight = _ref.height, currX = _ref.x, currY = _ref.y;
-    return /* @__PURE__ */ import_react153.default.createElement(es6_default, {
+    return /* @__PURE__ */ import_react154.default.createElement(es6_default, {
       canBegin: totalLength > 0,
       from: "0px ".concat(totalLength === -1 ? 1 : totalLength, "px"),
       to: "".concat(totalLength, "px 0px"),
@@ -72731,7 +72819,7 @@ var Trapezoid = function Trapezoid2(props) {
       begin: animationBegin,
       duration: animationDuration,
       easing: animationEasing
-    }, /* @__PURE__ */ import_react153.default.createElement("path", _extends16({}, filterProps(trapezoidProps, true), {
+    }, /* @__PURE__ */ import_react154.default.createElement("path", _extends16({}, filterProps(trapezoidProps, true), {
       className: layerClass,
       d: getTrapezoidPath(currX, currY, currUpperWidth, currLowerWidth, currHeight),
       ref: pathRef
@@ -72829,14 +72917,14 @@ function ShapeSelector(_ref) {
   var shapeType = _ref.shapeType, elementProps = _ref.elementProps;
   switch (shapeType) {
     case "rectangle":
-      return /* @__PURE__ */ import_react154.default.createElement(Rectangle, elementProps);
+      return /* @__PURE__ */ import_react155.default.createElement(Rectangle, elementProps);
     case "trapezoid":
-      return /* @__PURE__ */ import_react154.default.createElement(Trapezoid, elementProps);
+      return /* @__PURE__ */ import_react155.default.createElement(Trapezoid, elementProps);
     case "sector":
-      return /* @__PURE__ */ import_react154.default.createElement(Sector, elementProps);
+      return /* @__PURE__ */ import_react155.default.createElement(Sector, elementProps);
     case "symbols":
       if (isSymbolsProps(shapeType, elementProps)) {
-        return /* @__PURE__ */ import_react154.default.createElement(Symbols, elementProps);
+        return /* @__PURE__ */ import_react155.default.createElement(Symbols, elementProps);
       }
       break;
     default:
@@ -72844,7 +72932,7 @@ function ShapeSelector(_ref) {
   }
 }
 function getPropsFromShapeOption(option) {
-  if (/* @__PURE__ */ (0, import_react154.isValidElement)(option)) {
+  if (/* @__PURE__ */ (0, import_react155.isValidElement)(option)) {
     return option.props;
   }
   return option;
@@ -72852,25 +72940,25 @@ function getPropsFromShapeOption(option) {
 function Shape(_ref2) {
   var option = _ref2.option, shapeType = _ref2.shapeType, _ref2$propTransformer = _ref2.propTransformer, propTransformer = _ref2$propTransformer === void 0 ? defaultPropTransformer : _ref2$propTransformer, _ref2$activeClassName = _ref2.activeClassName, activeClassName = _ref2$activeClassName === void 0 ? "recharts-active-shape" : _ref2$activeClassName, isActive2 = _ref2.isActive, props = _objectWithoutProperties13(_ref2, _excluded70);
   var shape;
-  if (/* @__PURE__ */ (0, import_react154.isValidElement)(option)) {
-    shape = /* @__PURE__ */ (0, import_react154.cloneElement)(option, _objectSpread23(_objectSpread23({}, props), getPropsFromShapeOption(option)));
+  if (/* @__PURE__ */ (0, import_react155.isValidElement)(option)) {
+    shape = /* @__PURE__ */ (0, import_react155.cloneElement)(option, _objectSpread23(_objectSpread23({}, props), getPropsFromShapeOption(option)));
   } else if ((0, import_isFunction9.default)(option)) {
     shape = option(props);
   } else if ((0, import_isPlainObject.default)(option) && !(0, import_isBoolean.default)(option)) {
     var nextProps = propTransformer(option, props);
-    shape = /* @__PURE__ */ import_react154.default.createElement(ShapeSelector, {
+    shape = /* @__PURE__ */ import_react155.default.createElement(ShapeSelector, {
       shapeType,
       elementProps: nextProps
     });
   } else {
     var elementProps = props;
-    shape = /* @__PURE__ */ import_react154.default.createElement(ShapeSelector, {
+    shape = /* @__PURE__ */ import_react155.default.createElement(ShapeSelector, {
       shapeType,
       elementProps
     });
   }
   if (isActive2) {
-    return /* @__PURE__ */ import_react154.default.createElement(Layer, {
+    return /* @__PURE__ */ import_react155.default.createElement(Layer, {
       className: activeClassName
     }, shape);
   }
@@ -72957,7 +73045,7 @@ function getActiveShapeIndexForTooltip(_ref3) {
 }
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/Brush.js
-var import_react155 = __toESM(require("react"));
+var import_react156 = __toESM(require("react"));
 var import_isFunction10 = __toESM(require_isFunction());
 var import_range3 = __toESM(require_range());
 
@@ -73399,7 +73487,7 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
     key: "renderBackground",
     value: function renderBackground() {
       var _this$props6 = this.props, x2 = _this$props6.x, y2 = _this$props6.y, width = _this$props6.width, height = _this$props6.height, fill = _this$props6.fill, stroke = _this$props6.stroke;
-      return /* @__PURE__ */ import_react155.default.createElement("rect", {
+      return /* @__PURE__ */ import_react156.default.createElement("rect", {
         stroke,
         fill,
         x: x2,
@@ -73412,11 +73500,11 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
     key: "renderPanorama",
     value: function renderPanorama() {
       var _this$props7 = this.props, x2 = _this$props7.x, y2 = _this$props7.y, width = _this$props7.width, height = _this$props7.height, data = _this$props7.data, children = _this$props7.children, padding = _this$props7.padding;
-      var chartElement = import_react155.Children.only(children);
+      var chartElement = import_react156.Children.only(children);
       if (!chartElement) {
         return null;
       }
-      return /* @__PURE__ */ import_react155.default.cloneElement(chartElement, {
+      return /* @__PURE__ */ import_react156.default.cloneElement(chartElement, {
         x: x2,
         y: y2,
         width,
@@ -73439,7 +73527,7 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
         height
       });
       var ariaLabelBrush = ariaLabel || "Min value: ".concat((_data$startIndex = data[startIndex]) === null || _data$startIndex === void 0 ? void 0 : _data$startIndex.name, ", Max value: ").concat((_data$endIndex = data[endIndex]) === null || _data$endIndex === void 0 ? void 0 : _data$endIndex.name);
-      return /* @__PURE__ */ import_react155.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react156.default.createElement(Layer, {
         tabIndex: 0,
         role: "slider",
         "aria-label": ariaLabelBrush,
@@ -73478,7 +73566,7 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
       var _this$props9 = this.props, y2 = _this$props9.y, height = _this$props9.height, stroke = _this$props9.stroke, travellerWidth = _this$props9.travellerWidth;
       var x2 = Math.min(startX, endX) + travellerWidth;
       var width = Math.max(Math.abs(endX - startX) - travellerWidth, 0);
-      return /* @__PURE__ */ import_react155.default.createElement("rect", {
+      return /* @__PURE__ */ import_react156.default.createElement("rect", {
         className: "recharts-brush-slide",
         onMouseEnter: this.handleEnterSlideOrTraveller,
         onMouseLeave: this.handleLeaveSlideOrTraveller,
@@ -73506,14 +73594,14 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
         pointerEvents: "none",
         fill: stroke
       };
-      return /* @__PURE__ */ import_react155.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react156.default.createElement(Layer, {
         className: "recharts-brush-texts"
-      }, /* @__PURE__ */ import_react155.default.createElement(Text2, _extends17({
+      }, /* @__PURE__ */ import_react156.default.createElement(Text2, _extends17({
         textAnchor: "end",
         verticalAnchor: "middle",
         x: Math.min(startX, endX) - offset3,
         y: y2 + height / 2
-      }, attrs), this.getTextOfTick(startIndex)), /* @__PURE__ */ import_react155.default.createElement(Text2, _extends17({
+      }, attrs), this.getTextOfTick(startIndex)), /* @__PURE__ */ import_react156.default.createElement(Text2, _extends17({
         textAnchor: "start",
         verticalAnchor: "middle",
         x: Math.max(startX, endX) + travellerWidth + offset3,
@@ -73529,9 +73617,9 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
         return null;
       }
       var layerClass = clsx_default("recharts-brush", className);
-      var isPanoramic = import_react155.default.Children.count(children) === 1;
+      var isPanoramic = import_react156.default.Children.count(children) === 1;
       var style2 = generatePrefixStyle("userSelect", "none");
-      return /* @__PURE__ */ import_react155.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react156.default.createElement(Layer, {
         className: layerClass,
         onMouseLeave: this.handleLeaveWrapper,
         onTouchMove: this.handleTouchMove,
@@ -73543,21 +73631,21 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
     value: function renderDefaultTraveller(props) {
       var x2 = props.x, y2 = props.y, width = props.width, height = props.height, stroke = props.stroke;
       var lineY = Math.floor(y2 + height / 2) - 1;
-      return /* @__PURE__ */ import_react155.default.createElement(import_react155.default.Fragment, null, /* @__PURE__ */ import_react155.default.createElement("rect", {
+      return /* @__PURE__ */ import_react156.default.createElement(import_react156.default.Fragment, null, /* @__PURE__ */ import_react156.default.createElement("rect", {
         x: x2,
         y: y2,
         width,
         height,
         fill: stroke,
         stroke: "none"
-      }), /* @__PURE__ */ import_react155.default.createElement("line", {
+      }), /* @__PURE__ */ import_react156.default.createElement("line", {
         x1: x2 + 1,
         y1: lineY,
         x2: x2 + width - 1,
         y2: lineY,
         fill: "none",
         stroke: "#fff"
-      }), /* @__PURE__ */ import_react155.default.createElement("line", {
+      }), /* @__PURE__ */ import_react156.default.createElement("line", {
         x1: x2 + 1,
         y1: lineY + 2,
         x2: x2 + width - 1,
@@ -73570,8 +73658,8 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
     key: "renderTraveller",
     value: function renderTraveller(option, props) {
       var rectangle;
-      if (/* @__PURE__ */ import_react155.default.isValidElement(option)) {
-        rectangle = /* @__PURE__ */ import_react155.default.cloneElement(option, props);
+      if (/* @__PURE__ */ import_react156.default.isValidElement(option)) {
+        rectangle = /* @__PURE__ */ import_react156.default.cloneElement(option, props);
       } else if ((0, import_isFunction10.default)(option)) {
         rectangle = option(props);
       } else {
@@ -73637,7 +73725,7 @@ var Brush = /* @__PURE__ */ (function(_PureComponent) {
       return x2 >= valueRange[end] ? end : start;
     }
   }]);
-})(import_react155.PureComponent);
+})(import_react156.PureComponent);
 _defineProperty27(Brush, "displayName", "Brush");
 _defineProperty27(Brush, "defaultProps", {
   height: 40,
@@ -73656,7 +73744,7 @@ _defineProperty27(Brush, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/ReferenceLine.js
-var import_react159 = __toESM(require("react"));
+var import_react160 = __toESM(require("react"));
 var import_isFunction11 = __toESM(require_isFunction());
 var import_some = __toESM(require_some());
 
@@ -73675,12 +73763,12 @@ var import_mapValues = __toESM(require_mapValues());
 var import_every = __toESM(require_every());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/Bar.js
-var import_react157 = __toESM(require("react"));
+var import_react158 = __toESM(require("react"));
 var import_isEqual13 = __toESM(require_isEqual());
 var import_isNil9 = __toESM(require_isNil());
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/BarUtils.js
-var import_react156 = __toESM(require("react"));
+var import_react157 = __toESM(require("react"));
 var _excluded71 = ["x", "y"];
 function _typeof32(o) {
   "@babel/helpers - typeof";
@@ -73796,7 +73884,7 @@ function typeguardBarRectangleProps(_ref, props) {
   });
 }
 function BarRectangle(props) {
-  return /* @__PURE__ */ import_react156.default.createElement(Shape, _extends18({
+  return /* @__PURE__ */ import_react157.default.createElement(Shape, _extends18({
     shapeType: "rectangle",
     propTransformer: typeguardBarRectangleProps,
     activeClassName: "recharts-active-bar"
@@ -74028,13 +74116,13 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
           onAnimationStart: _this2.handleAnimationStart,
           onAnimationEnd: _this2.handleAnimationEnd
         });
-        return /* @__PURE__ */ import_react157.default.createElement(Layer, _extends19({
+        return /* @__PURE__ */ import_react158.default.createElement(Layer, _extends19({
           className: "recharts-bar-rectangle"
         }, adaptEventsOfChild(_this2.props, entry, i), {
           // https://github.com/recharts/recharts/issues/5415
           // eslint-disable-next-line react/no-array-index-key
           key: "rectangle-".concat(entry === null || entry === void 0 ? void 0 : entry.x, "-").concat(entry === null || entry === void 0 ? void 0 : entry.y, "-").concat(entry === null || entry === void 0 ? void 0 : entry.value, "-").concat(i)
-        }), /* @__PURE__ */ import_react157.default.createElement(BarRectangle, props));
+        }), /* @__PURE__ */ import_react158.default.createElement(BarRectangle, props));
       });
     }
   }, {
@@ -74043,7 +74131,7 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
       var _this3 = this;
       var _this$props2 = this.props, data = _this$props2.data, layout = _this$props2.layout, isAnimationActive = _this$props2.isAnimationActive, animationBegin = _this$props2.animationBegin, animationDuration = _this$props2.animationDuration, animationEasing = _this$props2.animationEasing, animationId = _this$props2.animationId;
       var prevData = this.state.prevData;
-      return /* @__PURE__ */ import_react157.default.createElement(es6_default, {
+      return /* @__PURE__ */ import_react158.default.createElement(es6_default, {
         begin: animationBegin,
         duration: animationDuration,
         isActive: isAnimationActive,
@@ -74087,7 +74175,7 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
             width: w
           });
         });
-        return /* @__PURE__ */ import_react157.default.createElement(Layer, null, _this3.renderRectanglesStatically(stepData));
+        return /* @__PURE__ */ import_react158.default.createElement(Layer, null, _this3.renderRectanglesStatically(stepData));
       });
     }
   }, {
@@ -74120,7 +74208,7 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
           index: i,
           className: "recharts-bar-background-rectangle"
         });
-        return /* @__PURE__ */ import_react157.default.createElement(BarRectangle, _extends19({
+        return /* @__PURE__ */ import_react158.default.createElement(BarRectangle, _extends19({
           key: "background-bar-".concat(i),
           option: _this4.props.background,
           isActive: i === activeIndex
@@ -74151,8 +74239,8 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
       var errorBarProps = {
         clipPath: needClip ? "url(#clipPath-".concat(clipPathId, ")") : null
       };
-      return /* @__PURE__ */ import_react157.default.createElement(Layer, errorBarProps, errorBarItems.map(function(item) {
-        return /* @__PURE__ */ import_react157.default.cloneElement(item, {
+      return /* @__PURE__ */ import_react158.default.createElement(Layer, errorBarProps, errorBarItems.map(function(item) {
+        return /* @__PURE__ */ import_react158.default.cloneElement(item, {
           key: "error-bar-".concat(clipPathId, "-").concat(item.props.dataKey),
           data,
           xAxis,
@@ -74176,16 +74264,16 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
       var needClipY = yAxis && yAxis.allowDataOverflow;
       var needClip = needClipX || needClipY;
       var clipPathId = (0, import_isNil9.default)(id) ? this.id : id;
-      return /* @__PURE__ */ import_react157.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react158.default.createElement(Layer, {
         className: layerClass
-      }, needClipX || needClipY ? /* @__PURE__ */ import_react157.default.createElement("defs", null, /* @__PURE__ */ import_react157.default.createElement("clipPath", {
+      }, needClipX || needClipY ? /* @__PURE__ */ import_react158.default.createElement("defs", null, /* @__PURE__ */ import_react158.default.createElement("clipPath", {
         id: "clipPath-".concat(clipPathId)
-      }, /* @__PURE__ */ import_react157.default.createElement("rect", {
+      }, /* @__PURE__ */ import_react158.default.createElement("rect", {
         x: needClipX ? left : left - width / 2,
         y: needClipY ? top : top - height / 2,
         width: needClipX ? width : width * 2,
         height: needClipY ? height : height * 2
-      }))) : null, /* @__PURE__ */ import_react157.default.createElement(Layer, {
+      }))) : null, /* @__PURE__ */ import_react158.default.createElement(Layer, {
         className: "recharts-bar-rectangles",
         clipPath: needClip ? "url(#clipPath-".concat(clipPathId, ")") : null
       }, background ? this.renderBackground() : null, this.renderRectangles()), this.renderErrorBar(needClip, clipPathId), (!isAnimationActive || isAnimationFinished) && LabelList.renderCallByParent(this.props, data));
@@ -74208,7 +74296,7 @@ var Bar = /* @__PURE__ */ (function(_PureComponent) {
       return null;
     }
   }]);
-})(import_react157.PureComponent);
+})(import_react158.PureComponent);
 _Bar = Bar;
 _defineProperty29(Bar, "displayName", "Bar");
 _defineProperty29(Bar, "defaultProps", {
@@ -74612,7 +74700,7 @@ var getAngledRectangleWidth = function getAngledRectangleWidth2(_ref6) {
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/context/chartLayoutContext.js
-var import_react158 = __toESM(require("react"));
+var import_react159 = __toESM(require("react"));
 var import_find = __toESM(require_find());
 var import_every2 = __toESM(require_every());
 
@@ -74630,72 +74718,72 @@ var calculateViewBox = (0, import_memoize.default)(function(offset3) {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/context/chartLayoutContext.js
-var XAxisContext = /* @__PURE__ */ (0, import_react158.createContext)(void 0);
-var YAxisContext = /* @__PURE__ */ (0, import_react158.createContext)(void 0);
-var ViewBoxContext = /* @__PURE__ */ (0, import_react158.createContext)(void 0);
-var OffsetContext = /* @__PURE__ */ (0, import_react158.createContext)({});
-var ClipPathIdContext = /* @__PURE__ */ (0, import_react158.createContext)(void 0);
-var ChartHeightContext = /* @__PURE__ */ (0, import_react158.createContext)(0);
-var ChartWidthContext = /* @__PURE__ */ (0, import_react158.createContext)(0);
+var XAxisContext = /* @__PURE__ */ (0, import_react159.createContext)(void 0);
+var YAxisContext = /* @__PURE__ */ (0, import_react159.createContext)(void 0);
+var ViewBoxContext = /* @__PURE__ */ (0, import_react159.createContext)(void 0);
+var OffsetContext = /* @__PURE__ */ (0, import_react159.createContext)({});
+var ClipPathIdContext = /* @__PURE__ */ (0, import_react159.createContext)(void 0);
+var ChartHeightContext = /* @__PURE__ */ (0, import_react159.createContext)(0);
+var ChartWidthContext = /* @__PURE__ */ (0, import_react159.createContext)(0);
 var ChartLayoutContextProvider = function ChartLayoutContextProvider2(props) {
   var _props$state = props.state, xAxisMap = _props$state.xAxisMap, yAxisMap = _props$state.yAxisMap, offset3 = _props$state.offset, clipPathId = props.clipPathId, children = props.children, width = props.width, height = props.height;
   var viewBox = calculateViewBox(offset3);
-  return /* @__PURE__ */ import_react158.default.createElement(XAxisContext.Provider, {
+  return /* @__PURE__ */ import_react159.default.createElement(XAxisContext.Provider, {
     value: xAxisMap
-  }, /* @__PURE__ */ import_react158.default.createElement(YAxisContext.Provider, {
+  }, /* @__PURE__ */ import_react159.default.createElement(YAxisContext.Provider, {
     value: yAxisMap
-  }, /* @__PURE__ */ import_react158.default.createElement(OffsetContext.Provider, {
+  }, /* @__PURE__ */ import_react159.default.createElement(OffsetContext.Provider, {
     value: offset3
-  }, /* @__PURE__ */ import_react158.default.createElement(ViewBoxContext.Provider, {
+  }, /* @__PURE__ */ import_react159.default.createElement(ViewBoxContext.Provider, {
     value: viewBox
-  }, /* @__PURE__ */ import_react158.default.createElement(ClipPathIdContext.Provider, {
+  }, /* @__PURE__ */ import_react159.default.createElement(ClipPathIdContext.Provider, {
     value: clipPathId
-  }, /* @__PURE__ */ import_react158.default.createElement(ChartHeightContext.Provider, {
+  }, /* @__PURE__ */ import_react159.default.createElement(ChartHeightContext.Provider, {
     value: height
-  }, /* @__PURE__ */ import_react158.default.createElement(ChartWidthContext.Provider, {
+  }, /* @__PURE__ */ import_react159.default.createElement(ChartWidthContext.Provider, {
     value: width
   }, children)))))));
 };
 var useClipPathId = function useClipPathId2() {
-  return (0, import_react158.useContext)(ClipPathIdContext);
+  return (0, import_react159.useContext)(ClipPathIdContext);
 };
 var useXAxisOrThrow = function useXAxisOrThrow2(xAxisId) {
-  var xAxisMap = (0, import_react158.useContext)(XAxisContext);
+  var xAxisMap = (0, import_react159.useContext)(XAxisContext);
   !(xAxisMap != null) ? false ? invariant(false, "Could not find Recharts context; are you sure this is rendered inside a Recharts wrapper component?") : invariant(false) : void 0;
   var xAxis = xAxisMap[xAxisId];
   !(xAxis != null) ? false ? invariant(false, 'Could not find xAxis by id "'.concat(xAxisId, '" [').concat(_typeof(xAxisId), "]. ").concat(getKeysForDebug(xAxisMap))) : invariant(false) : void 0;
   return xAxis;
 };
 var useArbitraryXAxis = function useArbitraryXAxis2() {
-  var xAxisMap = (0, import_react158.useContext)(XAxisContext);
+  var xAxisMap = (0, import_react159.useContext)(XAxisContext);
   return getAnyElementOfObject(xAxisMap);
 };
 var useYAxisWithFiniteDomainOrRandom = function useYAxisWithFiniteDomainOrRandom2() {
-  var yAxisMap = (0, import_react158.useContext)(YAxisContext);
+  var yAxisMap = (0, import_react159.useContext)(YAxisContext);
   var yAxisWithFiniteDomain = (0, import_find.default)(yAxisMap, function(axis) {
     return (0, import_every2.default)(axis.domain, Number.isFinite);
   });
   return yAxisWithFiniteDomain || getAnyElementOfObject(yAxisMap);
 };
 var useYAxisOrThrow = function useYAxisOrThrow2(yAxisId) {
-  var yAxisMap = (0, import_react158.useContext)(YAxisContext);
+  var yAxisMap = (0, import_react159.useContext)(YAxisContext);
   !(yAxisMap != null) ? false ? invariant(false, "Could not find Recharts context; are you sure this is rendered inside a Recharts wrapper component?") : invariant(false) : void 0;
   var yAxis = yAxisMap[yAxisId];
   !(yAxis != null) ? false ? invariant(false, 'Could not find yAxis by id "'.concat(yAxisId, '" [').concat(_typeof(yAxisId), "]. ").concat(getKeysForDebug(yAxisMap))) : invariant(false) : void 0;
   return yAxis;
 };
 var useViewBox = function useViewBox2() {
-  var viewBox = (0, import_react158.useContext)(ViewBoxContext);
+  var viewBox = (0, import_react159.useContext)(ViewBoxContext);
   return viewBox;
 };
 var useOffset2 = function useOffset3() {
-  return (0, import_react158.useContext)(OffsetContext);
+  return (0, import_react159.useContext)(OffsetContext);
 };
 var useChartWidth = function useChartWidth2() {
-  return (0, import_react158.useContext)(ChartWidthContext);
+  return (0, import_react159.useContext)(ChartWidthContext);
 };
 var useChartHeight = function useChartHeight2() {
-  return (0, import_react158.useContext)(ChartHeightContext);
+  return (0, import_react159.useContext)(ChartHeightContext);
 };
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/ReferenceLine.js
@@ -74878,12 +74966,12 @@ function _extends20() {
 }
 var renderLine = function renderLine2(option, props) {
   var line2;
-  if (/* @__PURE__ */ import_react159.default.isValidElement(option)) {
-    line2 = /* @__PURE__ */ import_react159.default.cloneElement(option, props);
+  if (/* @__PURE__ */ import_react160.default.isValidElement(option)) {
+    line2 = /* @__PURE__ */ import_react160.default.cloneElement(option, props);
   } else if ((0, import_isFunction11.default)(option)) {
     line2 = option(props);
   } else {
-    line2 = /* @__PURE__ */ import_react159.default.createElement("line", _extends20({}, props, {
+    line2 = /* @__PURE__ */ import_react160.default.createElement("line", _extends20({}, props, {
       className: "recharts-reference-line-line"
     }));
   }
@@ -74972,7 +75060,7 @@ function ReferenceLineImpl(props) {
     x2,
     y2
   });
-  return /* @__PURE__ */ import_react159.default.createElement(Layer, {
+  return /* @__PURE__ */ import_react160.default.createElement(Layer, {
     className: clsx_default("recharts-reference-line", className)
   }, renderLine(shape, lineProps), Label.renderCallByParent(props, rectWithCoords({
     x1,
@@ -74990,10 +75078,10 @@ var ReferenceLine = /* @__PURE__ */ (function(_React$Component) {
   return _createClass12(ReferenceLine2, [{
     key: "render",
     value: function render2() {
-      return /* @__PURE__ */ import_react159.default.createElement(ReferenceLineImpl, this.props);
+      return /* @__PURE__ */ import_react160.default.createElement(ReferenceLineImpl, this.props);
     }
   }]);
-})(import_react159.default.Component);
+})(import_react160.default.Component);
 _defineProperty31(ReferenceLine, "displayName", "ReferenceLine");
 _defineProperty31(ReferenceLine, "defaultProps", {
   isFront: false,
@@ -75008,7 +75096,7 @@ _defineProperty31(ReferenceLine, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/ReferenceDot.js
-var import_react160 = __toESM(require("react"));
+var import_react161 = __toESM(require("react"));
 var import_isFunction12 = __toESM(require_isFunction());
 function _extends21() {
   _extends21 = Object.assign ? Object.assign.bind() : function(target) {
@@ -75190,7 +75278,7 @@ var ReferenceDot = /* @__PURE__ */ (function(_React$Component) {
         cx,
         cy
       });
-      return /* @__PURE__ */ import_react160.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react161.default.createElement(Layer, {
         className: clsx_default("recharts-reference-dot", className)
       }, ReferenceDot2.renderDot(shape, dotProps), Label.renderCallByParent(this.props, {
         x: cx - r2,
@@ -75200,7 +75288,7 @@ var ReferenceDot = /* @__PURE__ */ (function(_React$Component) {
       }));
     }
   }]);
-})(import_react160.default.Component);
+})(import_react161.default.Component);
 _defineProperty32(ReferenceDot, "displayName", "ReferenceDot");
 _defineProperty32(ReferenceDot, "defaultProps", {
   isFront: false,
@@ -75215,12 +75303,12 @@ _defineProperty32(ReferenceDot, "defaultProps", {
 });
 _defineProperty32(ReferenceDot, "renderDot", function(option, props) {
   var dot;
-  if (/* @__PURE__ */ import_react160.default.isValidElement(option)) {
-    dot = /* @__PURE__ */ import_react160.default.cloneElement(option, props);
+  if (/* @__PURE__ */ import_react161.default.isValidElement(option)) {
+    dot = /* @__PURE__ */ import_react161.default.cloneElement(option, props);
   } else if ((0, import_isFunction12.default)(option)) {
     dot = option(props);
   } else {
-    dot = /* @__PURE__ */ import_react160.default.createElement(Dot3, _extends21({}, props, {
+    dot = /* @__PURE__ */ import_react161.default.createElement(Dot3, _extends21({}, props, {
       cx: props.cx,
       cy: props.cy,
       className: "recharts-reference-dot-dot"
@@ -75230,7 +75318,7 @@ _defineProperty32(ReferenceDot, "renderDot", function(option, props) {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/ReferenceArea.js
-var import_react161 = __toESM(require("react"));
+var import_react162 = __toESM(require("react"));
 var import_isFunction13 = __toESM(require_isFunction());
 function _extends22() {
   _extends22 = Object.assign ? Object.assign.bind() : function(target) {
@@ -75418,14 +75506,14 @@ var ReferenceArea = /* @__PURE__ */ (function(_React$Component) {
         return null;
       }
       var clipPath = ifOverflowMatches(this.props, "hidden") ? "url(#".concat(clipPathId, ")") : void 0;
-      return /* @__PURE__ */ import_react161.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react162.default.createElement(Layer, {
         className: clsx_default("recharts-reference-area", className)
       }, ReferenceArea2.renderRect(shape, _objectSpread31(_objectSpread31({
         clipPath
       }, filterProps(this.props, true)), rect)), Label.renderCallByParent(this.props, rect));
     }
   }]);
-})(import_react161.default.Component);
+})(import_react162.default.Component);
 _defineProperty33(ReferenceArea, "displayName", "ReferenceArea");
 _defineProperty33(ReferenceArea, "defaultProps", {
   isFront: false,
@@ -75440,12 +75528,12 @@ _defineProperty33(ReferenceArea, "defaultProps", {
 });
 _defineProperty33(ReferenceArea, "renderRect", function(option, props) {
   var rect;
-  if (/* @__PURE__ */ import_react161.default.isValidElement(option)) {
-    rect = /* @__PURE__ */ import_react161.default.cloneElement(option, props);
+  if (/* @__PURE__ */ import_react162.default.isValidElement(option)) {
+    rect = /* @__PURE__ */ import_react162.default.cloneElement(option, props);
   } else if ((0, import_isFunction13.default)(option)) {
     rect = option(props);
   } else {
-    rect = /* @__PURE__ */ import_react161.default.createElement(Rectangle, _extends22({}, props, {
+    rect = /* @__PURE__ */ import_react162.default.createElement(Rectangle, _extends22({}, props, {
       className: "recharts-reference-area-rect"
     }));
   }
@@ -75453,7 +75541,7 @@ _defineProperty33(ReferenceArea, "renderRect", function(option, props) {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/CartesianAxis.js
-var import_react162 = __toESM(require("react"));
+var import_react163 = __toESM(require("react"));
 var import_isFunction15 = __toESM(require_isFunction());
 var import_get10 = __toESM(require_get());
 
@@ -76053,7 +76141,7 @@ var CartesianAxis = /* @__PURE__ */ (function(_Component) {
           y2: y2 + height
         });
       }
-      return /* @__PURE__ */ import_react162.default.createElement("line", _extends23({}, props, {
+      return /* @__PURE__ */ import_react163.default.createElement("line", _extends23({}, props, {
         className: clsx_default("recharts-cartesian-axis-line", (0, import_get10.default)(axisLine, "className"))
       }));
     }
@@ -76094,14 +76182,14 @@ var CartesianAxis = /* @__PURE__ */ (function(_Component) {
             visibleTicksCount: finalTicks.length,
             tickFormatter
           });
-          return /* @__PURE__ */ import_react162.default.createElement(Layer, _extends23({
+          return /* @__PURE__ */ import_react163.default.createElement(Layer, _extends23({
             className: "recharts-cartesian-axis-tick",
             key: "tick-".concat(entry.value, "-").concat(entry.coordinate, "-").concat(entry.tickCoord)
-          }, adaptEventsOfChild(_this2.props, entry, i)), tickLine && /* @__PURE__ */ import_react162.default.createElement("line", _extends23({}, tickLineProps, lineCoord, {
+          }, adaptEventsOfChild(_this2.props, entry, i)), tickLine && /* @__PURE__ */ import_react163.default.createElement("line", _extends23({}, tickLineProps, lineCoord, {
             className: clsx_default("recharts-cartesian-axis-tick-line", (0, import_get10.default)(tickLine, "className"))
           })), tick && CartesianAxis2.renderTickItem(tick, tickProps, "".concat((0, import_isFunction15.default)(tickFormatter) ? tickFormatter(entry.value, i) : entry.value).concat(unit4 || "")));
         });
-        return /* @__PURE__ */ import_react162.default.createElement("g", {
+        return /* @__PURE__ */ import_react163.default.createElement("g", {
           className: "recharts-cartesian-axis-ticks"
         }, items);
       }
@@ -76122,7 +76210,7 @@ var CartesianAxis = /* @__PURE__ */ (function(_Component) {
       if (width <= 0 || height <= 0 || !finalTicks || !finalTicks.length) {
         return null;
       }
-      return /* @__PURE__ */ import_react162.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react163.default.createElement(Layer, {
         className: clsx_default("recharts-cartesian-axis", className),
         ref: function ref(_ref2) {
           _this3.layerReference = _ref2;
@@ -76134,8 +76222,8 @@ var CartesianAxis = /* @__PURE__ */ (function(_Component) {
     value: function renderTickItem(option, props, value) {
       var tickItem;
       var combinedClassName = clsx_default(props.className, "recharts-cartesian-axis-tick-value");
-      if (/* @__PURE__ */ import_react162.default.isValidElement(option)) {
-        tickItem = /* @__PURE__ */ import_react162.default.cloneElement(option, _objectSpread33(_objectSpread33({}, props), {}, {
+      if (/* @__PURE__ */ import_react163.default.isValidElement(option)) {
+        tickItem = /* @__PURE__ */ import_react163.default.cloneElement(option, _objectSpread33(_objectSpread33({}, props), {}, {
           className: combinedClassName
         }));
       } else if ((0, import_isFunction15.default)(option)) {
@@ -76143,14 +76231,14 @@ var CartesianAxis = /* @__PURE__ */ (function(_Component) {
           className: combinedClassName
         }));
       } else {
-        tickItem = /* @__PURE__ */ import_react162.default.createElement(Text2, _extends23({}, props, {
+        tickItem = /* @__PURE__ */ import_react163.default.createElement(Text2, _extends23({}, props, {
           className: "recharts-cartesian-axis-tick-value"
         }), value);
       }
       return tickItem;
     }
   }]);
-})(import_react162.Component);
+})(import_react163.Component);
 _defineProperty35(CartesianAxis, "displayName", "CartesianAxis");
 _defineProperty35(CartesianAxis, "defaultProps", {
   x: 0,
@@ -76180,7 +76268,7 @@ _defineProperty35(CartesianAxis, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/CartesianGrid.js
-var import_react163 = __toESM(require("react"));
+var import_react164 = __toESM(require("react"));
 var import_isFunction16 = __toESM(require_isFunction());
 var _excluded74 = ["x1", "y1", "x2", "y2", "key"];
 var _excluded217 = ["offset"];
@@ -76282,7 +76370,7 @@ var Background = function Background2(props) {
     return null;
   }
   var fillOpacity = props.fillOpacity, x2 = props.x, y2 = props.y, width = props.width, height = props.height, ry = props.ry;
-  return /* @__PURE__ */ import_react163.default.createElement("rect", {
+  return /* @__PURE__ */ import_react164.default.createElement("rect", {
     x: x2,
     y: y2,
     ry,
@@ -76296,14 +76384,14 @@ var Background = function Background2(props) {
 };
 function renderLineItem(option, props) {
   var lineItem;
-  if (/* @__PURE__ */ import_react163.default.isValidElement(option)) {
-    lineItem = /* @__PURE__ */ import_react163.default.cloneElement(option, props);
+  if (/* @__PURE__ */ import_react164.default.isValidElement(option)) {
+    lineItem = /* @__PURE__ */ import_react164.default.cloneElement(option, props);
   } else if ((0, import_isFunction16.default)(option)) {
     lineItem = option(props);
   } else {
     var x1 = props.x1, y1 = props.y1, x2 = props.x2, y2 = props.y2, key = props.key, others = _objectWithoutProperties17(props, _excluded74);
     var _filterProps = filterProps(others, false), __ = _filterProps.offset, restOfFilteredProps = _objectWithoutProperties17(_filterProps, _excluded217);
-    lineItem = /* @__PURE__ */ import_react163.default.createElement("line", _extends24({}, restOfFilteredProps, {
+    lineItem = /* @__PURE__ */ import_react164.default.createElement("line", _extends24({}, restOfFilteredProps, {
       x1,
       y1,
       x2,
@@ -76330,7 +76418,7 @@ function HorizontalGridLines(props) {
     });
     return renderLineItem(horizontal, lineItemProps);
   });
-  return /* @__PURE__ */ import_react163.default.createElement("g", {
+  return /* @__PURE__ */ import_react164.default.createElement("g", {
     className: "recharts-cartesian-grid-horizontal"
   }, items);
 }
@@ -76350,7 +76438,7 @@ function VerticalGridLines(props) {
     });
     return renderLineItem(vertical, lineItemProps);
   });
-  return /* @__PURE__ */ import_react163.default.createElement("g", {
+  return /* @__PURE__ */ import_react164.default.createElement("g", {
     className: "recharts-cartesian-grid-vertical"
   }, items);
 }
@@ -76374,7 +76462,7 @@ function HorizontalStripes(props) {
       return null;
     }
     var colorIndex = i % horizontalFill.length;
-    return /* @__PURE__ */ import_react163.default.createElement("rect", {
+    return /* @__PURE__ */ import_react164.default.createElement("rect", {
       key: "react-".concat(i),
       y: entry,
       x: x2,
@@ -76386,7 +76474,7 @@ function HorizontalStripes(props) {
       className: "recharts-cartesian-grid-bg"
     });
   });
-  return /* @__PURE__ */ import_react163.default.createElement("g", {
+  return /* @__PURE__ */ import_react164.default.createElement("g", {
     className: "recharts-cartesian-gridstripes-horizontal"
   }, items);
 }
@@ -76410,7 +76498,7 @@ function VerticalStripes(props) {
       return null;
     }
     var colorIndex = i % verticalFill.length;
-    return /* @__PURE__ */ import_react163.default.createElement("rect", {
+    return /* @__PURE__ */ import_react164.default.createElement("rect", {
       key: "react-".concat(i),
       x: entry,
       y: y2,
@@ -76422,7 +76510,7 @@ function VerticalStripes(props) {
       className: "recharts-cartesian-grid-bg"
     });
   });
-  return /* @__PURE__ */ import_react163.default.createElement("g", {
+  return /* @__PURE__ */ import_react164.default.createElement("g", {
     className: "recharts-cartesian-gridstripes-vertical"
   }, items);
 }
@@ -76519,9 +76607,9 @@ function CartesianGrid(props) {
       verticalPoints = _generatorResult;
     }
   }
-  return /* @__PURE__ */ import_react163.default.createElement("g", {
+  return /* @__PURE__ */ import_react164.default.createElement("g", {
     className: "recharts-cartesian-grid"
-  }, /* @__PURE__ */ import_react163.default.createElement(Background, {
+  }, /* @__PURE__ */ import_react164.default.createElement(Background, {
     fill: propsIncludingDefaults.fill,
     fillOpacity: propsIncludingDefaults.fillOpacity,
     x: propsIncludingDefaults.x,
@@ -76529,26 +76617,26 @@ function CartesianGrid(props) {
     width: propsIncludingDefaults.width,
     height: propsIncludingDefaults.height,
     ry: propsIncludingDefaults.ry
-  }), /* @__PURE__ */ import_react163.default.createElement(HorizontalGridLines, _extends24({}, propsIncludingDefaults, {
+  }), /* @__PURE__ */ import_react164.default.createElement(HorizontalGridLines, _extends24({}, propsIncludingDefaults, {
     offset: offset3,
     horizontalPoints,
     xAxis,
     yAxis
-  })), /* @__PURE__ */ import_react163.default.createElement(VerticalGridLines, _extends24({}, propsIncludingDefaults, {
+  })), /* @__PURE__ */ import_react164.default.createElement(VerticalGridLines, _extends24({}, propsIncludingDefaults, {
     offset: offset3,
     verticalPoints,
     xAxis,
     yAxis
-  })), /* @__PURE__ */ import_react163.default.createElement(HorizontalStripes, _extends24({}, propsIncludingDefaults, {
+  })), /* @__PURE__ */ import_react164.default.createElement(HorizontalStripes, _extends24({}, propsIncludingDefaults, {
     horizontalPoints
-  })), /* @__PURE__ */ import_react163.default.createElement(VerticalStripes, _extends24({}, propsIncludingDefaults, {
+  })), /* @__PURE__ */ import_react164.default.createElement(VerticalStripes, _extends24({}, propsIncludingDefaults, {
     verticalPoints
   })));
 }
 CartesianGrid.displayName = "CartesianGrid";
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/Line.js
-var import_react164 = __toESM(require("react"));
+var import_react165 = __toESM(require("react"));
 var import_isFunction17 = __toESM(require_isFunction());
 var import_isNil10 = __toESM(require_isNil());
 var import_isEqual14 = __toESM(require_isEqual());
@@ -76855,8 +76943,8 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
       var errorBarProps = {
         clipPath: needClip ? "url(#clipPath-".concat(clipPathId, ")") : null
       };
-      return /* @__PURE__ */ import_react164.default.createElement(Layer, errorBarProps, errorBarItems.map(function(item) {
-        return /* @__PURE__ */ import_react164.default.cloneElement(item, {
+      return /* @__PURE__ */ import_react165.default.createElement(Layer, errorBarProps, errorBarItems.map(function(item) {
+        return /* @__PURE__ */ import_react165.default.cloneElement(item, {
           key: "bar-".concat(item.props.dataKey),
           data: points,
           xAxis,
@@ -76894,7 +76982,7 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
       var dotsProps = {
         clipPath: needClip ? "url(#clipPath-".concat(clipDot ? "" : "dots-").concat(clipPathId, ")") : null
       };
-      return /* @__PURE__ */ import_react164.default.createElement(Layer, _extends25({
+      return /* @__PURE__ */ import_react165.default.createElement(Layer, _extends25({
         className: "recharts-line-dots",
         key: "dots"
       }, dotsProps), dots);
@@ -76913,7 +77001,7 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
         layout,
         connectNulls
       });
-      return /* @__PURE__ */ import_react164.default.createElement(Curve, _extends25({}, curveProps, {
+      return /* @__PURE__ */ import_react165.default.createElement(Curve, _extends25({}, curveProps, {
         pathRef: this.pathRef
       }));
     }
@@ -76923,7 +77011,7 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
       var _this2 = this;
       var _this$props4 = this.props, points = _this$props4.points, strokeDasharray = _this$props4.strokeDasharray, isAnimationActive = _this$props4.isAnimationActive, animationBegin = _this$props4.animationBegin, animationDuration = _this$props4.animationDuration, animationEasing = _this$props4.animationEasing, animationId = _this$props4.animationId, animateNewValues = _this$props4.animateNewValues, width = _this$props4.width, height = _this$props4.height;
       var _this$state = this.state, prevPoints = _this$state.prevPoints, totalLength = _this$state.totalLength;
-      return /* @__PURE__ */ import_react164.default.createElement(es6_default, {
+      return /* @__PURE__ */ import_react165.default.createElement(es6_default, {
         begin: animationBegin,
         duration: animationDuration,
         isActive: isAnimationActive,
@@ -77014,18 +77102,18 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
       }, _ref2$r = _ref2.r, r2 = _ref2$r === void 0 ? 3 : _ref2$r, _ref2$strokeWidth = _ref2.strokeWidth, strokeWidth = _ref2$strokeWidth === void 0 ? 2 : _ref2$strokeWidth;
       var _ref3 = hasClipDot(dot) ? dot : {}, _ref3$clipDot = _ref3.clipDot, clipDot = _ref3$clipDot === void 0 ? true : _ref3$clipDot;
       var dotSize = r2 * 2 + strokeWidth;
-      return /* @__PURE__ */ import_react164.default.createElement(Layer, {
+      return /* @__PURE__ */ import_react165.default.createElement(Layer, {
         className: layerClass
-      }, needClipX || needClipY ? /* @__PURE__ */ import_react164.default.createElement("defs", null, /* @__PURE__ */ import_react164.default.createElement("clipPath", {
+      }, needClipX || needClipY ? /* @__PURE__ */ import_react165.default.createElement("defs", null, /* @__PURE__ */ import_react165.default.createElement("clipPath", {
         id: "clipPath-".concat(clipPathId)
-      }, /* @__PURE__ */ import_react164.default.createElement("rect", {
+      }, /* @__PURE__ */ import_react165.default.createElement("rect", {
         x: needClipX ? left : left - width / 2,
         y: needClipY ? top : top - height / 2,
         width: needClipX ? width : width * 2,
         height: needClipY ? height : height * 2
-      })), !clipDot && /* @__PURE__ */ import_react164.default.createElement("clipPath", {
+      })), !clipDot && /* @__PURE__ */ import_react165.default.createElement("clipPath", {
         id: "clipPath-dots-".concat(clipPathId)
-      }, /* @__PURE__ */ import_react164.default.createElement("rect", {
+      }, /* @__PURE__ */ import_react165.default.createElement("rect", {
         x: left - dotSize / 2,
         y: top - dotSize / 2,
         width: width + dotSize,
@@ -77063,14 +77151,14 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
     key: "renderDotItem",
     value: function renderDotItem(option, props) {
       var dotItem;
-      if (/* @__PURE__ */ import_react164.default.isValidElement(option)) {
-        dotItem = /* @__PURE__ */ import_react164.default.cloneElement(option, props);
+      if (/* @__PURE__ */ import_react165.default.isValidElement(option)) {
+        dotItem = /* @__PURE__ */ import_react165.default.cloneElement(option, props);
       } else if ((0, import_isFunction17.default)(option)) {
         dotItem = option(props);
       } else {
         var key = props.key, dotProps = _objectWithoutProperties18(props, _excluded218);
         var className = clsx_default("recharts-line-dot", typeof option !== "boolean" ? option.className : "");
-        dotItem = /* @__PURE__ */ import_react164.default.createElement(Dot3, _extends25({
+        dotItem = /* @__PURE__ */ import_react165.default.createElement(Dot3, _extends25({
           key
         }, dotProps, {
           className
@@ -77079,7 +77167,7 @@ var Line = /* @__PURE__ */ (function(_PureComponent) {
       return dotItem;
     }
   }]);
-})(import_react164.PureComponent);
+})(import_react165.PureComponent);
 _defineProperty37(Line, "displayName", "Line");
 _defineProperty37(Line, "defaultProps", {
   xAxisId: 0,
@@ -77139,7 +77227,7 @@ _defineProperty37(Line, "getComposedData", function(_ref4) {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/XAxis.js
-var React433 = __toESM(require("react"));
+var React434 = __toESM(require("react"));
 function _typeof42(o) {
   "@babel/helpers - typeof";
   return _typeof42 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
@@ -77263,7 +77351,7 @@ function XAxisImpl(_ref) {
   }
   return (
     // @ts-expect-error the axisOptions type is not exactly what CartesianAxis is expecting.
-    /* @__PURE__ */ React433.createElement(CartesianAxis, _extends26({}, axisOptions, {
+    /* @__PURE__ */ React434.createElement(CartesianAxis, _extends26({}, axisOptions, {
       className: clsx_default("recharts-".concat(axisOptions.axisType, " ").concat(axisOptions.axisType), axisOptions.className),
       viewBox: {
         x: 0,
@@ -77286,10 +77374,10 @@ var XAxis = /* @__PURE__ */ (function(_React$Component) {
   return _createClass17(XAxis2, [{
     key: "render",
     value: function render2() {
-      return /* @__PURE__ */ React433.createElement(XAxisImpl, this.props);
+      return /* @__PURE__ */ React434.createElement(XAxisImpl, this.props);
     }
   }]);
-})(React433.Component);
+})(React434.Component);
 _defineProperty38(XAxis, "displayName", "XAxis");
 _defineProperty38(XAxis, "defaultProps", {
   allowDecimals: true,
@@ -77312,7 +77400,7 @@ _defineProperty38(XAxis, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/cartesian/YAxis.js
-var React434 = __toESM(require("react"));
+var React435 = __toESM(require("react"));
 function _typeof43(o) {
   "@babel/helpers - typeof";
   return _typeof43 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
@@ -77436,7 +77524,7 @@ var YAxisImpl = function YAxisImpl2(_ref) {
   }
   return (
     // @ts-expect-error the axisOptions type is not exactly what CartesianAxis is expecting.
-    /* @__PURE__ */ React434.createElement(CartesianAxis, _extends27({}, axisOptions, {
+    /* @__PURE__ */ React435.createElement(CartesianAxis, _extends27({}, axisOptions, {
       className: clsx_default("recharts-".concat(axisOptions.axisType, " ").concat(axisOptions.axisType), axisOptions.className),
       viewBox: {
         x: 0,
@@ -77459,10 +77547,10 @@ var YAxis = /* @__PURE__ */ (function(_React$Component) {
   return _createClass18(YAxis2, [{
     key: "render",
     value: function render2() {
-      return /* @__PURE__ */ React434.createElement(YAxisImpl, this.props);
+      return /* @__PURE__ */ React435.createElement(YAxisImpl, this.props);
     }
   }]);
-})(React434.Component);
+})(React435.Component);
 _defineProperty39(YAxis, "displayName", "YAxis");
 _defineProperty39(YAxis, "defaultProps", {
   allowDuplicatedCategory: true,
@@ -77485,7 +77573,7 @@ _defineProperty39(YAxis, "defaultProps", {
 });
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/chart/generateCategoricalChart.js
-var import_react166 = __toESM(require("react"));
+var import_react167 = __toESM(require("react"));
 var import_isNil11 = __toESM(require_isNil());
 var import_isFunction18 = __toESM(require_isFunction());
 var import_range4 = __toESM(require_range());
@@ -77710,7 +77798,7 @@ function isDomainSpecifiedByUser(domain, allowDataOverflow, axisType) {
 }
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/component/Cursor.js
-var import_react165 = require("react");
+var import_react166 = require("react");
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/util/cursor/getCursorRectangle.js
 function getCursorRectangle(layout, activeCoordinate, offset3, tooltipAxisBandSize) {
@@ -77868,7 +77956,7 @@ function Cursor(props) {
     payloadIndex: activeTooltipIndex,
     className: clsx_default("recharts-tooltip-cursor", elementPropsCursor.className)
   });
-  return /* @__PURE__ */ (0, import_react165.isValidElement)(elementPropsCursor) ? /* @__PURE__ */ (0, import_react165.cloneElement)(elementPropsCursor, cursorProps) : /* @__PURE__ */ (0, import_react165.createElement)(cursorComp, cursorProps);
+  return /* @__PURE__ */ (0, import_react166.isValidElement)(elementPropsCursor) ? /* @__PURE__ */ (0, import_react166.cloneElement)(elementPropsCursor, cursorProps) : /* @__PURE__ */ (0, import_react166.createElement)(cursorComp, cursorProps);
 }
 
 // node_modules/.pnpm/recharts@2.15.4_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/recharts/es6/chart/generateCategoricalChart.js
@@ -78910,7 +78998,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         var isActive2 = (_element$props$active = element.props.active) !== null && _element$props$active !== void 0 ? _element$props$active : isTooltipActive;
         var layout = _this.props.layout;
         var key = element.key || "_recharts-cursor";
-        return /* @__PURE__ */ import_react166.default.createElement(Cursor, {
+        return /* @__PURE__ */ import_react167.default.createElement(Cursor, {
           key,
           activeCoordinate,
           activePayload,
@@ -78930,7 +79018,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         var elementDefaultProps = element.type.defaultProps;
         var elementProps = elementDefaultProps !== void 0 ? _objectSpread37(_objectSpread37({}, elementDefaultProps), element.props) : element.props;
         var axisOption = axisMap && axisMap[elementProps["".concat(axisType, "Id")]];
-        return /* @__PURE__ */ (0, import_react166.cloneElement)(element, _objectSpread37(_objectSpread37({}, axisOption), {}, {
+        return /* @__PURE__ */ (0, import_react167.cloneElement)(element, _objectSpread37(_objectSpread37({}, axisOption), {}, {
           className: clsx_default(axisType, axisOption.className),
           key: element.key || "".concat(displayName, "-").concat(index2),
           ticks: getTicksOfAxis(axisOption, true)
@@ -78942,7 +79030,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         var radiusAxis = getAnyElementOfObject(radiusAxisMap);
         var angleAxis = getAnyElementOfObject(angleAxisMap);
         var cx = angleAxis.cx, cy = angleAxis.cy, innerRadius = angleAxis.innerRadius, outerRadius = angleAxis.outerRadius;
-        return /* @__PURE__ */ (0, import_react166.cloneElement)(element, {
+        return /* @__PURE__ */ (0, import_react167.cloneElement)(element, {
           polarAngles: Array.isArray(polarAngles) ? polarAngles : getTicksOfAxis(angleAxis, true).map(function(entry) {
             return entry.coordinate;
           }),
@@ -78972,7 +79060,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
           return null;
         }
         var item = props.item, otherProps = _objectWithoutProperties19(props, _excluded76);
-        return /* @__PURE__ */ (0, import_react166.cloneElement)(item, _objectSpread37(_objectSpread37({}, otherProps), {}, {
+        return /* @__PURE__ */ (0, import_react167.cloneElement)(item, _objectSpread37(_objectSpread37({}, otherProps), {}, {
           chartWidth: width,
           chartHeight: height,
           margin,
@@ -78988,7 +79076,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         }
         var _this$state5 = _this.state, isTooltipActive = _this$state5.isTooltipActive, activeCoordinate = _this$state5.activeCoordinate, activePayload = _this$state5.activePayload, activeLabel = _this$state5.activeLabel, offset3 = _this$state5.offset;
         var isActive2 = (_tooltipItem$props$ac = tooltipItem.props.active) !== null && _tooltipItem$props$ac !== void 0 ? _tooltipItem$props$ac : isTooltipActive;
-        return /* @__PURE__ */ (0, import_react166.cloneElement)(tooltipItem, {
+        return /* @__PURE__ */ (0, import_react167.cloneElement)(tooltipItem, {
           viewBox: _objectSpread37(_objectSpread37({}, offset3), {}, {
             x: offset3.left,
             y: offset3.top
@@ -79003,7 +79091,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
       _defineProperty42(_this, "renderBrush", function(element) {
         var _this$props4 = _this.props, margin = _this$props4.margin, data = _this$props4.data;
         var _this$state6 = _this.state, offset3 = _this$state6.offset, dataStartIndex = _this$state6.dataStartIndex, dataEndIndex = _this$state6.dataEndIndex, updateId = _this$state6.updateId;
-        return /* @__PURE__ */ (0, import_react166.cloneElement)(element, {
+        return /* @__PURE__ */ (0, import_react167.cloneElement)(element, {
           key: element.key || "_recharts-brush",
           onChange: combineEventHandlers(_this.handleBrushChange, element.props.onChange),
           data,
@@ -79023,7 +79111,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         var _this$state7 = _this.state, xAxisMap = _this$state7.xAxisMap, yAxisMap = _this$state7.yAxisMap, offset3 = _this$state7.offset;
         var elementDefaultProps = element.type.defaultProps || {};
         var _element$props2 = element.props, _element$props2$xAxis = _element$props2.xAxisId, xAxisId = _element$props2$xAxis === void 0 ? elementDefaultProps.xAxisId : _element$props2$xAxis, _element$props2$yAxis = _element$props2.yAxisId, yAxisId = _element$props2$yAxis === void 0 ? elementDefaultProps.yAxisId : _element$props2$yAxis;
-        return /* @__PURE__ */ (0, import_react166.cloneElement)(element, {
+        return /* @__PURE__ */ (0, import_react167.cloneElement)(element, {
           key: element.key || "".concat(displayName, "-").concat(index2),
           xAxis: xAxisMap[xAxisId],
           yAxis: yAxisMap[yAxisId],
@@ -79089,7 +79177,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
             onMouseEnter: combineEventHandlers(_this.handleItemMouseEnter, element.props.onMouseEnter)
           };
         }
-        var graphicalItem = /* @__PURE__ */ (0, import_react166.cloneElement)(element, _objectSpread37(_objectSpread37({}, item.props), itemEvents));
+        var graphicalItem = /* @__PURE__ */ (0, import_react167.cloneElement)(element, _objectSpread37(_objectSpread37({}, item.props), itemEvents));
         function findWithPayload(entry) {
           return typeof tooltipAxis.dataKey === "function" ? tooltipAxis.dataKey(entry.payload) : null;
         }
@@ -79106,7 +79194,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
             }
             if (activeShape || activeBar) {
               var activeIndex = element.props.activeIndex !== void 0 ? element.props.activeIndex : activeTooltipIndex;
-              return [/* @__PURE__ */ (0, import_react166.cloneElement)(element, _objectSpread37(_objectSpread37(_objectSpread37({}, item.props), itemEvents), {}, {
+              return [/* @__PURE__ */ (0, import_react167.cloneElement)(element, _objectSpread37(_objectSpread37(_objectSpread37({}, item.props), itemEvents), {}, {
                 activeIndex
               })), null, null];
             }
@@ -79127,7 +79215,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
             var elementProps = _objectSpread37(_objectSpread37(_objectSpread37({}, item.props), itemEvents), {}, {
               activeIndex: childIndex
             });
-            return [/* @__PURE__ */ (0, import_react166.cloneElement)(xyItem, elementProps), null, null];
+            return [/* @__PURE__ */ (0, import_react167.cloneElement)(xyItem, elementProps), null, null];
           }
         }
         if (isRange) {
@@ -79136,7 +79224,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         return [graphicalItem, null];
       });
       _defineProperty42(_this, "renderCustomized", function(element, displayName, index2) {
-        return /* @__PURE__ */ (0, import_react166.cloneElement)(element, _objectSpread37(_objectSpread37({
+        return /* @__PURE__ */ (0, import_react167.cloneElement)(element, _objectSpread37(_objectSpread37({
           key: "recharts-customized-".concat(index2)
         }, _this.props), _this.state));
       });
@@ -79442,9 +79530,9 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
       value: function renderClipPath() {
         var clipPathId = this.clipPathId;
         var _this$state$offset = this.state.offset, left = _this$state$offset.left, top = _this$state$offset.top, height = _this$state$offset.height, width = _this$state$offset.width;
-        return /* @__PURE__ */ import_react166.default.createElement("defs", null, /* @__PURE__ */ import_react166.default.createElement("clipPath", {
+        return /* @__PURE__ */ import_react167.default.createElement("defs", null, /* @__PURE__ */ import_react167.default.createElement("clipPath", {
           id: clipPathId
-        }, /* @__PURE__ */ import_react166.default.createElement("rect", {
+        }, /* @__PURE__ */ import_react167.default.createElement("rect", {
           x: left,
           y: top,
           height,
@@ -79539,12 +79627,12 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         var _this$props6 = this.props, children = _this$props6.children, className = _this$props6.className, width = _this$props6.width, height = _this$props6.height, style2 = _this$props6.style, compact = _this$props6.compact, title = _this$props6.title, desc = _this$props6.desc, others = _objectWithoutProperties19(_this$props6, _excluded219);
         var attrs = filterProps(others, false);
         if (compact) {
-          return /* @__PURE__ */ import_react166.default.createElement(ChartLayoutContextProvider, {
+          return /* @__PURE__ */ import_react167.default.createElement(ChartLayoutContextProvider, {
             state: this.state,
             width: this.props.width,
             height: this.props.height,
             clipPathId: this.clipPathId
-          }, /* @__PURE__ */ import_react166.default.createElement(Surface, _extends28({}, attrs, {
+          }, /* @__PURE__ */ import_react167.default.createElement(Surface, _extends28({}, attrs, {
             width,
             height,
             title,
@@ -79563,12 +79651,12 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
           };
         }
         var events = this.parseEventsOfWrapper();
-        return /* @__PURE__ */ import_react166.default.createElement(ChartLayoutContextProvider, {
+        return /* @__PURE__ */ import_react167.default.createElement(ChartLayoutContextProvider, {
           state: this.state,
           width: this.props.width,
           height: this.props.height,
           clipPathId: this.clipPathId
-        }, /* @__PURE__ */ import_react166.default.createElement("div", _extends28({
+        }, /* @__PURE__ */ import_react167.default.createElement("div", _extends28({
           className: clsx_default("recharts-wrapper", className),
           style: _objectSpread37({
             position: "relative",
@@ -79580,7 +79668,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
           ref: function ref(node2) {
             _this3.container = node2;
           }
-        }), /* @__PURE__ */ import_react166.default.createElement(Surface, _extends28({}, attrs, {
+        }), /* @__PURE__ */ import_react167.default.createElement(Surface, _extends28({}, attrs, {
           width,
           height,
           title,
@@ -79589,7 +79677,7 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
         }), this.renderClipPath(), renderByOrder(children, this.renderMap)), this.renderLegend(), this.renderTooltip()));
       }
     }]);
-  })(import_react166.Component);
+  })(import_react167.Component);
   _defineProperty42(CategoricalChartWrapper, "displayName", chartName);
   _defineProperty42(CategoricalChartWrapper, "defaultProps", _objectSpread37({
     layout: "horizontal",
@@ -79681,20 +79769,20 @@ var generateCategoricalChart = function generateCategoricalChart2(_ref6) {
   });
   _defineProperty42(CategoricalChartWrapper, "renderActiveDot", function(option, props, key) {
     var dot;
-    if (/* @__PURE__ */ (0, import_react166.isValidElement)(option)) {
-      dot = /* @__PURE__ */ (0, import_react166.cloneElement)(option, props);
+    if (/* @__PURE__ */ (0, import_react167.isValidElement)(option)) {
+      dot = /* @__PURE__ */ (0, import_react167.cloneElement)(option, props);
     } else if ((0, import_isFunction18.default)(option)) {
       dot = option(props);
     } else {
-      dot = /* @__PURE__ */ import_react166.default.createElement(Dot3, props);
+      dot = /* @__PURE__ */ import_react167.default.createElement(Dot3, props);
     }
-    return /* @__PURE__ */ import_react166.default.createElement(Layer, {
+    return /* @__PURE__ */ import_react167.default.createElement(Layer, {
       className: "recharts-active-dot",
       key
     }, dot);
   });
-  var CategoricalChart = /* @__PURE__ */ (0, import_react166.forwardRef)(function CategoricalChart2(props, ref) {
-    return /* @__PURE__ */ import_react166.default.createElement(CategoricalChartWrapper, _extends28({}, props, {
+  var CategoricalChart = /* @__PURE__ */ (0, import_react167.forwardRef)(function CategoricalChart2(props, ref) {
+    return /* @__PURE__ */ import_react167.default.createElement(CategoricalChartWrapper, _extends28({}, props, {
       ref
     }));
   });
@@ -79718,7 +79806,7 @@ var LineChart = generateCategoricalChart({
 
 // src/client/ConvergenceChart.tsx
 init_api();
-var import_jsx_runtime4 = require("react/jsx-runtime");
+var import_jsx_runtime5 = require("react/jsx-runtime");
 function chartRows(response) {
   const { ion_steps, energies, max_forces } = response;
   return ion_steps.flatMap((step, i) => {
@@ -79731,12 +79819,12 @@ function chartRows(response) {
   });
 }
 var ConvergenceChart = ({ taskId, series }) => {
-  const [data, setData] = (0, import_react167.useState)(null);
-  const [loading, setLoading] = (0, import_react167.useState)(true);
-  const [errorMsg, setErrorMsg] = (0, import_react167.useState)(null);
-  const [source, setSource] = (0, import_react167.useState)("");
-  const [logEnergy, setLogEnergy] = (0, import_react167.useState)(false);
-  (0, import_react167.useEffect)(() => {
+  const [data, setData] = (0, import_react168.useState)(null);
+  const [loading, setLoading] = (0, import_react168.useState)(true);
+  const [errorMsg, setErrorMsg] = (0, import_react168.useState)(null);
+  const [source, setSource] = (0, import_react168.useState)("");
+  const [logEnergy, setLogEnergy] = (0, import_react168.useState)(false);
+  (0, import_react168.useEffect)(() => {
     if (series) {
       setData(series.ion_steps?.length ? chartRows(series) : []);
       setErrorMsg(series.error || null);
@@ -79757,7 +79845,7 @@ var ConvergenceChart = ({ taskId, series }) => {
       setData(chartRows(response));
     }).catch(() => setData([])).finally(() => setLoading(false));
   }, [taskId, series]);
-  const relData = (0, import_react167.useMemo)(() => {
+  const relData = (0, import_react168.useMemo)(() => {
     if (!data || data.length === 0) return data;
     const refEnergy = data[data.length - 1].energy;
     if (refEnergy == null) return data;
@@ -79766,22 +79854,22 @@ var ConvergenceChart = ({ taskId, series }) => {
       energy: logEnergy ? d.energy : d.energy - refEnergy
     }));
   }, [data, logEnergy]);
-  if (loading) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(spin_default, { style: { display: "block", margin: "60px auto" } });
-  if (errorMsg) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(empty_default2, { description: `\u65E0\u6536\u655B\u6570\u636E: ${errorMsg}` });
-  if (!data || data.length === 0) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(empty_default2, { description: "\u65E0\u6536\u655B\u6570\u636E\uFF08\u9700 OSZICAR + OUTCAR\uFF09" });
+  if (loading) return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(spin_default, { style: { display: "block", margin: "60px auto" } });
+  if (errorMsg) return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(empty_default2, { description: `\u65E0\u6536\u655B\u6570\u636E: ${errorMsg}` });
+  if (!data || data.length === 0) return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(empty_default2, { description: "\u65E0\u6536\u655B\u6570\u636E\uFF08\u9700 OSZICAR + OUTCAR\uFF09" });
   const energyLabel = logEnergy ? "\u7EDD\u5BF9\u80FD\u91CF (eV)" : "\u76F8\u5BF9\u80FD\u91CF \u0394E (eV)";
-  return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "vfp-convergence", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "vfp-convergence-source", title: `\u6570\u636E\u6765\u6E90: ${source}`, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-convergence", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-convergence-source", title: `\u6570\u636E\u6765\u6E90: ${source}`, children: [
       "\u6570\u636E\u6765\u6E90: ",
       source
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "vfp-convergence-controls", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(switch_default, { size: "small", checked: logEnergy, onChange: setLogEnergy, "aria-label": "\u663E\u793A\u7EDD\u5BF9\u80FD\u91CF" }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: logEnergy ? "\u7EDD\u5BF9\u80FD\u91CF" : "\u76F8\u5BF9\u80FD\u91CF\uFF08\u76F8\u5BF9\u6700\u540E\u4E00\u6B65\uFF09" })
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-convergence-controls", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(switch_default, { size: "small", checked: logEnergy, onChange: setLogEnergy, "aria-label": "\u663E\u793A\u7EDD\u5BF9\u80FD\u91CF" }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: logEnergy ? "\u7EDD\u5BF9\u80FD\u91CF" : "\u76F8\u5BF9\u80FD\u91CF\uFF08\u76F8\u5BF9\u6700\u540E\u4E00\u6B65\uFF09" })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "vfp-convergence-plot", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(ResponsiveContainer, { width: "100%", height: "100%", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(LineChart, { data: relData ?? void 0, margin: { top: 8, right: 24, left: 16, bottom: 8 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CartesianGrid, { strokeDasharray: "3 3", stroke: "var(--dsw-alias-border-l2, #f0f0f0)" }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "vfp-convergence-plot", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(ResponsiveContainer, { width: "100%", height: "100%", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(LineChart, { data: relData ?? void 0, margin: { top: 8, right: 24, left: 16, bottom: 8 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(CartesianGrid, { strokeDasharray: "3 3", stroke: "var(--dsw-alias-border-l2, #f0f0f0)" }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         XAxis,
         {
           tick: { fill: "var(--dsw-alias-label-secondary, #66758a)", fontSize: 11 },
@@ -79791,7 +79879,7 @@ var ConvergenceChart = ({ taskId, series }) => {
           label: { value: "\u79BB\u5B50\u6B65", position: "insideBottomRight", offset: -4 }
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         YAxis,
         {
           tick: { fill: "var(--dsw-alias-label-secondary, #66758a)", fontSize: 11 },
@@ -79800,7 +79888,7 @@ var ConvergenceChart = ({ taskId, series }) => {
           tickFormatter: (v) => logEnergy ? v.toFixed(2) : v.toExponential(1)
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         YAxis,
         {
           tick: { fill: "var(--dsw-alias-label-secondary, #66758a)", fontSize: 11 },
@@ -79810,7 +79898,7 @@ var ConvergenceChart = ({ taskId, series }) => {
           tickFormatter: (v) => v.toFixed(3)
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         Tooltip4,
         {
           contentStyle: { background: "var(--dsw-alias-bg-base, #fff)", border: "1px solid var(--dsw-alias-border-l2, #e2e7ee)", borderRadius: 6, fontSize: 12 },
@@ -79822,8 +79910,8 @@ var ConvergenceChart = ({ taskId, series }) => {
           }
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Legend, { wrapperStyle: { fontSize: 11 } }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(Legend, { wrapperStyle: { fontSize: 11 } }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         Line,
         {
           yAxisId: "energy",
@@ -79835,7 +79923,7 @@ var ConvergenceChart = ({ taskId, series }) => {
           name: energyLabel
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
         Line,
         {
           yAxisId: "force",
@@ -79853,7 +79941,7 @@ var ConvergenceChart = ({ taskId, series }) => {
 var ConvergenceChart_default = ConvergenceChart;
 
 // src/client/StructureViewer.tsx
-var import_react168 = require("react");
+var import_react169 = require("react");
 
 // node_modules/.pnpm/three@0.160.1/node_modules/three/build/three.module.js
 var REVISION = "160";
@@ -100226,7 +100314,7 @@ function expandStructure(struct, repeat, showOuterNeighbors) {
 }
 
 // src/client/StructureViewer.tsx
-var import_jsx_runtime5 = require("react/jsx-runtime");
+var import_jsx_runtime6 = require("react/jsx-runtime");
 var CAMERA_STORE_PREFIX = "dsh-vaspflow:structure-camera:v5:";
 var CAMERA_STORE_VERSION = 5;
 var MAX_DISPLAY_OBJECTS = 6e3;
@@ -100401,36 +100489,36 @@ function disposeObject3D(obj) {
   });
 }
 var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, sourcePath, active = true }) => {
-  const mountRef = (0, import_react168.useRef)(null);
-  const activeRef = (0, import_react168.useRef)(active);
+  const mountRef = (0, import_react169.useRef)(null);
+  const activeRef = (0, import_react169.useRef)(active);
   activeRef.current = active;
-  const [files, setFiles] = (0, import_react168.useState)(() => inlineScene ? [inlineLabel || "\u7ED3\u6784"] : []);
-  const [activeFile, setActiveFile] = (0, import_react168.useState)(() => inlineScene ? inlineLabel || "\u7ED3\u6784" : "");
-  const [structure, setStructure] = (0, import_react168.useState)(() => inlineScene ? structureSceneToViewerStructure(inlineScene) : null);
-  const [loading, setLoading] = (0, import_react168.useState)(!inlineScene);
-  const [error, setError] = (0, import_react168.useState)(null);
-  const [renderError, setRenderError] = (0, import_react168.useState)(null);
-  const [showBonds, setShowBonds] = (0, import_react168.useState)(true);
-  const [showCell, setShowCell] = (0, import_react168.useState)(true);
-  const [displayStyle, setDisplayStyle] = (0, import_react168.useState)("ball-stick");
-  const [showPeriodicImages, setShowPeriodicImages] = (0, import_react168.useState)(true);
-  const [repeat, setRepeat] = (0, import_react168.useState)([1, 1, 1]);
-  const [atomScale, setAtomScale] = (0, import_react168.useState)(100);
-  const [bondScale, setBondScale] = (0, import_react168.useState)(100);
-  const [backgroundMode, setBackgroundMode] = (0, import_react168.useState)("auto");
-  const [rotationStep, setRotationStep] = (0, import_react168.useState)(15);
-  const [wheelActive, setWheelActive] = (0, import_react168.useState)(false);
-  const [selectedAtoms, setSelectedAtoms] = (0, import_react168.useState)([]);
-  const selectedAtomsRef = (0, import_react168.useRef)([]);
-  const [sceneNonce, setSceneNonce] = (0, import_react168.useState)(0);
-  const lastStructureRef = (0, import_react168.useRef)(null);
-  const skipCameraSaveRef = (0, import_react168.useRef)(false);
-  const settingsRef = (0, import_react168.useRef)({ showBonds, showCell, showPeriodicImages, repeat, atomScale, bondScale, displayStyle, backgroundMode, rotationStep });
+  const [files, setFiles] = (0, import_react169.useState)(() => inlineScene ? [inlineLabel || "\u7ED3\u6784"] : []);
+  const [activeFile, setActiveFile] = (0, import_react169.useState)(() => inlineScene ? inlineLabel || "\u7ED3\u6784" : "");
+  const [structure, setStructure] = (0, import_react169.useState)(() => inlineScene ? structureSceneToViewerStructure(inlineScene) : null);
+  const [loading, setLoading] = (0, import_react169.useState)(!inlineScene);
+  const [error, setError] = (0, import_react169.useState)(null);
+  const [renderError, setRenderError] = (0, import_react169.useState)(null);
+  const [showBonds, setShowBonds] = (0, import_react169.useState)(true);
+  const [showCell, setShowCell] = (0, import_react169.useState)(true);
+  const [displayStyle, setDisplayStyle] = (0, import_react169.useState)("ball-stick");
+  const [showPeriodicImages, setShowPeriodicImages] = (0, import_react169.useState)(true);
+  const [repeat, setRepeat] = (0, import_react169.useState)([1, 1, 1]);
+  const [atomScale, setAtomScale] = (0, import_react169.useState)(100);
+  const [bondScale, setBondScale] = (0, import_react169.useState)(100);
+  const [backgroundMode, setBackgroundMode] = (0, import_react169.useState)("auto");
+  const [rotationStep, setRotationStep] = (0, import_react169.useState)(15);
+  const [wheelActive, setWheelActive] = (0, import_react169.useState)(false);
+  const [selectedAtoms, setSelectedAtoms] = (0, import_react169.useState)([]);
+  const selectedAtomsRef = (0, import_react169.useRef)([]);
+  const [sceneNonce, setSceneNonce] = (0, import_react169.useState)(0);
+  const lastStructureRef = (0, import_react169.useRef)(null);
+  const skipCameraSaveRef = (0, import_react169.useRef)(false);
+  const settingsRef = (0, import_react169.useRef)({ showBonds, showCell, showPeriodicImages, repeat, atomScale, bondScale, displayStyle, backgroundMode, rotationStep });
   settingsRef.current = { showBonds, showCell, showPeriodicImages, repeat, atomScale, bondScale, displayStyle, backgroundMode, rotationStep };
-  const applySettingsRef = (0, import_react168.useRef)(null);
-  const exportImageRef = (0, import_react168.useRef)(null);
-  const orientRef = (0, import_react168.useRef)(null);
-  (0, import_react168.useLayoutEffect)(() => {
+  const applySettingsRef = (0, import_react169.useRef)(null);
+  const exportImageRef = (0, import_react169.useRef)(null);
+  const orientRef = (0, import_react169.useRef)(null);
+  (0, import_react169.useLayoutEffect)(() => {
     const mount = mountRef.current;
     if (!mount || !active) return;
     setWheelActive(false);
@@ -100795,31 +100883,31 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
       mount.removeChild(renderer.domElement);
     };
   }, [taskId, activeFile, structure, sceneNonce, active]);
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     applySettingsRef.current?.();
   }, [showBonds, showCell, showPeriodicImages, atomScale, bondScale, displayStyle, backgroundMode]);
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     applySettingsRef.current?.(true);
   }, [repeat]);
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     selectedAtomsRef.current = [];
     setSelectedAtoms([]);
   }, [taskId, activeFile, inlineScene]);
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     if (structure && effectiveRepeat(structure, repeat) !== repeat) {
       selectedAtomsRef.current = [];
       setSelectedAtoms([]);
       setRepeat([1, 1, 1]);
     }
   }, [structure, repeat]);
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     if (!showPeriodicImages && selectedAtomsRef.current.some((atom) => atom.offset.some((value, axis) => value < 0 || value >= repeat[axis]))) {
       selectedAtomsRef.current = [];
       setSelectedAtoms([]);
       applySettingsRef.current?.();
     }
   }, [showPeriodicImages, structure, repeat]);
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     if (inlineScene) {
       const label = inlineLabel || "\u7ED3\u6784";
       setFiles([label]);
@@ -100848,7 +100936,7 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
       cancelled = true;
     };
   }, [taskId, inlineScene, inlineLabel]);
-  (0, import_react168.useEffect)(() => {
+  (0, import_react169.useEffect)(() => {
     if (!activeFile || inlineScene || taskId === void 0) return;
     let cancelled = false;
     setLoading(true);
@@ -100867,7 +100955,7 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
       cancelled = true;
     };
   }, [taskId, activeFile, inlineScene]);
-  const handleResetView = (0, import_react168.useCallback)(() => {
+  const handleResetView = (0, import_react169.useCallback)(() => {
     skipCameraSaveRef.current = true;
     const key = `${taskId ?? inlineLabel}:${activeFile}:${repeat.join("x")}`;
     try {
@@ -100876,20 +100964,20 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
     }
     setSceneNonce((n) => n + 1);
   }, [taskId, inlineLabel, activeFile, repeat]);
-  const latticeText = (0, import_react168.useMemo)(() => {
+  const latticeText = (0, import_react169.useMemo)(() => {
     const lattice = structure ? supercellLattice(structure.lattice, effectiveRepeat(structure, repeat)) : void 0;
     if (!lattice || lattice.length < 3) return "cell: -";
     const lengths = lattice.map((v) => vectorLength(v));
     return `cell: a=${lengths[0]?.toFixed(3)} b=${lengths[1]?.toFixed(3)} c=${lengths[2]?.toFixed(3)}`;
   }, [structure, repeat]);
-  const summaryText = (0, import_react168.useMemo)(() => {
+  const summaryText = (0, import_react169.useMemo)(() => {
     const summary = structure?.scene?.summary;
     if (!summary) return "summary: -";
     const spaceGroup = summary.space_group ? `${summary.space_group}${summary.space_group_number ? ` #${summary.space_group_number}` : ""}` : "SG -";
     const bonding = summary.bond_algorithm ? `bonding ${summary.bond_algorithm}` : "bonding off";
     return `${summary.formula || "-"} | ${spaceGroup} | ${bonding}`;
   }, [structure]);
-  const measurement = (0, import_react168.useMemo)(() => {
+  const measurement = (0, import_react169.useMemo)(() => {
     if (!selectedAtoms.length) return "";
     const atomName = (atom) => `${atom.element}${atom.siteIndex + 1}${atom.offset.some(Boolean) ? ` [${atom.offset.join(",")}]` : ""}`;
     const first = selectedAtoms[0];
@@ -100897,76 +100985,76 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
     const second2 = selectedAtoms[1];
     return `${atomName(first)} \u2014 ${atomName(second2)} \xB7 ${Math.hypot(...first.position.map((value, index2) => value - second2.position[index2])).toFixed(3)} \xC5`;
   }, [selectedAtoms]);
-  const displayScene = (0, import_react168.useMemo)(() => structure ? expandStructure(structure, effectiveRepeat(structure, repeat), showPeriodicImages) : null, [structure, repeat, showPeriodicImages]);
+  const displayScene = (0, import_react169.useMemo)(() => structure ? expandStructure(structure, effectiveRepeat(structure, repeat), showPeriodicImages) : null, [structure, repeat, showPeriodicImages]);
   const hasPeriodicImages = structure?.scene?.atoms.some((atom) => atom.is_periodic_image) ?? false;
   const displayBudget = (structure?.num_atoms ?? 0) + (structure?.bonds?.length ?? 0);
-  const settingsPanel = /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { width: 250, display: "grid", gap: 11, fontSize: 12 }, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u663E\u793A\u98CE\u683C" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(radio_default2.Group, { size: "small", optionType: "button", buttonStyle: "solid", value: displayStyle, onChange: (event) => setDisplayStyle(event.target.value), options: [{ label: "\u7403\u68CD", value: "ball-stick" }, { label: "\u7A7A\u95F4\u586B\u5145", value: "space-fill" }] })
+  const settingsPanel = /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { width: 250, display: "grid", gap: 11, fontSize: 12 }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u663E\u793A\u98CE\u683C" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(radio_default2.Group, { size: "small", optionType: "button", buttonStyle: "solid", value: displayStyle, onChange: (event) => setDisplayStyle(event.target.value), options: [{ label: "\u7403\u68CD", value: "ball-stick" }, { label: "\u7A7A\u95F4\u586B\u5145", value: "space-fill" }] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u663E\u793A\u5316\u5B66\u952E" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(switch_default, { size: "small", checked: displayStyle === "ball-stick" && showBonds, disabled: displayStyle === "space-fill", onChange: setShowBonds })
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u663E\u793A\u5316\u5B66\u952E" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(switch_default, { size: "small", checked: displayStyle === "ball-stick" && showBonds, disabled: displayStyle === "space-fill", onChange: setShowBonds })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u663E\u793A\u6676\u80DE" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(switch_default, { size: "small", checked: showCell, onChange: setShowCell })
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u663E\u793A\u6676\u80DE" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(switch_default, { size: "small", checked: showCell, onChange: setShowCell })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { title: "\u53EA\u63A7\u5236\u6269\u80DE\u6700\u5916\u4FA7\u3001\u4E3A\u4E86\u663E\u793A\u8DE8\u8FB9\u754C\u5316\u5B66\u952E\u800C\u8865\u51FA\u7684\u90BB\u5C45\u539F\u5B50\uFF1B\u5185\u90E8\u91CD\u590D\u539F\u5B50\u59CB\u7EC8\u663E\u793A\u3002", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u8FB9\u754C\u5916\u6210\u952E\u539F\u5B50 \u24D8" }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(switch_default, { size: "small", checked: showPeriodicImages, disabled: !hasPeriodicImages, onChange: setShowPeriodicImages })
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(tooltip_default, { title: "\u53EA\u63A7\u5236\u6269\u80DE\u6700\u5916\u4FA7\u3001\u4E3A\u4E86\u663E\u793A\u8DE8\u8FB9\u754C\u5316\u5B66\u952E\u800C\u8865\u51FA\u7684\u90BB\u5C45\u539F\u5B50\uFF1B\u5185\u90E8\u91CD\u590D\u539F\u5B50\u59CB\u7EC8\u663E\u793A\u3002", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u8FB9\u754C\u5916\u6210\u952E\u539F\u5B50 \u24D8" }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(switch_default, { size: "small", checked: showPeriodicImages, disabled: !hasPeriodicImages, onChange: setShowPeriodicImages })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "grid", gap: 5 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u663E\u793A\u6269\u80DE" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { display: "flex", justifyContent: "space-between", gap: 8 }, children: ["a", "b", "c"].map((axis, index2) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("label", { style: { display: "flex", alignItems: "center", gap: 4 }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { display: "grid", gap: 5 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u663E\u793A\u6269\u80DE" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { display: "flex", justifyContent: "space-between", gap: 8 }, children: ["a", "b", "c"].map((axis, index2) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("label", { style: { display: "flex", alignItems: "center", gap: 4 }, children: [
         axis,
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(select_default, { size: "small", value: repeat[index2], style: { width: 56 }, "aria-label": `${axis} \u65B9\u5411\u6269\u80DE\u6570\u91CF`, onChange: (value) => {
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(select_default, { size: "small", value: repeat[index2], style: { width: 56 }, "aria-label": `${axis} \u65B9\u5411\u6269\u80DE\u6570\u91CF`, onChange: (value) => {
           selectedAtomsRef.current = [];
           setSelectedAtoms([]);
           setRepeat((old) => old.map((count, i) => i === index2 ? value : count));
         }, options: [1, 2, 3, 4].map((value) => ({ label: String(value), value, disabled: value > 1 && displayBudget * repeat.reduce((product, count, i) => product * (i === index2 ? value : count), 1) > MAX_DISPLAY_OBJECTS })) })
       ] }, axis)) })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { color: "var(--dsw-alias-label-secondary,#65746b)", lineHeight: 1.45 }, children: "1\xD71\xD71 \u4E3A\u539F\u59CB\u80DE\u8303\u56F4\uFF1B\u53EA\u6539\u53D8\u89C6\u56FE\uFF0C\u4E0D\u4FEE\u6539\u7ED3\u6784\u6587\u4EF6\u3002\u5927\u578B\u7ED3\u6784\u4F1A\u9650\u5236\u6269\u80DE\u500D\u6570\u3002" }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { color: "var(--dsw-alias-label-secondary,#65746b)", lineHeight: 1.45 }, children: "1\xD71\xD71 \u4E3A\u539F\u59CB\u80DE\u8303\u56F4\uFF1B\u53EA\u6539\u53D8\u89C6\u56FE\uFF0C\u4E0D\u4FEE\u6539\u7ED3\u6784\u6587\u4EF6\u3002\u5927\u578B\u7ED3\u6784\u4F1A\u9650\u5236\u6269\u80DE\u500D\u6570\u3002" }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { children: [
       "\u539F\u5B50\u5927\u5C0F \xB7 ",
       atomScale,
       "%",
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(slider_default, { min: 50, max: 150, step: 10, value: atomScale, onChange: setAtomScale, "aria-label": "\u539F\u5B50\u5927\u5C0F", style: { margin: "4px 6px 0" } })
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(slider_default, { min: 50, max: 150, step: 10, value: atomScale, onChange: setAtomScale, "aria-label": "\u539F\u5B50\u5927\u5C0F", style: { margin: "4px 6px 0" } })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { children: [
       "\u5316\u5B66\u952E\u7C97\u7EC6 \xB7 ",
       bondScale,
       "%",
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(slider_default, { min: 50, max: 200, step: 10, value: bondScale, onChange: setBondScale, disabled: !showBonds || displayStyle !== "ball-stick", "aria-label": "\u5316\u5B66\u952E\u7C97\u7EC6", style: { margin: "4px 6px 0" } })
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(slider_default, { min: 50, max: 200, step: 10, value: bondScale, onChange: setBondScale, disabled: !showBonds || displayStyle !== "ball-stick", "aria-label": "\u5316\u5B66\u952E\u7C97\u7EC6", style: { margin: "4px 6px 0" } })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u80CC\u666F" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(select_default, { size: "small", style: { width: 112 }, value: backgroundMode, onChange: setBackgroundMode, options: [{ label: "\u8DDF\u968F\u754C\u9762", value: "auto" }, { label: "\u6D45\u8272", value: "light" }, { label: "\u6DF1\u8272", value: "dark" }] })
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u80CC\u666F" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(select_default, { size: "small", style: { width: 112 }, value: backgroundMode, onChange: setBackgroundMode, options: [{ label: "\u8DDF\u968F\u754C\u9762", value: "auto" }, { label: "\u6D45\u8272", value: "light" }, { label: "\u6DF1\u8272", value: "dark" }] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u65CB\u8F6C\u6B65\u957F" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(select_default, { size: "small", style: { width: 112 }, value: rotationStep, onChange: setRotationStep, options: [5, 15, 30].map((value) => ({ label: `${value}\xB0`, value })) })
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u65CB\u8F6C\u6B65\u957F" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(select_default, { size: "small", style: { width: 112 }, value: rotationStep, onChange: setRotationStep, options: [5, 15, 30].map((value) => ({ label: `${value}\xB0`, value })) })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "\u6CBF\u6676\u8F74\u89C2\u5BDF" }),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { display: "flex", gap: 4 }, children: ["a", "b", "c"].map((name, axis) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", onClick: () => orientRef.current?.(axis), children: name }, name)) })
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { children: "\u6CBF\u6676\u8F74\u89C2\u5BDF" }),
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { display: "flex", gap: 4 }, children: ["a", "b", "c"].map((name, axis) => /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(button_default2, { size: "small", onClick: () => orientRef.current?.(axis), children: name }, name)) })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", onClick: () => exportImageRef.current?.(), children: "\u5BFC\u51FA\u5F53\u524D\u89C6\u89D2 PNG" }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { color: "var(--dsw-alias-label-secondary,#65746b)", lineHeight: 1.45 }, children: "\u7A7A\u95F4\u586B\u5145\u6A21\u5F0F\u9690\u85CF\u5316\u5B66\u952E\u3002\u70B9\u51FB\u753B\u5E03\u540E\u7528\u65B9\u5411\u952E\u65CB\u8F6C\uFF1BShift + \u65B9\u5411\u952E\u6309\u5341\u5206\u4E4B\u4E00\u6B65\u957F\u65CB\u8F6C\u3002" })
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(button_default2, { size: "small", onClick: () => exportImageRef.current?.(), children: "\u5BFC\u51FA\u5F53\u524D\u89C6\u89D2 PNG" }),
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { color: "var(--dsw-alias-label-secondary,#65746b)", lineHeight: 1.45 }, children: "\u7A7A\u95F4\u586B\u5145\u6A21\u5F0F\u9690\u85CF\u5316\u5B66\u952E\u3002\u70B9\u51FB\u753B\u5E03\u540E\u7528\u65B9\u5411\u952E\u65CB\u8F6C\uFF1BShift + \u65B9\u5411\u952E\u6309\u5341\u5206\u4E4B\u4E00\u6B65\u957F\u65CB\u8F6C\u3002" })
   ] });
   if (files.length === 0) {
-    if (loading) return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(spin_default, { style: { display: "block", margin: "60px auto" } });
-    return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(empty_default2, { description: error || "\u65E0\u53EF\u67E5\u770B\u7684\u7ED3\u6784\u6587\u4EF6\uFF08\u9700 POSCAR/CONTCAR/.vasp\uFF09" });
+    if (loading) return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(spin_default, { style: { display: "block", margin: "60px auto" } });
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(empty_default2, { description: error || "\u65E0\u53EF\u67E5\u770B\u7684\u7ED3\u6784\u6587\u4EF6\uFF08\u9700 POSCAR/CONTCAR/.vasp\uFF09" });
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-structure-viewer", style: { width: "100%", display: "flex", flexDirection: "column", gap: 4 }, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-structure-toolbar", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
-      inlineScene && sourcePath && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-source-location", title: sourcePath, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-structure-viewer", style: { width: "100%", display: "flex", flexDirection: "column", gap: 4 }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-structure-toolbar", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }, children: [
+      inlineScene && sourcePath && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-source-location", title: sourcePath, children: [
         "\u6587\u4EF6\uFF1A",
         sourcePath
       ] }),
-      !inlineScene && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+      !inlineScene && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
         "div",
         {
           className: "vaspflow-structure-tabs",
@@ -100981,13 +101069,13 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
             const next2 = e.key === "ArrowRight" ? files[Math.min(index2 + 1, files.length - 1)] : files[Math.max(index2 - 1, 0)];
             if (next2 !== void 0 && next2 !== activeFile) setActiveFile(next2);
           },
-          children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+          children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
             tabs_default,
             {
               size: "small",
               activeKey: activeFile,
               onChange: setActiveFile,
-              items: files.map((f) => ({ key: f, label: rootPath && relPath !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { draggable: true, onDragStart: (event) => {
+              items: files.map((f) => ({ key: f, label: rootPath && relPath !== void 0 ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("span", { draggable: true, onDragStart: (event) => {
                 startStructureDrag(event.dataTransfer, { kind: "file", rootPath, relPath, file: f });
               }, style: { cursor: "grab" }, children: f }) : f })),
               style: { marginBottom: 0, minWidth: 0 }
@@ -100995,12 +101083,12 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
           )
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-structure-actions", style: { display: "flex", gap: 6, marginLeft: "auto", flexShrink: 0 }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(tooltip_default, { title: "\u590D\u4F4D\u89C6\u89D2", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", className: "vfp-structure-action", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(ReloadOutlined_default2, {}), onClick: handleResetView, children: "\u590D\u4F4D" }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(popover_default, { title: "\u7ED3\u6784\u663E\u793A\u8BBE\u7F6E", content: settingsPanel, trigger: "click", placement: "bottomRight", arrow: false, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(button_default2, { size: "small", className: "vfp-structure-action", title: "\u7ED3\u6784\u8BBE\u7F6E", "aria-label": "\u7ED3\u6784\u8BBE\u7F6E", icon: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(SettingOutlined_default2, {}), children: "\u8BBE\u7F6E" }) })
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-structure-actions", style: { display: "flex", gap: 6, marginLeft: "auto", flexShrink: 0 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(tooltip_default, { title: "\u590D\u4F4D\u89C6\u89D2", children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(button_default2, { size: "small", className: "vfp-structure-action", icon: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(ReloadOutlined_default2, {}), onClick: handleResetView, children: "\u590D\u4F4D" }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(popover_default, { title: "\u7ED3\u6784\u663E\u793A\u8BBE\u7F6E", content: settingsPanel, trigger: "click", placement: "bottomRight", arrow: false, children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(button_default2, { size: "small", className: "vfp-structure-action", title: "\u7ED3\u6784\u8BBE\u7F6E", "aria-label": "\u7ED3\u6784\u8BBE\u7F6E", icon: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(SettingOutlined_default2, {}), children: "\u8BBE\u7F6E" }) })
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { display: "flex", gap: 8, fontSize: 11, color: "var(--dsw-alias-label-secondary, #555)" }, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { display: "flex", gap: 8, fontSize: 11, color: "var(--dsw-alias-label-secondary, #555)" }, children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: [
       !inlineScene && `${activeFile} \xB7 `,
       "\u53EF\u89C1 ",
       displayScene?.atoms.length ?? "-",
@@ -101013,15 +101101,15 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
       " \xB7 ",
       latticeText
     ] }) }),
-    measurement && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "vfp-structure-measurement", role: "status", children: [
+    measurement && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { className: "vfp-structure-measurement", role: "status", children: [
       measurement,
-      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("button", { type: "button", onClick: () => {
+      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("button", { type: "button", onClick: () => {
         selectedAtomsRef.current = [];
         setSelectedAtoms([]);
         applySettingsRef.current?.();
       }, children: "\u6E05\u9664" })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
       "div",
       {
         ref: mountRef,
@@ -101038,13 +101126,13 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
           position: "relative"
         },
         children: [
-          loading && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(spin_default, { style: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 20 } }),
-          !loading && (error || renderError) && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(empty_default2, { description: error || renderError }) })
+          loading && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(spin_default, { style: { position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 20 } }),
+          !loading && (error || renderError) && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(empty_default2, { description: error || renderError }) })
         ]
       },
       sceneNonce
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { fontSize: 11, color: "var(--dsw-alias-label-tertiary, #999)" }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { fontSize: 11, color: "var(--dsw-alias-label-tertiary, #999)" }, children: [
       "\u70B9\u51FB\u539F\u5B50\u6D4B\u91CF\u8DDD\u79BB \xB7 \u62D6\u62FD\u65CB\u8F6C \xB7 \u65B9\u5411\u952E\u65CB\u8F6C \xB7 Shift+\u62D6\u62FD\u5E73\u79FB \xB7 ",
       wheelActive ? "\u6EDA\u8F6E\u7F29\u653E\u5DF2\u542F\u7528\uFF0C\u70B9\u51FB\u7A97\u53E3\u5916\u6062\u590D\u9875\u9762\u6EDA\u52A8" : "\u70B9\u51FB\u7ED3\u6784\u7A97\u53E3\u540E\u53EF\u7528\u6EDA\u8F6E\u7F29\u653E"
     ] })
@@ -101053,9 +101141,9 @@ var StructureViewer = ({ taskId, rootPath, relPath, inlineScene, inlineLabel, so
 var StructureViewer_default = StructureViewer;
 
 // src/client/FileList.tsx
-var import_react169 = require("react");
+var import_react170 = require("react");
 init_api();
-var import_jsx_runtime6 = require("react/jsx-runtime");
+var import_jsx_runtime7 = require("react/jsx-runtime");
 var { Text: Text4 } = typography_default;
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -101064,10 +101152,10 @@ function formatSize(bytes) {
 }
 function getExtIcon(ext, name) {
   const extUpper = (ext || `.${name}`).toUpperCase();
-  if ([".POSCAR", ".CONTCAR", ".VASP", ".XDATCAR"].includes(extUpper)) return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(FileTextOutlined_default2, { style: { color: "#1677ff" } });
-  if ([".OUTCAR", ".OSZICAR", ".INCAR", ".KPOINTS", ".POTCAR"].includes(extUpper)) return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(FileTextOutlined_default2, { style: { color: "#52c41a" } });
-  if ([".EIGENVAL", ".DOSCAR", ".CHGCAR", ".PROCAR"].includes(extUpper)) return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(FileTextOutlined_default2, { style: { color: "#faad14" } });
-  return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(FileOutlined_default2, { style: { color: "#999" } });
+  if ([".POSCAR", ".CONTCAR", ".VASP", ".XDATCAR"].includes(extUpper)) return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(FileTextOutlined_default2, { style: { color: "#1677ff" } });
+  if ([".OUTCAR", ".OSZICAR", ".INCAR", ".KPOINTS", ".POTCAR"].includes(extUpper)) return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(FileTextOutlined_default2, { style: { color: "#52c41a" } });
+  if ([".EIGENVAL", ".DOSCAR", ".CHGCAR", ".PROCAR"].includes(extUpper)) return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(FileTextOutlined_default2, { style: { color: "#faad14" } });
+  return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(FileOutlined_default2, { style: { color: "#999" } });
 }
 function isTextFile(ext, name) {
   const textExts = [
@@ -101103,17 +101191,17 @@ function isTextFile(ext, name) {
   return textExts.includes(ext.toUpperCase()) || standardTextNames.has(upperName) || Boolean(ext && ext.length <= 5);
 }
 var FileList = ({ taskId, rootPath, relPath }) => {
-  const [files, setFiles] = (0, import_react169.useState)([]);
-  const [dirs, setDirs] = (0, import_react169.useState)([]);
-  const [loading, setLoading] = (0, import_react169.useState)(true);
-  const [previewOpen, setPreviewOpen] = (0, import_react169.useState)(false);
-  const [previewName, setPreviewName] = (0, import_react169.useState)("");
-  const [previewContent, setPreviewContent] = (0, import_react169.useState)("");
-  const [previewLoading, setPreviewLoading] = (0, import_react169.useState)(false);
-  const [previewTruncated, setPreviewTruncated] = (0, import_react169.useState)(false);
-  const [previewMeta, setPreviewMeta] = (0, import_react169.useState)(null);
-  const previewCache = (0, import_react169.useRef)(/* @__PURE__ */ new Map());
-  (0, import_react169.useEffect)(() => {
+  const [files, setFiles] = (0, import_react170.useState)([]);
+  const [dirs, setDirs] = (0, import_react170.useState)([]);
+  const [loading, setLoading] = (0, import_react170.useState)(true);
+  const [previewOpen, setPreviewOpen] = (0, import_react170.useState)(false);
+  const [previewName, setPreviewName] = (0, import_react170.useState)("");
+  const [previewContent, setPreviewContent] = (0, import_react170.useState)("");
+  const [previewLoading, setPreviewLoading] = (0, import_react170.useState)(false);
+  const [previewTruncated, setPreviewTruncated] = (0, import_react170.useState)(false);
+  const [previewMeta, setPreviewMeta] = (0, import_react170.useState)(null);
+  const previewCache = (0, import_react170.useRef)(/* @__PURE__ */ new Map());
+  (0, import_react170.useEffect)(() => {
     previewCache.current.clear();
     setLoading(true);
     fetchTaskFiles(taskId).then((data) => {
@@ -101124,7 +101212,7 @@ var FileList = ({ taskId, rootPath, relPath }) => {
       setDirs([]);
     }).finally(() => setLoading(false));
   }, [taskId]);
-  const loadPreview = (0, import_react169.useCallback)(async (name, offset3) => {
+  const loadPreview = (0, import_react170.useCallback)(async (name, offset3) => {
     const key = `${name}:${offset3 ?? "tail"}`;
     const cached2 = previewCache.current.get(key);
     if (cached2) {
@@ -101147,7 +101235,7 @@ var FileList = ({ taskId, rootPath, relPath }) => {
       setPreviewLoading(false);
     }
   }, [taskId]);
-  const handleFileClick = (0, import_react169.useCallback)(async (f) => {
+  const handleFileClick = (0, import_react170.useCallback)(async (f) => {
     if (!isTextFile(f.ext, f.name)) return;
     setPreviewName(f.name);
     setPreviewOpen(true);
@@ -101155,38 +101243,38 @@ var FileList = ({ taskId, rootPath, relPath }) => {
     setPreviewMeta(null);
     await loadPreview(f.name);
   }, [loadPreview]);
-  if (loading) return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(spin_default, { style: { display: "block", margin: "60px auto" } });
-  if (files.length === 0 && dirs.length === 0) return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(empty_default2, { description: "\u65E0\u6CD5\u83B7\u53D6\u6587\u4EF6\u5217\u8868" });
-  return /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { padding: "4px 0" }, children: [
-    dirs.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("div", { style: { marginBottom: 8 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(Text4, { type: "secondary", style: { fontSize: 11 }, children: [
+  if (loading) return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(spin_default, { style: { display: "block", margin: "60px auto" } });
+  if (files.length === 0 && dirs.length === 0) return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(empty_default2, { description: "\u65E0\u6CD5\u83B7\u53D6\u6587\u4EF6\u5217\u8868" });
+  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { style: { padding: "4px 0" }, children: [
+    dirs.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { style: { marginBottom: 8 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(Text4, { type: "secondary", style: { fontSize: 11 }, children: [
         "\u5B50\u76EE\u5F55 (",
         dirs.length,
         ")"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
         list_default,
         {
           size: "small",
           dataSource: dirs,
-          renderItem: (d) => /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(list_default.Item, { draggable: true, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "directory", rootPath, relPath: `${relPath === "." ? "" : `${relPath}/`}${d.name}` }), style: { padding: "2px 8px", cursor: "grab" }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(FolderOutlined_default2, { style: { color: "#faad14", marginRight: 6 } }),
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Text4, { style: { fontSize: 12 }, children: d.name })
+          renderItem: (d) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(list_default.Item, { draggable: true, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "directory", rootPath, relPath: `${relPath === "." ? "" : `${relPath}/`}${d.name}` }), style: { padding: "2px 8px", cursor: "grab" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(FolderOutlined_default2, { style: { color: "#faad14", marginRight: 6 } }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Text4, { style: { fontSize: 12 }, children: d.name })
           ] })
         }
       )
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(Text4, { type: "secondary", style: { fontSize: 11 }, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(Text4, { type: "secondary", style: { fontSize: 11 }, children: [
       "\u6587\u4EF6 (",
       files.length,
       ")"
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
       list_default,
       {
         size: "small",
         dataSource: files,
-        renderItem: (f) => /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+        renderItem: (f) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
           list_default.Item,
           {
             draggable: isStructureFile(f.name),
@@ -101195,24 +101283,24 @@ var FileList = ({ taskId, rootPath, relPath }) => {
             },
             style: { padding: "2px 8px", cursor: isStructureFile(f.name) ? "grab" : isTextFile(f.ext, f.name) ? "pointer" : "default" },
             onClick: () => handleFileClick(f),
-            children: /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(tooltip_default, { title: f.name, children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("span", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, maxWidth: "100%" }, children: [
+            children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(tooltip_default, { title: f.name, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, maxWidth: "100%" }, children: [
               getExtIcon(f.ext, f.name),
-              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Text4, { ellipsis: true, style: { flex: 1, fontSize: 12 }, children: f.name }),
-              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(Text4, { type: "secondary", style: { fontSize: 10, flexShrink: 0 }, children: formatSize(f.size) }),
-              isTextFile(f.ext, f.name) && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(EyeOutlined_default2, { style: { fontSize: 11, color: "#bbb", flexShrink: 0 } })
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Text4, { ellipsis: true, style: { flex: 1, fontSize: 12 }, children: f.name }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Text4, { type: "secondary", style: { fontSize: 10, flexShrink: 0 }, children: formatSize(f.size) }),
+              isTextFile(f.ext, f.name) && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(EyeOutlined_default2, { style: { fontSize: 11, color: "#bbb", flexShrink: 0 } })
             ] }) })
           }
         )
       }
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
       modal_default,
       {
         title: previewName,
         open: previewOpen,
         onCancel: () => setPreviewOpen(false),
-        footer: previewMeta ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(space_default, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(Text4, { type: "secondary", style: { fontSize: 11 }, children: [
+        footer: previewMeta ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(space_default, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(Text4, { type: "secondary", style: { fontSize: 11 }, children: [
             "\u7B2C ",
             previewMeta.offset + 1,
             "\u2013",
@@ -101220,7 +101308,7 @@ var FileList = ({ taskId, rootPath, relPath }) => {
             " \u5B57\u8282 / \u5171 ",
             formatSize(previewMeta.totalSize)
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
             button_default2,
             {
               size: "small",
@@ -101229,7 +101317,7 @@ var FileList = ({ taskId, rootPath, relPath }) => {
               children: "\u8BFB\u53D6\u66F4\u65E9\u5185\u5BB9"
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
             button_default2,
             {
               size: "small",
@@ -101241,7 +101329,7 @@ var FileList = ({ taskId, rootPath, relPath }) => {
         ] }) : null,
         width: 800,
         destroyOnClose: true,
-        children: previewLoading ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(spin_default, { style: { display: "block", margin: "40px auto" } }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)("pre", { className: "vaspflow-file-preview", style: {
+        children: previewLoading ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(spin_default, { style: { display: "block", margin: "40px auto" } }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("pre", { className: "vaspflow-file-preview", style: {
           maxHeight: "60vh",
           overflow: "auto",
           background: "var(--dsw-alias-bg-elevated, var(--dsw-alias-bg-base, #f5f5f5))",
@@ -101255,7 +101343,7 @@ var FileList = ({ taskId, rootPath, relPath }) => {
           color: "var(--dsw-alias-label-primary, inherit)"
         }, children: [
           previewContent,
-          previewTruncated && /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { style: { color: "#faad14", marginTop: 8, fontWeight: "bold" }, children: "\u26A0 \u6B64\u5904\u53EA\u663E\u793A\u6587\u4EF6\u7684\u4E00\u4E2A\u7247\u6BB5\uFF1B\u53EF\u7528\u4E0B\u65B9\u6309\u94AE\u7EE7\u7EED\u8BFB\u53D6" })
+          previewTruncated && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { color: "#faad14", marginTop: 8, fontWeight: "bold" }, children: "\u26A0 \u6B64\u5904\u53EA\u663E\u793A\u6587\u4EF6\u7684\u4E00\u4E2A\u7247\u6BB5\uFF1B\u53EF\u7528\u4E0B\u65B9\u6309\u94AE\u7EE7\u7EED\u8BFB\u53D6" })
         ] })
       }
     )
@@ -101264,7 +101352,7 @@ var FileList = ({ taskId, rootPath, relPath }) => {
 var FileList_default = FileList;
 
 // src/client/Panel.tsx
-var import_jsx_runtime7 = require("react/jsx-runtime");
+var import_jsx_runtime8 = require("react/jsx-runtime");
 var { Text: Text5 } = typography_default;
 var BATCH_KEY = "__batch__";
 function formatDateTime(value) {
@@ -101291,41 +101379,41 @@ function BuildInheritanceSummary({ summary }) {
     if (slot.missing) parts.push(`${slot.missing} \u7F3A\u5931`);
     return parts.join(" \xB7 ") || "\u65E0\u6765\u6E90";
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-inherit-batch", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-inherit-batch-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-inherit-batch", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-inherit-batch-head", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
         "\u672C\u6279\u6B21 \xB7 ",
         summary.total,
         " \u4E2A\u4EFB\u52A1"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-inherit-templates", children: [
-        summary.templates.map((template) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { title: template.rel, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "vfp-inherit-templates", children: [
+        summary.templates.map((template) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { title: template.rel, children: [
           template.name,
           " \xD7",
           template.count
         ] }, template.rel)),
-        summary.untemplated ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { title: "\u65E0\u6A21\u677F\uFF0C\u6587\u4EF6\u5168\u90E8\u6309\u4EFB\u52A1\u6307\u5B9A", children: [
+        summary.untemplated ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { title: "\u65E0\u6A21\u677F\uFF0C\u6587\u4EF6\u5168\u90E8\u6309\u4EFB\u52A1\u6307\u5B9A", children: [
           "\u65E0\u6A21\u677F \xD7",
           summary.untemplated
         ] }) : null
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-inherit-bars", children: summary.slots.map((slot) => {
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-inherit-bars", children: summary.slots.map((slot) => {
       const total = slot.inherit + slot.explicit + slot.missing || 1;
-      return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-inherit-bar", title: `${slot.label}\uFF1A${countsFor(slot)}`, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-inherit-bar-label", children: slot.label }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-inherit-bar-track", children: [
-          slot.inherit ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("i", { "data-origin": "inherit", style: { width: `${slot.inherit / total * 100}%` } }) : null,
-          slot.explicit ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("i", { "data-origin": "explicit", style: { width: `${slot.explicit / total * 100}%` } }) : null,
-          slot.missing ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("i", { "data-origin": "missing", style: { width: `${slot.missing / total * 100}%` } }) : null
+      return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-inherit-bar", title: `${slot.label}\uFF1A${countsFor(slot)}`, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-inherit-bar-label", children: slot.label }),
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "vfp-inherit-bar-track", children: [
+          slot.inherit ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", { "data-origin": "inherit", style: { width: `${slot.inherit / total * 100}%` } }) : null,
+          slot.explicit ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", { "data-origin": "explicit", style: { width: `${slot.explicit / total * 100}%` } }) : null,
+          slot.missing ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", { "data-origin": "missing", style: { width: `${slot.missing / total * 100}%` } }) : null
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-inherit-bar-count", children: countsFor(slot) })
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-inherit-bar-count", children: countsFor(slot) })
       ] }, slot.key);
     }) }),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-inherit-legend", "aria-hidden": "true", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { "data-origin": "inherit", children: "\u6A21\u677F\u63D0\u4F9B" }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { "data-origin": "explicit", children: "\u672C\u4EFB\u52A1\u6307\u5B9A" }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { "data-origin": "missing", children: "\u7F3A\u5931" })
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-inherit-legend", "aria-hidden": "true", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { "data-origin": "inherit", children: "\u6A21\u677F\u63D0\u4F9B" }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { "data-origin": "explicit", children: "\u672C\u4EFB\u52A1\u6307\u5B9A" }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { "data-origin": "missing", children: "\u7F3A\u5931" })
     ] })
   ] });
 }
@@ -101335,9 +101423,9 @@ function BuildPreviewDetail({ detail }) {
   const status = result?.errors?.length ? "\u9519\u8BEF" : detail.phase === "done" && result?.wrote ? "\u5DF2\u5199\u5165" : result?.warnings?.length ? "\u9700\u6CE8\u610F" : detail.phase === "building" ? "\u6784\u5EFA\u4E2D" : "\u53EF\u6784\u5EFA";
   const target = projectRoot ? absoluteTaskPath(projectRoot, task.dir || ".") : task.dir || "\u672A\u6307\u5B9A";
   const crumbs = toPosix(task.dir || ".").split("/").filter((part) => part && part !== ".");
-  const share = (0, import_react170.useMemo)(() => buildShareIndex(batch, projectRoot), [batch, projectRoot]);
-  const summary = (0, import_react170.useMemo)(() => summarizeBatch(batch, projectRoot), [batch, projectRoot]);
-  const slots = (0, import_react170.useMemo)(() => describeSlots(task, result, projectRoot, share), [task, result, projectRoot, share]);
+  const share = (0, import_react171.useMemo)(() => buildShareIndex(batch, projectRoot), [batch, projectRoot]);
+  const summary = (0, import_react171.useMemo)(() => summarizeBatch(batch, projectRoot), [batch, projectRoot]);
+  const slots = (0, import_react171.useMemo)(() => describeSlots(task, result, projectRoot, share), [task, result, projectRoot, share]);
   const templateFullRel = task.template ? projectRelative(projectRoot, absoluteTaskPath(projectRoot, task.template)) : "";
   const templateRel = templateFullRel ? shortenPath(templateFullRel) : "";
   const templateShared = templateFullRel ? summary?.templates.find((entry) => entry.rel === templateFullRel)?.count ?? 0 : 0;
@@ -101345,26 +101433,26 @@ function BuildPreviewDetail({ detail }) {
     name: item.dest || item.fromTemplate || basenameOf(item.src) || `\u989D\u5916\u6587\u4EF6 ${index2 + 1}`,
     path: (result?.sources ?? {})[item.dest || item.fromTemplate || basenameOf(item.src) || ""]
   }));
-  const [hoverSlot, setHoverSlot] = (0, import_react170.useState)(null);
-  const [pinnedSlot, setPinnedSlot] = (0, import_react170.useState)(null);
-  const [alignOffset, setAlignOffset] = (0, import_react170.useState)(0);
-  const [cardWidth, setCardWidth] = (0, import_react170.useState)(0);
-  const hoverTimer = (0, import_react170.useRef)(null);
-  const cancelHoverClose = (0, import_react170.useCallback)(() => {
+  const [hoverSlot, setHoverSlot] = (0, import_react171.useState)(null);
+  const [pinnedSlot, setPinnedSlot] = (0, import_react171.useState)(null);
+  const [alignOffset, setAlignOffset] = (0, import_react171.useState)(0);
+  const [cardWidth, setCardWidth] = (0, import_react171.useState)(0);
+  const hoverTimer = (0, import_react171.useRef)(null);
+  const cancelHoverClose = (0, import_react171.useCallback)(() => {
     if (hoverTimer.current !== null) {
       window.clearTimeout(hoverTimer.current);
       hoverTimer.current = null;
     }
   }, []);
-  const scheduleHoverClose = (0, import_react170.useCallback)(() => {
+  const scheduleHoverClose = (0, import_react171.useCallback)(() => {
     cancelHoverClose();
     hoverTimer.current = window.setTimeout(() => {
       setHoverSlot(null);
       hoverTimer.current = null;
     }, 200);
   }, [cancelHoverClose]);
-  (0, import_react170.useEffect)(() => () => cancelHoverClose(), [cancelHoverClose]);
-  const openCard = (0, import_react170.useCallback)((slotKey, row, force = false) => {
+  (0, import_react171.useEffect)(() => () => cancelHoverClose(), [cancelHoverClose]);
+  const openCard = (0, import_react171.useCallback)((slotKey, row, force = false) => {
     if (!force && pinnedSlot && pinnedSlot !== slotKey) return;
     const rect = row?.getBoundingClientRect();
     if (rect) {
@@ -101377,11 +101465,11 @@ function BuildPreviewDetail({ detail }) {
     cancelHoverClose();
     setHoverSlot(slotKey);
   }, [cancelHoverClose, pinnedSlot]);
-  (0, import_react170.useEffect)(() => {
+  (0, import_react171.useEffect)(() => {
     setHoverSlot(null);
     setPinnedSlot(null);
   }, [task.dir]);
-  (0, import_react170.useEffect)(() => {
+  (0, import_react171.useEffect)(() => {
     if (!pinnedSlot) return;
     const onPointerDown = (event) => {
       const target2 = event.target;
@@ -101398,13 +101486,13 @@ function BuildPreviewDetail({ detail }) {
       document.removeEventListener("keydown", onKeyDown2);
     };
   }, [pinnedSlot]);
-  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-detail", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-detail-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("strong", { children: basenameOf(task.dir) || "\u672A\u547D\u540D\u4EFB\u52A1" }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(tag_default, { color: result?.errors?.length ? "error" : result?.warnings?.length ? "warning" : "success", children: status })
+  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-build-detail", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-build-detail-head", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: basenameOf(task.dir) || "\u672A\u547D\u540D\u4EFB\u52A1" }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(tag_default, { color: result?.errors?.length ? "error" : result?.warnings?.length ? "warning" : "success", children: status })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-build-detail-path", title: target, children: [basenameOf(projectRoot) || "\u9879\u76EE\u6839\u76EE\u5F55", ...crumbs.slice(0, -1)].join(" \u203A ") }),
-    summary && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-build-detail-path", title: target, children: [basenameOf(projectRoot) || "\u9879\u76EE\u6839\u76EE\u5F55", ...crumbs.slice(0, -1)].join(" \u203A ") }),
+    summary && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
       popover_default,
       {
         trigger: [],
@@ -101414,14 +101502,14 @@ function BuildPreviewDetail({ detail }) {
         align: { offset: [0, alignOffset], overflow: { adjustX: true, adjustY: true } },
         overlayClassName: "vfp-cmp-popover vfp-batch-popover",
         zIndex: 2200,
-        content: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        content: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           "div",
           {
             onMouseEnter: () => {
               cancelHoverClose();
             },
             onMouseLeave: scheduleHoverClose,
-            children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+            children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
               BatchCompare,
               {
                 batch,
@@ -101433,7 +101521,7 @@ function BuildPreviewDetail({ detail }) {
             )
           }
         ),
-        children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           "div",
           {
             className: "vfp-batch-trigger",
@@ -101444,24 +101532,24 @@ function BuildPreviewDetail({ detail }) {
               openCard(BATCH_KEY, event.currentTarget, true);
               setPinnedSlot((current) => current === BATCH_KEY ? null : BATCH_KEY);
             },
-            children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(BuildInheritanceSummary, { summary })
+            children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(BuildInheritanceSummary, { summary })
           }
         )
       },
       "batch-compare"
     ),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-detail-section", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("b", { children: "\u672C\u4EFB\u52A1\u6765\u6E90" }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-inherit-template", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-inherit-name", title: "\u6A21\u677F\u53EA\u63D0\u4F9B INCAR / KPOINTS / POTCAR\uFF1BPOSCAR \u4E0E\u63D0\u4EA4\u811A\u672C\u59CB\u7EC8\u7531\u672C\u4EFB\u52A1\u6307\u5B9A", children: "\u6A21\u677F" }),
-        task.template ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("code", { className: "vfp-inherit-path", title: absoluteTaskPath(projectRoot, task.template), children: templateRel }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-inherit-empty", children: "\u672A\u6307\u5B9A\u6A21\u677F" }),
-        templateShared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-inherit-share", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-build-detail-section", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "\u672C\u4EFB\u52A1\u6765\u6E90" }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-inherit-template", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-inherit-name", title: "\u6A21\u677F\u53EA\u63D0\u4F9B INCAR / KPOINTS / POTCAR\uFF1BPOSCAR \u4E0E\u63D0\u4EA4\u811A\u672C\u59CB\u7EC8\u7531\u672C\u4EFB\u52A1\u6307\u5B9A", children: "\u6A21\u677F" }),
+        task.template ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { className: "vfp-inherit-path", title: absoluteTaskPath(projectRoot, task.template), children: templateRel }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-inherit-empty", children: "\u672A\u6307\u5B9A\u6A21\u677F" }),
+        templateShared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "vfp-inherit-share", children: [
           templateShared,
           " \u4E2A\u4EFB\u52A1\u5171\u7528"
         ] }) : null
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("ul", { className: "vfp-inherit-rows", children: slots.map((slot) => {
-        const row = /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("ul", { className: "vfp-inherit-rows", children: slots.map((slot) => {
+        const row = /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
           "li",
           {
             className: "vfp-inherit-row",
@@ -101469,10 +101557,10 @@ function BuildPreviewDetail({ detail }) {
             "data-vfp-source-row": slot.key,
             title: slot.path || slot.rel || "\u672A\u63D0\u4F9B",
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-inherit-name", children: slot.label }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-inherit-badge", "data-origin": slot.origin, children: originLabel(slot.origin) }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("code", { className: "vfp-inherit-path", children: slot.rel || "\u672A\u63D0\u4F9B" }),
-              slot.shared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-inherit-share", title: `${slot.shared} \u4E2A\u4EFB\u52A1\u4F7F\u7528\u540C\u4E00\u6765\u6E90`, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-inherit-name", children: slot.label }),
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-inherit-badge", "data-origin": slot.origin, children: originLabel(slot.origin) }),
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { className: "vfp-inherit-path", children: slot.rel || "\u672A\u63D0\u4F9B" }),
+              slot.shared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "vfp-inherit-share", title: `${slot.shared} \u4E2A\u4EFB\u52A1\u4F7F\u7528\u540C\u4E00\u6765\u6E90`, children: [
                 "\xD7",
                 slot.shared
               ] }) : null
@@ -101483,7 +101571,7 @@ function BuildPreviewDetail({ detail }) {
         if (!slot.path) return row;
         const destination = slot.key === "submit" ? basenameOf(task.submitSrc) : slot.key;
         const open = hoverSlot === slot.key || pinnedSlot === slot.key;
-        return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           popover_default,
           {
             trigger: [],
@@ -101493,14 +101581,14 @@ function BuildPreviewDetail({ detail }) {
             align: { offset: [0, alignOffset], overflow: { adjustX: true, adjustY: true } },
             overlayClassName: "vfp-cmp-popover",
             zIndex: 2100,
-            content: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+            content: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
               "div",
               {
                 onMouseEnter: () => {
                   cancelHoverClose();
                 },
                 onMouseLeave: scheduleHoverClose,
-                children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+                children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
                   SourceCompare,
                   {
                     projectRoot,
@@ -101518,7 +101606,7 @@ function BuildPreviewDetail({ detail }) {
                 )
               }
             ),
-            children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+            children: /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
               "li",
               {
                 className: "vfp-inherit-row",
@@ -101533,10 +101621,10 @@ function BuildPreviewDetail({ detail }) {
                   setPinnedSlot((current) => current === slot.key ? null : slot.key);
                 },
                 children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-inherit-name", children: slot.label }),
-                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-inherit-badge", "data-origin": slot.origin, children: originLabel(slot.origin) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("code", { className: "vfp-inherit-path", children: slot.rel || "\u672A\u63D0\u4F9B" }),
-                  slot.shared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-inherit-share", title: `${slot.shared} \u4E2A\u4EFB\u52A1\u4F7F\u7528\u540C\u4E00\u6765\u6E90`, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-inherit-name", children: slot.label }),
+                  /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-inherit-badge", "data-origin": slot.origin, children: originLabel(slot.origin) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { className: "vfp-inherit-path", children: slot.rel || "\u672A\u63D0\u4F9B" }),
+                  slot.shared > 1 ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "vfp-inherit-share", title: `${slot.shared} \u4E2A\u4EFB\u52A1\u4F7F\u7528\u540C\u4E00\u6765\u6E90`, children: [
                     "\xD7",
                     slot.shared
                   ] }) : null
@@ -101547,46 +101635,46 @@ function BuildPreviewDetail({ detail }) {
           slot.key
         );
       }) }),
-      extras.length ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-inherit-extras", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "vfp-inherit-name", children: "\u989D\u5916\u6587\u4EF6" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: extras.map((extra) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("code", { title: extra.path || "", children: extra.name }, extra.name)) })
+      extras.length ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-inherit-extras", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-inherit-name", children: "\u989D\u5916\u6587\u4EF6" }),
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: extras.map((extra) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { title: extra.path || "", children: extra.name }, extra.name)) })
       ] }) : null,
-      !result && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-inherit-empty", children: "\u5C1A\u672A\u751F\u6210\u9884\u89C8\uFF0C\u6765\u6E90\u4E3A\u4EFB\u52A1\u58F0\u660E\u503C\uFF0C\u672A\u7ECF\u89E3\u6790\u6821\u9A8C\u3002" })
+      !result && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-inherit-empty", children: "\u5C1A\u672A\u751F\u6210\u9884\u89C8\uFF0C\u6765\u6E90\u4E3A\u4EFB\u52A1\u58F0\u660E\u503C\uFF0C\u672A\u7ECF\u89E3\u6790\u6821\u9A8C\u3002" })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-detail-section", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("b", { children: "\u76F8\u5BF9\u76EE\u5F55" }),
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-build-detail-section", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "\u76F8\u5BF9\u76EE\u5F55" }),
       (() => {
         const templateDir = task.template ? absoluteTaskPath(projectRoot, task.template) : Object.values(result?.sources ?? {}).slice(0, 1).map((value) => toPosix(value).split("/").slice(0, -1).join("/"))[0] || "";
         const tree = buildRelativeTree(templateDir ? [templateDir] : [], [absoluteTaskPath(projectRoot, task.dir)], projectRoot);
-        return tree ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(DirTree, { root: tree }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-inherit-empty", children: "\u6682\u65E0\u53EF\u6BD4\u8F83\u7684\u76EE\u5F55" });
+        return tree ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(DirTree, { root: tree }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-inherit-empty", children: "\u6682\u65E0\u53EF\u6BD4\u8F83\u7684\u76EE\u5F55" });
       })()
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-detail-section", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("b", { children: "\u6784\u5EFA\u8BBE\u7F6E\u4E0E\u68C0\u67E5" }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-build-detail-section", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "\u6784\u5EFA\u8BBE\u7F6E\u4E0E\u68C0\u67E5" }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
         "Selective dynamics\uFF1A",
         result?.sd || (task.freeAtoms?.length ? `\u653E\u5F00\u539F\u5B50 ${task.freeAtoms.join(", ")}` : task.fixedAtoms?.length ? `\u56FA\u5B9A\u539F\u5B50 ${task.fixedAtoms.join(", ")}` : task.sdPolicy === "keep" ? "\u6CBF\u7528\u6E90\u6587\u4EF6" : "\u5F85\u9884\u89C8")
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
         "POTCAR\uFF1A",
         result?.potcar || "\u5F85\u9884\u89C8",
         " \xB7 ",
         detail.linkPotcar ? "\u786C\u94FE\u63A5" : "\u590D\u5236"
       ] }),
-      task.incarOverrides && Object.keys(task.incarOverrides).length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { children: [
+      task.incarOverrides && Object.keys(task.incarOverrides).length > 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
         "INCAR \u8986\u76D6\uFF1A",
         Object.entries(task.incarOverrides).map(([key, value]) => `${key}=${String(value)}`).join(" \xB7 ")
       ] }),
-      task.extraFiles?.length ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { children: [
+      task.extraFiles?.length ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
         "\u989D\u5916\u6587\u4EF6\uFF1A",
         task.extraFiles.map((item) => item.dest || item.src || item.fromTemplate).join("\u3001")
       ] }) : null,
-      result?.sdNotes?.map((note2, index2) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { children: note2 }, `sd-${index2}`)),
-      result?.warnings?.map((warning5, index2) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-warning", children: [
+      result?.sdNotes?.map((note2, index2) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { children: note2 }, `sd-${index2}`)),
+      result?.warnings?.map((warning5, index2) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-build-warning", children: [
         "\u63D0\u9192\uFF1A",
         warning5
       ] }, `warn-${index2}`)),
-      result?.errors?.map((error, index2) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-error", children: [
+      result?.errors?.map((error, index2) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-build-error", children: [
         "\u9519\u8BEF\uFF1A",
         error
       ] }, `error-${index2}`))
@@ -101609,9 +101697,9 @@ async function copyText(value) {
   if (!copied) throw new Error("\u6D4F\u89C8\u5668\u672A\u5141\u8BB8\u590D\u5236\u5230\u526A\u8D34\u677F");
 }
 var PanelResizeHandle = ({ onResize: onResize2, getWidth: getWidth2 }) => {
-  const [active, setActive] = import_react170.default.useState(false);
-  const rafRef = import_react170.default.useRef(0);
-  const dragRef = import_react170.default.useRef(null);
+  const [active, setActive] = import_react171.default.useState(false);
+  const rafRef = import_react171.default.useRef(0);
+  const dragRef = import_react171.default.useRef(null);
   const stop = () => {
     if (rafRef.current !== 0) {
       cancelAnimationFrame(rafRef.current);
@@ -101643,8 +101731,8 @@ var PanelResizeHandle = ({ onResize: onResize2, getWidth: getWidth2 }) => {
     document.addEventListener("pointermove", onPointerMove);
     document.addEventListener("pointerup", stop);
   };
-  import_react170.default.useEffect(() => stop, []);
-  return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+  import_react171.default.useEffect(() => stop, []);
+  return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
     "div",
     {
       onPointerDown,
@@ -101658,7 +101746,7 @@ var PanelResizeHandle = ({ onResize: onResize2, getWidth: getWidth2 }) => {
         zIndex: 45,
         cursor: "col-resize"
       },
-      children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: {
+      children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { style: {
         position: "absolute",
         top: 0,
         bottom: 0,
@@ -101690,15 +101778,15 @@ function Panel3(props) {
     open,
     workspaceItems
   } = usePanelStore();
-  const [viewMode, setViewMode] = (0, import_react170.useState)("tree");
-  const [workspaceOpen, setWorkspaceOpen] = (0, import_react170.useState)(false);
-  const [listOpen, setListOpen] = (0, import_react170.useState)(false);
-  const [copiedPath, setCopiedPath] = (0, import_react170.useState)("");
-  const [, setInputTargetRevision] = (0, import_react170.useState)(0);
-  const [checkingInput, setCheckingInput] = (0, import_react170.useState)(false);
-  const [inputCheckError, setInputCheckError] = (0, import_react170.useState)("");
-  const [modeActionError, setModeActionError] = (0, import_react170.useState)("");
-  const closeScanRef = (0, import_react170.useRef)(null);
+  const [viewMode, setViewMode] = (0, import_react171.useState)("tree");
+  const [workspaceOpen, setWorkspaceOpen] = (0, import_react171.useState)(false);
+  const [listOpen, setListOpen] = (0, import_react171.useState)(false);
+  const [copiedPath, setCopiedPath] = (0, import_react171.useState)("");
+  const [, setInputTargetRevision] = (0, import_react171.useState)(0);
+  const [checkingInput, setCheckingInput] = (0, import_react171.useState)(false);
+  const [inputCheckError, setInputCheckError] = (0, import_react171.useState)("");
+  const [modeActionError, setModeActionError] = (0, import_react171.useState)("");
+  const closeScanRef = (0, import_react171.useRef)(null);
   const startIncrementalScan = () => {
     if (!projectPath.trim()) return;
     closeScanRef.current?.();
@@ -101752,9 +101840,9 @@ function Panel3(props) {
   };
   const handleOpen = startIncrementalScan;
   const handleRefresh = startIncrementalScan;
-  (0, import_react170.useEffect)(() => () => closeScanRef.current?.(), []);
+  (0, import_react171.useEffect)(() => () => closeScanRef.current?.(), []);
   const vaspTasks = tasks.filter((t) => t.is_vasp_task !== false);
-  const stats = (0, import_react170.useMemo)(() => ({
+  const stats = (0, import_react171.useMemo)(() => ({
     total: vaspTasks.length,
     NO_OUTPUT_EVIDENCE: vaspTasks.filter((t) => taskStatusCode(t) === "NO_OUTPUT_EVIDENCE").length,
     TASK_COMPLETED: vaspTasks.filter((t) => taskStatusCode(t) === "TASK_COMPLETED").length,
@@ -101769,7 +101857,7 @@ function Panel3(props) {
   const inferredInputProfile = selectedTask ? inputFeatureProfile(selectedTask) : "basic-inputs";
   const activeInputProfile = selectedInputTarget?.profileId ?? inferredInputProfile;
   const inputProfileIsAutomatic = !selectedInputTarget;
-  (0, import_react170.useEffect)(() => {
+  (0, import_react171.useEffect)(() => {
     setCheckingInput(false);
     setInputCheckError("");
   }, [selectedTask?.id]);
@@ -101817,8 +101905,8 @@ function Panel3(props) {
     setInputTargetRevision((revision) => revision + 1);
     void runInputCheck(profileId);
   };
-  const lastVersionRef = (0, import_react170.useRef)(null);
-  (0, import_react170.useEffect)(() => {
+  const lastVersionRef = (0, import_react171.useRef)(null);
+  (0, import_react171.useEffect)(() => {
     if (!projectId || !projectPath.trim()) return;
     let cancelled = false;
     const tick = async () => {
@@ -101847,7 +101935,7 @@ function Panel3(props) {
       window.clearInterval(timer);
     };
   }, [projectId, projectPath]);
-  (0, import_react170.useEffect)(() => {
+  (0, import_react171.useEffect)(() => {
     if (selectedTask && !selectedIsVaspTask && viewTab === "chart") {
       panelStore.setViewTab("structure");
     }
@@ -101857,13 +101945,13 @@ function Panel3(props) {
       key: "status",
       label: "\u72B6\u6001",
       disabled: !selectedTask || !selectedIsVaspTask,
-      children: selectedTask && selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(TaskStatusEvidence, { task: selectedTask }) : null
+      children: selectedTask && selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(TaskStatusEvidence, { task: selectedTask }) : null
     },
     {
       key: "chart",
       label: "\u6536\u655B\u56FE\u8868",
       disabled: !selectedTask || !selectedIsVaspTask,
-      children: selectedTask && selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(ConvergenceChart_default, { taskId: selectedTask.id }) : null
+      children: selectedTask && selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(ConvergenceChart_default, { taskId: selectedTask.id }) : null
     },
     {
       key: "structure",
@@ -101872,16 +101960,16 @@ function Panel3(props) {
       // vasprun.xml — not "VASP tasks") still hold structure files that the
       // viewer can render. Only the convergence chart needs a real task.
       disabled: !selectedTask,
-      children: selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(StructureViewer_default, { taskId: selectedTask.id, rootPath: projectPath, relPath: selectedTask.rel_path }) : null
+      children: selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(StructureViewer_default, { taskId: selectedTask.id, rootPath: projectPath, relPath: selectedTask.rel_path }) : null
     },
     {
       key: "files",
       label: "\u6587\u4EF6",
       disabled: !selectedTask,
-      children: selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(FileList_default, { taskId: selectedTask.id, rootPath: projectPath, relPath: selectedTask.rel_path }) : null
+      children: selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(FileList_default, { taskId: selectedTask.id, rootPath: projectPath, relPath: selectedTask.rel_path }) : null
     }
   ];
-  const handleAiAction = (0, import_react170.useCallback)((task, instruction) => {
+  const handleAiAction = (0, import_react171.useCallback)((task, instruction) => {
     const draft = `${buildTaskContext(task, projectPath)}
 
 [\u534F\u4F5C\u8BF7\u6C42]
@@ -101950,7 +102038,7 @@ ${instruction}`;
 ${instructions[key]}`);
   };
   const hasTree = tasks.length > 0 || directories.length > 0 || Boolean(scanProgress);
-  const taskListControl = hasTree ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+  const taskListControl = hasTree ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
     popover_default,
     {
       trigger: "click",
@@ -101958,22 +102046,22 @@ ${instructions[key]}`);
       open: listOpen,
       onOpenChange: setListOpen,
       overlayClassName: "vaspflow-task-popover",
-      content: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-task-popup", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-task-search", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+      content: /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-task-popup", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-task-search", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           input_default,
           {
             size: "small",
             placeholder: "\u641C\u7D22...",
             "aria-label": "\u641C\u7D22\u4EFB\u52A1",
-            prefix: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(SearchOutlined_default2, {}),
+            prefix: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(SearchOutlined_default2, {}),
             value: searchText,
             onChange: (e) => panelStore.setSearchText(e.target.value),
             allowClear: true,
             style: { flex: 1, minWidth: 0 }
           }
         ) }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-task-filters", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-task-filters", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
             select_default,
             {
               size: "small",
@@ -101992,7 +102080,7 @@ ${instructions[key]}`);
               ]
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
             select_default,
             {
               size: "small",
@@ -102008,52 +102096,52 @@ ${instructions[key]}`);
               ]
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
             segmented_default,
             {
               size: "small",
               value: viewMode,
               onChange: (v) => setViewMode(v),
               options: [
-                { value: "tree", icon: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(AppstoreOutlined_default2, {}), title: "\u6811\u89C6\u56FE" },
-                { value: "table", icon: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(UnorderedListOutlined_default2, {}), title: "\u8868\u89C6\u56FE" }
+                { value: "tree", icon: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(AppstoreOutlined_default2, {}), title: "\u6811\u89C6\u56FE" },
+                { value: "table", icon: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(UnorderedListOutlined_default2, {}), title: "\u8868\u89C6\u56FE" }
               ]
             }
           )
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-task-popup-list", children: viewMode === "tree" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(TreeView, { onTaskSelected: () => setListOpen(false) }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(TaskTable, { onTaskSelected: () => setListOpen(false) }) })
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-task-popup-list", children: viewMode === "tree" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(TreeView, { onTaskSelected: () => setListOpen(false) }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(TaskTable, { onTaskSelected: () => setListOpen(false) }) })
       ] }),
-      children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(button_default2, { size: "small", className: "vfp-task-list-trigger", icon: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(MenuOutlined_default2, {}), "aria-expanded": listOpen, children: "\u4EFB\u52A1\u5217\u8868" })
+      children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(button_default2, { size: "small", className: "vfp-task-list-trigger", icon: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(MenuOutlined_default2, {}), "aria-expanded": listOpen, children: "\u4EFB\u52A1\u5217\u8868" })
     }
   ) : null;
-  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-panel", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(PanelResizeHandle, { onResize: props.onResizeWidth, getWidth: props.getPanelWidth }),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("header", { className: "vfp-panel-header", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-panel-brand", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "VASP" }),
-        hasTree && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-header-statistics", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-stat-total", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-panel", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(PanelResizeHandle, { onResize: props.onResizeWidth, getWidth: props.getPanelWidth }),
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("header", { className: "vfp-panel-header", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-panel-brand", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "VASP" }),
+        hasTree && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-header-statistics", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "vfp-stat-total", children: [
             "\u4EFB\u52A1 ",
             stats.total
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-stat-directory", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "vfp-stat-directory", children: [
             "\u76EE\u5F55 ",
             directories.length
           ] }),
-          scanProgress && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "vfp-scan-progress", children: [
+          scanProgress && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "vfp-scan-progress", children: [
             "\u5DF2\u626B\u63CF ",
             stats.total,
             " \u4E2A\u4EFB\u52A1\uFF0C\u4ECD\u5728\u68C0\u67E5 ",
             Math.max(0, scanProgress.discoveredDirectories - scanProgress.scannedDirectories),
             " \u4E2A\u76EE\u5F55"
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-stat-states", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-stat-states", children: [
             ["NO_OUTPUT_EVIDENCE", "\u672A\u8F93\u51FA", "var(--vfp-warning)"],
             ["TASK_COMPLETED", "\u5B8C\u6210", "var(--vfp-success)"],
             ["RUNNING", "\u8FD0\u884C\u4E2D", "var(--vfp-accent)"],
             ["ERROR_DETECTED", "\u9519\u8BEF", "var(--vfp-error)"],
             ["UNKNOWN", "\u5F85\u68C0\u67E5", "var(--vfp-muted)"]
-          ].map(([code, label, color2]) => /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+          ].map(([code, label, color2]) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
             button_default2,
             {
               className: "vfp-stat-filter",
@@ -102073,10 +102161,10 @@ ${instructions[key]}`);
             code
           )) })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(tooltip_default, { title: open ? "\u6536\u8D77\u9762\u677F" : "\u5C55\u5F00\u9762\u677F", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(button_default2, { size: "small", type: "text", icon: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(CloseOutlined_default2, {}), "aria-label": "\u6536\u8D77\u9762\u677F", onClick: () => panelStore.toggleOpen() }) })
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(tooltip_default, { title: open ? "\u6536\u8D77\u9762\u677F" : "\u5C55\u5F00\u9762\u677F", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(button_default2, { size: "small", type: "text", icon: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(CloseOutlined_default2, {}), "aria-label": "\u6536\u8D77\u9762\u677F", onClick: () => panelStore.toggleOpen() }) })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-project-controls", children: [
-        workspaceItems.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-project-controls", children: [
+        workspaceItems.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           select_default,
           {
             size: "small",
@@ -102092,7 +102180,7 @@ ${instructions[key]}`);
             options: workspaceItems
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           input_default,
           {
             size: "small",
@@ -102101,18 +102189,18 @@ ${instructions[key]}`);
             value: projectPath,
             onChange: (e) => panelStore.setProjectPath(e.target.value),
             onPressEnter: handleOpen,
-            prefix: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(FolderOpenOutlined_default2, {}),
+            prefix: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(FolderOpenOutlined_default2, {}),
             style: { flex: 1, minWidth: 0 }
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(tooltip_default, { title: "\u6253\u5F00\u9879\u76EE", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(button_default2, { size: "small", type: "primary", icon: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(FolderOpenOutlined_default2, {}), "aria-label": "\u6253\u5F00\u9879\u76EE", onClick: handleOpen, loading }) }),
-        projectId && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(tooltip_default, { title: "\u5237\u65B0", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(button_default2, { size: "small", icon: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(ReloadOutlined_default2, {}), "aria-label": "\u5237\u65B0\u9879\u76EE", onClick: handleRefresh, loading }) })
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(tooltip_default, { title: "\u6253\u5F00\u9879\u76EE", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(button_default2, { size: "small", type: "primary", icon: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(FolderOpenOutlined_default2, {}), "aria-label": "\u6253\u5F00\u9879\u76EE", onClick: handleOpen, loading }) }),
+        projectId && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(tooltip_default, { title: "\u5237\u65B0", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(button_default2, { size: "small", icon: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(ReloadOutlined_default2, {}), "aria-label": "\u5237\u65B0\u9879\u76EE", onClick: handleRefresh, loading }) })
       ] })
     ] }),
-    buildModeError && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: { flex: "none", padding: "6px 10px", background: "rgba(196,65,54,.11)", color: "#c44136", fontSize: 12 }, children: buildModeError }),
-    buildDryRun === false && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { style: { flex: "none", display: "flex", alignItems: "center", gap: 8, padding: "3px 10px", background: "rgba(38,151,102,.09)", fontSize: 12 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "AI \u76F4\u63A5\u6784\u5EFA\u5DF2\u5F00\u542F" }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(button_default2, { size: "small", type: "link", style: { padding: 0, height: 22, fontSize: 12 }, onClick: async () => {
+    buildModeError && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { style: { flex: "none", padding: "6px 10px", background: "rgba(196,65,54,.11)", color: "#c44136", fontSize: 12 }, children: buildModeError }),
+    buildDryRun === false && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { style: { flex: "none", display: "flex", alignItems: "center", gap: 8, padding: "3px 10px", background: "rgba(38,151,102,.09)", fontSize: 12 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "AI \u76F4\u63A5\u6784\u5EFA\u5DF2\u5F00\u542F" }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(button_default2, { size: "small", type: "link", style: { padding: 0, height: 22, fontSize: 12 }, onClick: async () => {
         try {
           const response = await fetch("/plugins/dsh-vaspflow/build-inputs/mode", {
             method: "POST",
@@ -102127,20 +102215,20 @@ ${instructions[key]}`);
           setModeActionError(error instanceof Error ? error.message : String(error));
         }
       }, children: "\u6062\u590D\u9884\u89C8\u786E\u8BA4" }),
-      modeActionError && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { style: { color: "#c44136" }, children: modeActionError })
+      modeActionError && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { style: { color: "#c44136" }, children: modeActionError })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: `vfp-panel-body${selectedBuildTask ? " vfp-panel-body-build" : ""}`, children: [
-      (selectedBuildTask || !selectedTask) && taskListControl && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-task-navigation-standby", children: taskListControl }),
-      selectedBuildTask ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(BuildPreviewDetail, { detail: selectedBuildTask }) : !selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(empty_default2, { style: { marginTop: 30 }, description: scanError ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { style: { color: "#ff4d4f" }, children: scanError }) : loading ? "\u6B63\u5728\u626B\u63CF\u76EE\u5F55\u2026" : projectId !== null && tasks.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: `vfp-panel-body${selectedBuildTask ? " vfp-panel-body-build" : ""}`, children: [
+      (selectedBuildTask || !selectedTask) && taskListControl && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-task-navigation-standby", children: taskListControl }),
+      selectedBuildTask ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(BuildPreviewDetail, { detail: selectedBuildTask }) : !selectedTask ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(empty_default2, { style: { marginTop: 30 }, description: scanError ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { style: { color: "#ff4d4f" }, children: scanError }) : loading ? "\u6B63\u5728\u626B\u63CF\u76EE\u5F55\u2026" : projectId !== null && tasks.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
         "\u672A\u53D1\u73B0 VASP \u4EFB\u52A1",
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("br", {}),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Text5, { type: "secondary", style: { fontSize: 12 }, children: "\u5DF2\u68C0\u67E5\u5F53\u524D\u76EE\u5F55\u53CA\u5176\u5B50\u76EE\u5F55\u3002\u8BF7\u9009\u62E9\u5305\u542B POSCAR\u3001INCAR\u3001KPOINTS\u3001POTCAR \u7684\u8BA1\u7B97\u76EE\u5F55\u3002" })
-      ] }) : hasTree ? "\u70B9\u51FB\u300C\u4EFB\u52A1\u5217\u8868\u300D\u9009\u62E9\u4EFB\u52A1" : "\u8F93\u5165\u76EE\u5F55\u8DEF\u5F84\u5E76\u70B9\u51FB\u84DD\u8272\u6309\u94AE\u626B\u63CF" }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-task-summary", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-task-overview", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-task-identity", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-task-path", title: selectedPath, children: selectedPath }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-task-title", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(tooltip_default, { placement: "top", title: copiedPath === selectedPath ? "\u5DF2\u590D\u5236\u7EDD\u5BF9\u8DEF\u5F84" : `${selectedPath} \xB7 \u53EF\u62D6\u81F3\u7ED3\u6784\u5361\u7247`, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("br", {}),
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Text5, { type: "secondary", style: { fontSize: 12 }, children: "\u5DF2\u68C0\u67E5\u5F53\u524D\u76EE\u5F55\u53CA\u5176\u5B50\u76EE\u5F55\u3002\u8BF7\u9009\u62E9\u5305\u542B POSCAR\u3001INCAR\u3001KPOINTS\u3001POTCAR \u7684\u8BA1\u7B97\u76EE\u5F55\u3002" })
+      ] }) : hasTree ? "\u70B9\u51FB\u300C\u4EFB\u52A1\u5217\u8868\u300D\u9009\u62E9\u4EFB\u52A1" : "\u8F93\u5165\u76EE\u5F55\u8DEF\u5F84\u5E76\u70B9\u51FB\u84DD\u8272\u6309\u94AE\u626B\u63CF" }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-task-summary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-task-overview", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-task-identity", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-task-path", title: selectedPath, children: selectedPath }),
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-task-title", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(tooltip_default, { placement: "top", title: copiedPath === selectedPath ? "\u5DF2\u590D\u5236\u7EDD\u5BF9\u8DEF\u5F84" : `${selectedPath} \xB7 \u53EF\u62D6\u81F3\u7ED3\u6784\u5361\u7247`, children: /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
                 "span",
                 {
                   role: "button",
@@ -102161,48 +102249,48 @@ ${instructions[key]}`);
                   },
                   className: "vfp-task-name",
                   children: [
-                    selectedParent && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(Text5, { type: "secondary", children: [
+                    selectedParent && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(Text5, { type: "secondary", children: [
                       selectedParent,
                       " / "
                     ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Text5, { strong: true, children: selectedTask.label })
+                    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Text5, { strong: true, children: selectedTask.label })
                   ]
                 }
               ) }) })
             ] }),
-            selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-task-facts", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "\u4F53\u7CFB" }),
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("strong", { children: selectedTask.system || "\u2014" })
+            selectedIsVaspTask ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-task-facts", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "\u4F53\u7CFB" }),
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: selectedTask.system || "\u2014" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "\u7C7B\u578B" }),
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("strong", { children: selectedTask.task_type?.label ?? "\u2014" })
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "\u7C7B\u578B" }),
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: selectedTask.task_type?.label ?? "\u2014" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "\u79BB\u5B50\u6B65" }),
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("strong", { className: "vfp-number", children: selectedTask.n_ion_steps })
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "\u79BB\u5B50\u6B65" }),
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { className: "vfp-number", children: selectedTask.n_ion_steps })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: "\u6700\u7EC8\u80FD\u91CF" }),
-                /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("strong", { className: "vfp-number", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "\u6700\u7EC8\u80FD\u91CF" }),
+                /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("strong", { className: "vfp-number", children: [
                   selectedTask.final_energy?.toFixed(6) ?? "\u2014",
                   " ",
-                  /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("small", { children: "eV" })
+                  /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("small", { children: "eV" })
                 ] })
               ] })
-            ] }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Text5, { type: "secondary", children: "\u666E\u901A\u76EE\u5F55" }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-task-status", children: [
+            ] }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Text5, { type: "secondary", children: "\u666E\u901A\u76EE\u5F55" }),
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-task-status", children: [
               taskListControl,
-              selectedIsVaspTask && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(StatusBadge, { task: selectedTask })
+              selectedIsVaspTask && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(StatusBadge, { task: selectedTask })
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-task-actions", children: [
-            selectedIsVaspTask && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(tooltip_default, { title: selectedTask.input_check?.profileId ? `\u4E0A\u6B21\u6309\u201C${inputProfileLabel(selectedTask.input_check.profileId)}\u201D\u68C0\u67E5` : `${inputProfileIsAutomatic ? "\u6309\u8F93\u5165\u7279\u5F81\u81EA\u52A8\u9009\u62E9" : selectedInputTarget?.scope === "folder" ? "\u7EE7\u627F\u76EE\u5F55\u9ED8\u8BA4\u7C7B\u578B" : "\u672C\u4EFB\u52A1\u8BBE\u7F6E"}\uFF1A${inputProfileLabel(activeInputProfile)}`, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-task-actions", children: [
+            selectedIsVaspTask && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(tooltip_default, { title: selectedTask.input_check?.profileId ? `\u4E0A\u6B21\u6309\u201C${inputProfileLabel(selectedTask.input_check.profileId)}\u201D\u68C0\u67E5` : `${inputProfileIsAutomatic ? "\u6309\u8F93\u5165\u7279\u5F81\u81EA\u52A8\u9009\u62E9" : selectedInputTarget?.scope === "folder" ? "\u7EE7\u627F\u76EE\u5F55\u9ED8\u8BA4\u7C7B\u578B" : "\u672C\u4EFB\u52A1\u8BBE\u7F6E"}\uFF1A${inputProfileLabel(activeInputProfile)}`, children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
               dropdown_default3.Button,
               {
                 size: "small",
-                icon: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(DownOutlined_default2, {}),
+                icon: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(DownOutlined_default2, {}),
                 loading: checkingInput,
                 menu: { items: inputMenuItems, onClick: ({ key }) => handleInputMenu(String(key)) },
                 onClick: () => {
@@ -102211,17 +102299,17 @@ ${instructions[key]}`);
                 children: selectedTask.input_check?.profileId ? `\u8F93\u5165\u68C0\u67E5 \xB7 ${compactInputCheckLabel(selectedTask.input_check.code)}` : `\u8F93\u5165\u68C0\u67E5 \xB7 ${inputProfileLabel(activeInputProfile)}`
               }
             ) }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(dropdown_default3, { menu: { items: aiMenuItems, onClick: ({ key }) => handleAiMenu(String(key)) }, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(button_default2, { size: "small", type: "primary", ghost: true, icon: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(MessageOutlined_default2, {}), "aria-label": "AI \u64CD\u4F5C", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(dropdown_default3, { menu: { items: aiMenuItems, onClick: ({ key }) => handleAiMenu(String(key)) }, children: /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(button_default2, { size: "small", type: "primary", ghost: true, icon: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(MessageOutlined_default2, {}), "aria-label": "AI \u64CD\u4F5C", children: [
               "AI ",
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(DownOutlined_default2, {})
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(DownOutlined_default2, {})
             ] }) })
           ] }),
-          inputCheckError && /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { style: { marginTop: 6, color: "#ff4d4f", fontSize: 14 }, children: [
+          inputCheckError && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { style: { marginTop: 6, color: "#ff4d4f", fontSize: 14 }, children: [
             "\u8F93\u5165\u68C0\u67E5\u672A\u5B8C\u6210\uFF1A",
             inputCheckError
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           tabs_default,
           {
             className: "vfp-detail-tabs",
@@ -102335,35 +102423,35 @@ function TaskStatusEvidence({ task }) {
   const primaryEvidence = statusEvidence.find((item) => item.severity === "error") ?? statusEvidence[0];
   const extraEvidence = statusEvidence.filter((item) => item !== primaryEvidence && item.message !== status?.reason);
   const statusColor = status?.code === "ERROR_DETECTED" ? "var(--vfp-error)" : status?.code === "TASK_COMPLETED" ? "var(--vfp-success)" : status?.code === "RUNNING" ? "var(--vfp-accent)" : status?.code === "NO_OUTPUT_EVIDENCE" ? "var(--vfp-warning)" : "var(--vfp-muted)";
-  return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-status-evidence", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-status-card", style: { borderLeftColor: statusColor }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-status-card-head", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Text5, { strong: true, children: status?.label ?? "\u5F85\u68C0\u67E5" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(Text5, { type: "secondary", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-status-evidence", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-status-card", style: { borderLeftColor: statusColor }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-status-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Text5, { strong: true, children: status?.label ?? "\u5F85\u68C0\u67E5" }),
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(Text5, { type: "secondary", children: [
           "\u626B\u63CF\u4E8E ",
           formatDateTime(status?.observedAt)
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-status-reason", children: status?.reason ?? "\u65E7\u7248\u4EFB\u52A1\u8BB0\u5F55\u5C1A\u65E0\u72B6\u6001\u7406\u7531\uFF1B\u8BF7\u5237\u65B0\u9879\u76EE\u3002" }),
-      primaryEvidence?.file ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(Text5, { type: "secondary", className: "vfp-status-source", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-status-reason", children: status?.reason ?? "\u65E7\u7248\u4EFB\u52A1\u8BB0\u5F55\u5C1A\u65E0\u72B6\u6001\u7406\u7531\uFF1B\u8BF7\u5237\u65B0\u9879\u76EE\u3002" }),
+      primaryEvidence?.file ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(Text5, { type: "secondary", className: "vfp-status-source", children: [
         "\u4F9D\u636E\uFF1A",
         primaryEvidence.file
       ] }) : null,
-      primaryEvidence?.excerpt ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-status-excerpt", children: primaryEvidence.excerpt }) : null,
-      extraEvidence.length ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-status-extra", children: [
+      primaryEvidence?.excerpt ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-status-excerpt", children: primaryEvidence.excerpt }) : null,
+      extraEvidence.length ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-status-extra", children: [
         "\u5176\u4ED6\u53D1\u73B0\uFF1A",
         extraEvidence.map((item) => item.message).join("\uFF1B")
       ] }) : null
     ] }),
-    input?.profileId ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 8px", padding: "2px 2px 0" }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Text5, { type: "secondary", children: "\u8F93\u5165\u68C0\u67E5" }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(tag_default, { color: inputTagColor(input.code), children: [
+    input?.profileId ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { style: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 8px", padding: "2px 2px 0" }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Text5, { type: "secondary", children: "\u8F93\u5165\u68C0\u67E5" }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(tag_default, { color: inputTagColor(input.code), children: [
         inputProfileLabel(input.profileId),
         " \xB7 ",
         compactInputCheckLabel(input.code)
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(Text5, { type: "secondary", style: { fontSize: 13 }, children: formatDateTime(input.observedAt) }),
-      input.code !== "PASS" && inputEvidence.length ? /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(Text5, { style: { width: "100%", fontSize: 14 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(Text5, { type: "secondary", style: { fontSize: 13 }, children: formatDateTime(input.observedAt) }),
+      input.code !== "PASS" && inputEvidence.length ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(Text5, { style: { width: "100%", fontSize: 14 }, children: [
         "\u53D1\u73B0\uFF1A",
         inputEvidence.map((item) => item.message).join("\uFF1B")
       ] }) : null
@@ -102592,6 +102680,11 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
   font:11px/1.55 Consolas,"Cascadia Mono",monospace;
   scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.32) transparent;
 }
+/* Collapsed run of unchanged lines inside a compare pane. */
+.vfp-cmp-gap { display:flex; align-items:center; gap:8px; padding:3px 9px; }
+.vfp-cmp-gap::before, .vfp-cmp-gap::after { content:""; flex:1 1 auto; border-top:1px dashed var(--vfp-line); }
+.vfp-cmp-gap button { flex:none; border:1px solid var(--vfp-line); border-radius:99px; background:var(--vfp-surface); color:var(--vfp-muted); font:inherit; font-size:10.5px; line-height:16px; padding:0 9px; cursor:pointer; }
+.vfp-cmp-gap button:hover { color:var(--vfp-text); border-color:var(--vfp-accent); }
 .vfp-cmp-line { display:block; padding:0 9px; white-space:pre; }
 .vfp-cmp-line i { display:inline-block; width:24px; margin-right:8px; color:var(--vfp-muted); opacity:.72; font-style:normal; text-align:right; user-select:none; font-variant-numeric:tabular-nums; }
 .vfp-cmp-line[data-changed] { background:rgba(149,104,23,.13); box-shadow:inset 2px 0 0 var(--vfp-warning); }
@@ -102930,9 +103023,9 @@ function mountPanelLayout(opts) {
 }
 
 // src/client/tool-rows.tsx
-var import_react171 = require("react");
+var import_react172 = require("react");
 init_api();
-var import_jsx_runtime8 = require("react/jsx-runtime");
+var import_jsx_runtime9 = require("react/jsx-runtime");
 var titles = {
   vasp_scan: "\u626B\u63CF\u8BA1\u7B97\u76EE\u5F55",
   vasp_inspect_task: "\u67E5\u770B\u8BA1\u7B97\u72B6\u6001",
@@ -102973,18 +103066,18 @@ async function openTask(rootPath, relPath, tab) {
   panelStore.setOpen(true);
 }
 function IssueRows({ rows, rootPath, tab = "status", revealPath }) {
-  const listRef = (0, import_react171.useRef)(null);
-  (0, import_react171.useEffect)(() => {
+  const listRef = (0, import_react172.useRef)(null);
+  (0, import_react172.useEffect)(() => {
     if (!revealPath) return;
     const frame = requestAnimationFrame(() => scrollExpandedTreeRow(listRef.current?.querySelector(".vfp-result-row") ?? null));
     return () => cancelAnimationFrame(frame);
   }, [revealPath]);
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { ref: listRef, className: "vfp-result-rows", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(PathTree, { items: rows, pathOf: (row) => row.path || row.label, revealPath, renderLeaf: (row, name) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("button", { type: "button", className: "vfp-result-row", title: `${row.path} \xB7 \u53EF\u62D6\u5230\u5176\u4ED6\u5DE5\u5177\u5361\u7247`, disabled: !row.path || !rootPath, draggable: !!row.path && !!rootPath, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "task", rootPath, relPath: row.path }), onClick: () => {
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { ref: listRef, className: "vfp-result-rows", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PathTree, { items: rows, pathOf: (row) => row.path || row.label, revealPath, renderLeaf: (row, name) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("button", { type: "button", className: "vfp-result-row", title: `${row.path} \xB7 \u53EF\u62D6\u5230\u5176\u4ED6\u5DE5\u5177\u5361\u7247`, disabled: !row.path || !rootPath, draggable: !!row.path && !!rootPath, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "task", rootPath, relPath: row.path }), onClick: () => {
     void openTask(rootPath, row.path, tab);
   }, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: name }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-tree-muted", children: row.note }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-tree-status", "data-status": row.status, children: row.status === "error" ? "\u9519\u8BEF" : row.status === "warn" ? "\u6CE8\u610F" : row.path ? "\u67E5\u770B" : "" })
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: name }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-tree-muted", children: row.note }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-tree-status", "data-status": row.status, children: row.status === "error" ? "\u9519\u8BEF" : row.status === "warn" ? "\u6CE8\u610F" : row.path ? "\u67E5\u770B" : "" })
   ] }) }) });
 }
 var scanStates = [
@@ -103011,10 +103104,10 @@ function PieBreakdown({ title, items, selectedCode, onSelect }) {
     cursor += item.count / total * 100;
     return `${item.color} ${start}% ${cursor}%`;
   });
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("section", { className: "vfp-pie-section", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-pie-title", children: title }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-pie-body", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-pie", role: "img", "aria-label": `${items.map((item) => `${item.label} ${item.count}`).join("\uFF0C")}\uFF1B\u70B9\u51FB\u6247\u533A\u7B5B\u9009\u4EFB\u52A1`, style: { background: slices.length ? `conic-gradient(${slices.join(", ")})` : "rgba(128,128,128,.14)" }, onClick: (event) => {
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("section", { className: "vfp-pie-section", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-pie-title", children: title }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-pie-body", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-pie", role: "img", "aria-label": `${items.map((item) => `${item.label} ${item.count}`).join("\uFF0C")}\uFF1B\u70B9\u51FB\u6247\u533A\u7B5B\u9009\u4EFB\u52A1`, style: { background: slices.length ? `conic-gradient(${slices.join(", ")})` : "rgba(128,128,128,.14)" }, onClick: (event) => {
         if (!total) return;
         const bounds = event.currentTarget.getBoundingClientRect();
         const angle = (Math.atan2(event.clientX - bounds.left - bounds.width / 2, bounds.top + bounds.height / 2 - event.clientY) + Math.PI * 2) % (Math.PI * 2);
@@ -103027,17 +103120,17 @@ function PieBreakdown({ title, items, selectedCode, onSelect }) {
           }
         }
       } }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-pie-legend", children: [
-        visible.map((item) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("button", { type: "button", className: "vfp-pie-legend-row", "data-selected": selectedCode === item.code ? "" : void 0, "aria-pressed": selectedCode === item.code, onClick: () => onSelect(item.code), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", { style: { background: item.color } }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: item.label }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: item.count }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("small", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-pie-legend", children: [
+        visible.map((item) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("button", { type: "button", className: "vfp-pie-legend-row", "data-selected": selectedCode === item.code ? "" : void 0, "aria-pressed": selectedCode === item.code, onClick: () => onSelect(item.code), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("i", { style: { background: item.color } }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: item.label }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: item.count }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("small", { children: [
             (item.count / total * 100).toFixed(1),
             "%"
           ] })
         ] }, item.code)),
-        total === 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "\u65E0\u4EFB\u52A1" })
+        total === 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: "\u65E0\u4EFB\u52A1" })
       ] })
     ] })
   ] });
@@ -103048,11 +103141,11 @@ function relativePath(rootPath, filePath) {
   return filePath.slice(0, root.length).toLowerCase() === root.toLowerCase() && (tail === "" || /^[\\/]/.test(tail)) ? tail.replace(/^[\\/]/, "") || "." : filePath;
 }
 function PathTree({ items, pathOf, renderLeaf, revealPath }) {
-  const [openPath, setOpenPath] = (0, import_react171.useState)([]);
-  const [rootOpen, setRootOpen] = (0, import_react171.useState)(true);
-  const treeRef = (0, import_react171.useRef)(null);
+  const [openPath, setOpenPath] = (0, import_react172.useState)([]);
+  const [rootOpen, setRootOpen] = (0, import_react172.useState)(true);
+  const treeRef = (0, import_react172.useRef)(null);
   const scrollPath = useTreeScrollPath(treeRef, `${rootOpen}:${openPath.join("/")}:${items.length}`);
-  (0, import_react171.useEffect)(() => {
+  (0, import_react172.useEffect)(() => {
     if (!revealPath) return;
     setOpenPath(revealPath.split(/[\\/]+/).filter(Boolean).slice(0, -1));
     setRootOpen(true);
@@ -103072,10 +103165,10 @@ function PathTree({ items, pathOf, renderLeaf, revealPath }) {
   const renderNode = (node2, parentPath = []) => {
     const path3 = [...parentPath, node2.name];
     const children = [...node2.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true }));
-    if (!children.length) return node2.item && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": parentPath.join("/"), children: renderLeaf(node2.item, node2.name) }, node2.name);
+    if (!children.length) return node2.item && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": parentPath.join("/"), children: renderLeaf(node2.item, node2.name) }, node2.name);
     const isOpen = path3.every((part, index2) => openPath[index2] === part);
-    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("details", { className: "vfp-path-folder", open: isOpen, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("summary", { title: node2.name, "data-vfp-tree-path": path3.join("/"), onClick: (event) => {
+    return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("details", { className: "vfp-path-folder", open: isOpen, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("summary", { title: node2.name, "data-vfp-tree-path": path3.join("/"), onClick: (event) => {
         event.preventDefault();
         if (isOpen) setOpenPath(parentPath);
         else {
@@ -103091,19 +103184,19 @@ function PathTree({ items, pathOf, renderLeaf, revealPath }) {
           scrollExpandedTreeRow(event.currentTarget);
         }
       }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: node2.name }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("small", { children: node2.count })
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: node2.name }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("small", { children: node2.count })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-path-children", children: [
-        node2.item && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": path3.join("/"), children: renderLeaf(node2.item, "\u672C\u76EE\u5F55") }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-path-children", children: [
+        node2.item && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": path3.join("/"), children: renderLeaf(node2.item, "\u672C\u76EE\u5F55") }),
         children.map((child) => renderNode(child, path3))
       ] })
     ] }, node2.name);
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-tree-shell", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tree-breadcrumb", "aria-live": "off", hidden: !scrollPath, title: scrollPath, children: scrollPath }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { ref: treeRef, className: "vfp-path-tree", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("details", { className: "vfp-path-root vfp-path-folder", open: rootOpen, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("summary", { onClick: (event) => {
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-tree-shell", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-breadcrumb", "aria-live": "off", hidden: !scrollPath, title: scrollPath, children: scrollPath }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { ref: treeRef, className: "vfp-path-tree", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("details", { className: "vfp-path-root vfp-path-folder", open: rootOpen, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("summary", { onClick: (event) => {
         event.preventDefault();
         if (rootOpen) setOpenPath([]);
         else {
@@ -103120,22 +103213,22 @@ function PathTree({ items, pathOf, renderLeaf, revealPath }) {
         }
         setRootOpen(!rootOpen);
       }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "\u6839\u76EE\u5F55" }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("small", { children: items.length })
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: "\u6839\u76EE\u5F55" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("small", { children: items.length })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-path-children", children: [...root.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true })).map((node2) => renderNode(node2)) })
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-path-children", children: [...root.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true })).map((node2) => renderNode(node2)) })
     ] }) })
   ] });
 }
 function SourcePreview({ rootPath, filePath, onClose }) {
-  const [taskId, setTaskId] = (0, import_react171.useState)();
-  const [data, setData] = (0, import_react171.useState)();
-  const [loading, setLoading] = (0, import_react171.useState)(true);
-  const [error, setError] = (0, import_react171.useState)("");
+  const [taskId, setTaskId] = (0, import_react172.useState)();
+  const [data, setData] = (0, import_react172.useState)();
+  const [loading, setLoading] = (0, import_react172.useState)(true);
+  const [error, setError] = (0, import_react172.useState)("");
   const rel = relativePath(rootPath, filePath);
   const parts = rel.split(/[\\/]+/).filter(Boolean);
   const name = parts.at(-1) ?? "";
-  (0, import_react171.useEffect)(() => {
+  (0, import_react172.useEffect)(() => {
     let cancelled = false;
     if (!rootPath || rel === filePath || !name) {
       setError("\u7ED3\u6784\u6587\u4EF6\u4E0D\u5728\u672C\u6B21\u641C\u7D22\u76EE\u5F55\u5185");
@@ -103169,8 +103262,8 @@ function SourcePreview({ rootPath, filePath, onClose }) {
       setLoading(false);
     }
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(modal_default, { title: name, open: true, onCancel: onClose, width: 800, footer: data ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-preview-footer", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(modal_default, { title: name, open: true, onCancel: onClose, width: 800, footer: data ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-preview-footer", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
       data.offset + 1,
       "\u2013",
       data.offset + data.length,
@@ -103178,15 +103271,15 @@ function SourcePreview({ rootPath, filePath, onClose }) {
       data.totalSize,
       " \u5B57\u8282"
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(button_default2, { size: "small", disabled: !data.hasBefore || loading, onClick: () => void page(Math.max(0, data.offset - data.length)), children: "\u4E0A\u4E00\u6BB5" }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(button_default2, { size: "small", disabled: !data.hasAfter || loading, onClick: () => void page(data.offset + data.length), children: "\u4E0B\u4E00\u6BB5" })
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(button_default2, { size: "small", disabled: !data.hasBefore || loading, onClick: () => void page(Math.max(0, data.offset - data.length)), children: "\u4E0A\u4E00\u6BB5" }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(button_default2, { size: "small", disabled: !data.hasAfter || loading, onClick: () => void page(data.offset + data.length), children: "\u4E0B\u4E00\u6BB5" })
   ] }) : null, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-source-location", title: filePath, children: filePath }),
-    loading ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(spin_default, { style: { display: "block", margin: "36px auto" } }) : error ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: error }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("pre", { className: "vaspflow-file-preview vfp-file-preview", children: data?.content ?? "" })
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-source-location", title: filePath, children: filePath }),
+    loading ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(spin_default, { style: { display: "block", margin: "36px auto" } }) : error ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: error }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("pre", { className: "vaspflow-file-preview vfp-file-preview", children: data?.content ?? "" })
   ] });
 }
 function ScanOverview({ value, rootPath }) {
-  const [filter2, setFilter] = (0, import_react171.useState)(null);
+  const [filter2, setFilter] = (0, import_react172.useState)(null);
   const tasks = Array.isArray(value.tasks) ? value.tasks : [];
   const directories = Array.isArray(value.directories) ? value.directories : [];
   const total = tasks.length;
@@ -103197,28 +103290,28 @@ function ScanOverview({ value, rootPath }) {
   const shownTasks = filter2 ? tasks.filter((task) => (filter2.kind === "status" ? stateOf(task) : typeOf(task)) === filter2.code) : tasks;
   const filterLabel = filter2 && (filter2.kind === "status" ? states : types2).find((item) => item.code === filter2.code)?.label;
   const toggleFilter = (kind, code) => setFilter((old) => old?.kind === kind && old.code === code ? null : { kind, code });
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-overview", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-scan-path", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-overview", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-scan-path", children: [
       "\u626B\u63CF\u76EE\u5F55\uFF1A",
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { children: rootPath || "\u672A\u77E5" })
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("code", { children: rootPath || "\u672A\u77E5" })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-scan-stats", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: directories.length }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-scan-stats", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: directories.length }),
       " \u4E2A\u5B50\u76EE\u5F55\uFF08\u542B\u4EFB\u52A1\u76EE\u5F55\uFF09 \xB7 ",
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: total }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: total }),
       " \u4E2A VASP \u4EFB\u52A1"
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-pie-grid", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(PieBreakdown, { title: "\u8BA1\u7B97\u72B6\u6001", items: states, selectedCode: filter2?.kind === "status" ? filter2.code : void 0, onSelect: (code) => toggleFilter("status", code) }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(PieBreakdown, { title: "\u4EFB\u52A1\u7C7B\u578B", items: types2, selectedCode: filter2?.kind === "type" ? filter2.code : void 0, onSelect: (code) => toggleFilter("type", code) })
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-pie-grid", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PieBreakdown, { title: "\u8BA1\u7B97\u72B6\u6001", items: states, selectedCode: filter2?.kind === "status" ? filter2.code : void 0, onSelect: (code) => toggleFilter("status", code) }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PieBreakdown, { title: "\u4EFB\u52A1\u7C7B\u578B", items: types2, selectedCode: filter2?.kind === "type" ? filter2.code : void 0, onSelect: (code) => toggleFilter("type", code) })
     ] }),
-    tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-discovery-heading", children: [
+    tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-discovery-heading", children: [
         "\u4EFB\u52A1\u76EE\u5F55 ",
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: filterLabel ? `${filterLabel} \xB7 ${shownTasks.length}/${tasks.length} \u4E2A\u4EFB\u52A1` : `${tasks.length} \u4E2A\u4EFB\u52A1\uFF0C\u70B9\u51FB\u67E5\u770B\u8BE6\u60C5` }),
-        filter2 && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("button", { type: "button", className: "vfp-clear-filter", onClick: () => setFilter(null), children: "\u6E05\u9664\u7B5B\u9009" })
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: filterLabel ? `${filterLabel} \xB7 ${shownTasks.length}/${tasks.length} \u4E2A\u4EFB\u52A1` : `${tasks.length} \u4E2A\u4EFB\u52A1\uFF0C\u70B9\u51FB\u67E5\u770B\u8BE6\u60C5` }),
+        filter2 && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { type: "button", className: "vfp-clear-filter", onClick: () => setFilter(null), children: "\u6E05\u9664\u7B5B\u9009" })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(IssueRows, { rootPath, revealPath: filter2 ? shownTasks[0]?.rel_path : void 0, rows: shownTasks.map((task) => ({ path: task.rel_path, label: task.label || task.rel_path, note: task.status_record?.label || task.task_type?.label, status: task.status_record?.code === "ERROR_DETECTED" ? "error" : task.status_record?.code === "UNKNOWN" ? "warn" : void 0 })) }, filter2 ? `${filter2.kind}:${filter2.code}` : "all")
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(IssueRows, { rootPath, revealPath: filter2 ? shownTasks[0]?.rel_path : void 0, rows: shownTasks.map((task) => ({ path: task.rel_path, label: task.label || task.rel_path, note: task.status_record?.label || task.task_type?.label, status: task.status_record?.code === "ERROR_DETECTED" ? "error" : task.status_record?.code === "UNKNOWN" ? "warn" : void 0 })) }, filter2 ? `${filter2.kind}:${filter2.code}` : "all")
     ] })
   ] });
 }
@@ -103232,14 +103325,14 @@ function droppedStorageKey(block, kind = "structure") {
 }
 function useToolCardCollapse(block, kind) {
   const key = droppedStorageKey(block, `${kind}-collapsed`);
-  const [collapsed, setCollapsed] = (0, import_react171.useState)(() => {
+  const [collapsed, setCollapsed] = (0, import_react172.useState)(() => {
     try {
       return !!key && sessionStorage.getItem(key) === "1";
     } catch {
       return false;
     }
   });
-  (0, import_react171.useEffect)(() => {
+  (0, import_react172.useEffect)(() => {
     try {
       setCollapsed(!!key && sessionStorage.getItem(key) === "1");
     } catch {
@@ -103275,9 +103368,9 @@ function readDroppedStructures(key) {
 }
 function DroppedStructurePane({ row, active }) {
   const key = structureKey(row);
-  const [scene, setScene] = (0, import_react171.useState)(() => droppedSceneCache.get(key));
-  const [error, setError] = (0, import_react171.useState)("");
-  (0, import_react171.useEffect)(() => {
+  const [scene, setScene] = (0, import_react172.useState)(() => droppedSceneCache.get(key));
+  const [error, setError] = (0, import_react172.useState)("");
+  (0, import_react172.useEffect)(() => {
     const cached2 = droppedSceneCache.get(key);
     if (cached2) {
       setScene(cached2);
@@ -103294,14 +103387,14 @@ function DroppedStructurePane({ row, active }) {
       cancelled = true;
     };
   }, [key]);
-  if (error) return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: error });
-  if (!scene) return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(spin_default, { style: { display: "block", margin: "36px auto" } });
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(StructureViewer_default, { inlineScene: scene, inlineLabel: `${row.rel_path}/${row.file}`, sourcePath: `${row.rootPath}/${row.rel_path}/${row.file}`, active });
+  if (error) return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: error });
+  if (!scene) return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(spin_default, { style: { display: "block", margin: "36px auto" } });
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(StructureViewer_default, { inlineScene: scene, inlineLabel: `${row.rel_path}/${row.file}`, sourcePath: `${row.rootPath}/${row.rel_path}/${row.file}`, active });
 }
 function ResultTabs({ rows, kind, rootPath, focus, orderStorageKey }) {
-  const [active, setActive] = (0, import_react171.useState)(0);
-  const [visited, setVisited] = (0, import_react171.useState)([0]);
-  const [savedOrder, setSavedOrder] = (0, import_react171.useState)(() => {
+  const [active, setActive] = (0, import_react172.useState)(0);
+  const [visited, setVisited] = (0, import_react172.useState)([0]);
+  const [savedOrder, setSavedOrder] = (0, import_react172.useState)(() => {
     if (!orderStorageKey) return [];
     try {
       const saved = JSON.parse(sessionStorage.getItem(orderStorageKey) || "[]");
@@ -103310,15 +103403,15 @@ function ResultTabs({ rows, kind, rootPath, focus, orderStorageKey }) {
       return [];
     }
   });
-  const dragging = (0, import_react171.useRef)(null);
-  const [dragOver, setDragOver] = (0, import_react171.useState)(null);
+  const dragging = (0, import_react172.useRef)(null);
+  const [dragOver, setDragOver] = (0, import_react172.useState)(null);
   const current = rows[active];
   const select = (index2) => {
     if (index2 === active) return;
     setActive(index2);
     setVisited((old) => [...old.filter((item) => item !== index2), index2].slice(-6));
   };
-  (0, import_react171.useEffect)(() => {
+  (0, import_react172.useEffect)(() => {
     if (!focus?.key) return;
     const index2 = rows.findIndex((row) => kind === "structure" ? structureKey({ rootPath: row.rootPath ?? rootPath, rel_path: row.rel_path, file: row.file }) === focus.key : `${row.rootPath ?? rootPath}/${row.rel_path}`.replace(/\\/g, "/").toLowerCase() === focus.key);
     if (index2 >= 0) {
@@ -103326,7 +103419,7 @@ function ResultTabs({ rows, kind, rootPath, focus, orderStorageKey }) {
       setVisited((old) => [...old.filter((item) => item !== index2), index2].slice(-6));
     }
   }, [focus?.nonce, rows.length]);
-  if (!rows.length) return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-result-summary", children: "\u6CA1\u6709\u7ED3\u679C" });
+  if (!rows.length) return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-result-summary", children: "\u6CA1\u6709\u7ED3\u679C" });
   const treeRows = rows.map((row, index2) => {
     const sourceRoot = row.rootPath ?? rootPath;
     const prefix2 = sourceRoot.replace(/[\\/]+$/, "").toLowerCase() === rootPath.replace(/[\\/]+$/, "").toLowerCase() ? "" : `${sourceRoot}/`;
@@ -103350,16 +103443,16 @@ function ResultTabs({ rows, kind, rootPath, focus, orderStorageKey }) {
     } catch {
     }
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-inline-visual", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-inline-tree", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(PathTree, { items: treeRows, pathOf: (item) => item.path, renderLeaf: ({ row, index: index2 }, name) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("button", { type: "button", className: "vfp-visual-tree-leaf", "aria-current": index2 === active ? "true" : void 0, "data-user-added": row.userAdded ? "" : void 0, title: `${treeRows[index2].path} \xB7 \u53EF\u62D6\u5230\u5176\u4ED6\u5DE5\u5177\u5361\u7247`, draggable: true, onDragStart: (event) => startStructureDrag(event.dataTransfer, kind === "structure" ? { kind: "file", rootPath: row.rootPath ?? rootPath, relPath: row.rel_path ?? row.relPath, file: row.file ?? "CONTCAR" } : { kind: "task", rootPath: row.rootPath ?? rootPath, relPath: row.rel_path ?? row.relPath }), onClick: () => select(index2), children: name }) }) }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-visual-tabs", role: "tablist", "aria-label": kind === "structure" ? "\u7ED3\u6784\u6587\u4EF6" : "\u8BA1\u7B97\u4EFB\u52A1", onKeyDown: (event) => {
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-inline-visual", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-inline-tree", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PathTree, { items: treeRows, pathOf: (item) => item.path, renderLeaf: ({ row, index: index2 }, name) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { type: "button", className: "vfp-visual-tree-leaf", "aria-current": index2 === active ? "true" : void 0, "data-user-added": row.userAdded ? "" : void 0, title: `${treeRows[index2].path} \xB7 \u53EF\u62D6\u5230\u5176\u4ED6\u5DE5\u5177\u5361\u7247`, draggable: true, onDragStart: (event) => startStructureDrag(event.dataTransfer, kind === "structure" ? { kind: "file", rootPath: row.rootPath ?? rootPath, relPath: row.rel_path ?? row.relPath, file: row.file ?? "CONTCAR" } : { kind: "task", rootPath: row.rootPath ?? rootPath, relPath: row.rel_path ?? row.relPath }), onClick: () => select(index2), children: name }) }) }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-visual-tabs", role: "tablist", "aria-label": kind === "structure" ? "\u7ED3\u6784\u6587\u4EF6" : "\u8BA1\u7B97\u4EFB\u52A1", onKeyDown: (event) => {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       event.preventDefault();
       event.stopPropagation();
       const next2 = orderedIndices[Math.max(0, Math.min(orderedIndices.length - 1, orderedIndices.indexOf(active) + (event.key === "ArrowRight" ? 1 : -1)))];
       select(next2);
       event.currentTarget.querySelectorAll('[role="tab"]')[orderedIndices.indexOf(next2)]?.focus();
-    }, children: orderedIndices.map((index2) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+    }, children: orderedIndices.map((index2) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
       "button",
       {
         type: "button",
@@ -103399,11 +103492,11 @@ function ResultTabs({ rows, kind, rootPath, focus, orderStorageKey }) {
       },
       keys3[index2]
     )) }),
-    kind === "convergence" ? current?.error ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: current.error }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(ConvergenceChart_default, { series: current }, active) : rows.map((row, index2) => visited.includes(index2) && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { style: { display: index2 === active ? "block" : "none" }, children: row.error ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: row.error }) : row.userAdded ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(DroppedStructurePane, { row, active: index2 === active }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(StructureViewer_default, { inlineScene: row, inlineLabel: `${row.rel_path}/${row.file}`, sourcePath: `${row.rootPath ?? rootPath}/${row.rel_path}/${row.file ?? "CONTCAR"}`, active: index2 === active }) }, `${row.rel_path}-${row.file}-${index2}`))
+    kind === "convergence" ? current?.error ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: current.error }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(ConvergenceChart_default, { series: current }, active) : rows.map((row, index2) => visited.includes(index2) && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { style: { display: index2 === active ? "block" : "none" }, children: row.error ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: row.error }) : row.userAdded ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(DroppedStructurePane, { row, active: index2 === active }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(StructureViewer_default, { inlineScene: row, inlineLabel: `${row.rel_path}/${row.file}`, sourcePath: `${row.rootPath ?? rootPath}/${row.rel_path}/${row.file ?? "CONTCAR"}`, active: index2 === active }) }, `${row.rel_path}-${row.file}-${index2}`))
   ] });
 }
 function InputDiscovery({ value, rootPath, args }) {
-  const [previewPath, setPreviewPath] = (0, import_react171.useState)("");
+  const [previewPath, setPreviewPath] = (0, import_react172.useState)("");
   const sources = value.sources?.files ?? [];
   const templates = value.templates ?? [];
   const sourceGroups = /* @__PURE__ */ new Map();
@@ -103423,32 +103516,32 @@ function InputDiscovery({ value, rootPath, args }) {
     ["\u63D0\u4EA4\u811A\u672C", (template) => !!template.submit]
   ];
   const requested = args.include?.length ? args.include : ["sources", "templates"];
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-discovery", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tool-intent", children: "\u6309\u76EE\u5F55\u548C\u6DF1\u5EA6\u5BFB\u627E\u4E24\u7C7B\u6784\u5EFA\u6750\u6599\uFF1A\u7ED3\u6784\u6587\u4EF6\u4F9B POSCAR \u4F7F\u7528\uFF0C\u542B INCAR \u7684\u76EE\u5F55\u4F9B\u53C2\u6570\u7B49\u6587\u4EF6\u4F7F\u7528\uFF1B\u8FD9\u91CC\u53EA\u76D8\u70B9\u5019\u9009\u3002" }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-scan-path", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-discovery", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tool-intent", children: "\u6309\u76EE\u5F55\u548C\u6DF1\u5EA6\u5BFB\u627E\u4E24\u7C7B\u6784\u5EFA\u6750\u6599\uFF1A\u7ED3\u6784\u6587\u4EF6\u4F9B POSCAR \u4F7F\u7528\uFF0C\u542B INCAR \u7684\u76EE\u5F55\u4F9B\u53C2\u6570\u7B49\u6587\u4EF6\u4F7F\u7528\uFF1B\u8FD9\u91CC\u53EA\u76D8\u70B9\u5019\u9009\u3002" }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-scan-path", children: [
       "\u641C\u7D22\u8303\u56F4\uFF1A",
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { children: rootPath || "\u672A\u77E5" }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("code", { children: rootPath || "\u672A\u77E5" }),
       " \xB7 \u6700\u6DF1 ",
       args.maxDepth ?? 10,
       " \u5C42"
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-source-flow", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: requested.includes("sources") ? sources.length : "\u2014" }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "\u7ED3\u6784\u6587\u4EF6" }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("small", { children: requested.includes("sources") ? "*.vasp / POSCAR / CONTCAR \u2192 \u53EF\u4F5C\u4E3A\u65B0\u4EFB\u52A1\u7684 POSCAR" : "\u672C\u6B21\u672A\u641C\u7D22" })
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-source-flow", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: requested.includes("sources") ? sources.length : "\u2014" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: "\u7ED3\u6784\u6587\u4EF6" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("small", { children: requested.includes("sources") ? "*.vasp / POSCAR / CONTCAR \u2192 \u53EF\u4F5C\u4E3A\u65B0\u4EFB\u52A1\u7684 POSCAR" : "\u672C\u6B21\u672A\u641C\u7D22" })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { "aria-hidden": "true", children: "\uFF0B" }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: requested.includes("templates") ? templates.length : "\u2014" }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "\u6A21\u677F\u76EE\u5F55" }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("small", { children: requested.includes("templates") ? "\u542B INCAR\uFF1B\u53EF\u63D0\u4F9B\u53C2\u6570\u3001K \u70B9\u3001\u8D5D\u52BF\u4E0E\u811A\u672C" : "\u672C\u6B21\u672A\u641C\u7D22" })
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { "aria-hidden": "true", children: "\uFF0B" }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: requested.includes("templates") ? templates.length : "\u2014" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: "\u6A21\u677F\u76EE\u5F55" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("small", { children: requested.includes("templates") ? "\u542B INCAR\uFF1B\u53EF\u63D0\u4F9B\u53C2\u6570\u3001K \u70B9\u3001\u8D5D\u52BF\u4E0E\u811A\u672C" : "\u672C\u6B21\u672A\u641C\u7D22" })
       ] })
     ] }),
-    requested.includes("sources") && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("section", { className: "vfp-discovery-section", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-discovery-heading", children: [
+    requested.includes("sources") && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("section", { className: "vfp-discovery-section", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-discovery-heading", children: [
         "\u7ED3\u6784\u7C7B\u578B ",
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
           sourceGroups.size,
           " \u7EC4 \xB7 \u6309\u5143\u7D20\u3001\u5750\u6807\u7C7B\u578B\u548C\u9009\u62E9\u6027\u52A8\u529B\u5B66\u6807\u8BB0\u5F52\u5E76"
         ] })
@@ -103456,133 +103549,133 @@ function InputDiscovery({ value, rootPath, args }) {
       [...sourceGroups.values()].sort((a2, b) => b.length - a2.length).map((members, index2) => {
         const example = members[0];
         const label = `${example.elements?.join(" \xB7 ") || "\u672A\u8BC6\u522B\u7269\u79CD"} \xB7 ${example.coordType || "\u672A\u77E5\u5750\u6807"} \xB7 ${example.hasSd ? `SD ${example.fFlags} \u56FA\u5B9A / ${example.tFlags} \u653E\u5F00` : "\u65E0 SD"}`;
-        return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("details", { className: "vfp-distribution-row", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("summary", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: label }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: members.length }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", { style: { width: `${members.length / Math.max(sources.length, 1) * 100}%` } })
+        return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("details", { className: "vfp-distribution-row", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("summary", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: label }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: members.length }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("i", { style: { width: `${members.length / Math.max(sources.length, 1) * 100}%` } })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(PathTree, { items: members, pathOf: (source) => relativePath(rootPath, source.path), renderLeaf: (source, name) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("button", { type: "button", className: "vfp-source-file", title: `${source.path} \xB7 \u53EF\u62D6\u5230\u7ED3\u6784\u6216\u6784\u5EFA\u5361\u7247`, draggable: true, onDragStart: (event) => {
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PathTree, { items: members, pathOf: (source) => relativePath(rootPath, source.path), renderLeaf: (source, name) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("button", { type: "button", className: "vfp-source-file", title: `${source.path} \xB7 \u53EF\u62D6\u5230\u7ED3\u6784\u6216\u6784\u5EFA\u5361\u7247`, draggable: true, onDragStart: (event) => {
             const parts = relativePath(rootPath, source.path).split(/[\\/]+/).filter(Boolean);
             startStructureDrag(event.dataTransfer, { kind: "file", rootPath, relPath: parts.slice(0, -1).join("/") || ".", file: parts.at(-1) || name });
           }, onClick: () => setPreviewPath(source.path), children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: name }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("small", { children: source.error || `${source.nAtoms ?? 0} \u539F\u5B50` }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "\u9884\u89C8 \u203A" })
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: name }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("small", { children: source.error || `${source.nAtoms ?? 0} \u539F\u5B50` }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: "\u9884\u89C8 \u203A" })
           ] }) })
         ] }, index2);
       }),
-      sources.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tree-muted", children: "\u6CA1\u6709\u627E\u5230\u7ED3\u6784\u6587\u4EF6" })
+      sources.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-muted", children: "\u6CA1\u6709\u627E\u5230\u7ED3\u6784\u6587\u4EF6" })
     ] }),
-    requested.includes("templates") && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("section", { className: "vfp-discovery-section", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-discovery-heading", children: [
+    requested.includes("templates") && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("section", { className: "vfp-discovery-section", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-discovery-heading", children: [
         "\u6A21\u677F\u76EE\u5F55\u6587\u4EF6\u8986\u76D6 ",
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
           "\u6BCF\u6761\u8868\u793A ",
           templates.length,
           " \u4E2A\u5019\u9009\u76EE\u5F55\u4E2D\u6709\u591A\u5C11\u4E2A\u5305\u542B\u8BE5\u6587\u4EF6"
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-coverage", children: coverage.map(([label, matches]) => {
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-coverage", children: coverage.map(([label, matches]) => {
         const count = templates.filter(matches).length;
-        return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: label }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", { style: { width: `${count / Math.max(templates.length, 1) * 100}%` } }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("strong", { children: [
+        return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: label }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("i", { style: { width: `${count / Math.max(templates.length, 1) * 100}%` } }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("strong", { children: [
             count,
             "/",
             templates.length
           ] })
         ] }, label);
       }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-discovery-heading", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-discovery-heading", children: [
         "INCAR \u53C2\u6570\u7EC4\u5408 ",
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
           templateGroups.size,
           " \u7EC4\uFF1B\u76EE\u5F55\u6570\u4E0D\u7B49\u4E8E\u53C2\u6570\u65B9\u6848\u6570"
         ] })
       ] }),
-      [...templateGroups.entries()].map(([signature, members], index2) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("details", { className: "vfp-template-group", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("summary", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("strong", { children: [
+      [...templateGroups.entries()].map(([signature, members], index2) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("details", { className: "vfp-template-group", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("summary", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("strong", { children: [
             "\u65B9\u6848 ",
             index2 + 1
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
             members.length,
             " \u4E2A\u76EE\u5F55"
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-tree-muted", children: Object.entries(members[0]?.params ?? {}).map(([key, val]) => `${key} ${val}`).join(" \xB7 ") || "\u672A\u63D0\u53D6\u5230\u5173\u952E\u53C2\u6570" })
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-tree-muted", children: Object.entries(members[0]?.params ?? {}).map(([key, val]) => `${key} ${val}`).join(" \xB7 ") || "\u672A\u63D0\u53D6\u5230\u5173\u952E\u53C2\u6570" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-discovery-list", children: members.map((template) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { draggable: true, title: `${template.dir} \xB7 \u53EF\u62D6\u5230\u6784\u5EFA\u5361\u7247\u66FF\u6362\u6A21\u677F`, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "directory", rootPath, relPath: relativePath(rootPath, template.dir) }), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { title: template.dir, children: template.relPath ?? template.dir }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: template.missing?.length ? `\u7F3A ${template.missing.join("\u3001")}` : "\u6240\u5217\u6587\u4EF6\u9F50\u5907" })
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-discovery-list", children: members.map((template) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { draggable: true, title: `${template.dir} \xB7 \u53EF\u62D6\u5230\u6784\u5EFA\u5361\u7247\u66FF\u6362\u6A21\u677F`, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "directory", rootPath, relPath: relativePath(rootPath, template.dir) }), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("code", { title: template.dir, children: template.relPath ?? template.dir }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: template.missing?.length ? `\u7F3A ${template.missing.join("\u3001")}` : "\u6240\u5217\u6587\u4EF6\u9F50\u5907" })
         ] }, template.dir)) })
       ] }, signature)),
-      templates.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tree-muted", children: "\u6CA1\u6709\u627E\u5230\u542B INCAR \u7684\u76EE\u5F55" })
+      templates.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-muted", children: "\u6CA1\u6709\u627E\u5230\u542B INCAR \u7684\u76EE\u5F55" })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tree-muted vfp-discovery-foot", children: "\u201C\u7F3A\u9879\u201D\u8868\u793A\u8BE5\u6A21\u677F\u76EE\u5F55\u91CC\u672A\u627E\u5230\u5BF9\u5E94\u6587\u4EF6\uFF1B\u63D0\u4EA4\u811A\u672C\u662F\u53EF\u9009\u9879\u3002\u4E24\u7C7B\u5019\u9009\u5C1A\u672A\u914D\u5BF9\u6216\u9009\u7528\uFF0C\u4E5F\u672A\u9A8C\u8BC1\u79D1\u5B66\u5408\u7406\u6027\u3002" }),
-    previewPath && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(SourcePreview, { rootPath, filePath: previewPath, onClose: () => setPreviewPath("") })
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-muted vfp-discovery-foot", children: "\u201C\u7F3A\u9879\u201D\u8868\u793A\u8BE5\u6A21\u677F\u76EE\u5F55\u91CC\u672A\u627E\u5230\u5BF9\u5E94\u6587\u4EF6\uFF1B\u63D0\u4EA4\u811A\u672C\u662F\u53EF\u9009\u9879\u3002\u4E24\u7C7B\u5019\u9009\u5C1A\u672A\u914D\u5BF9\u6216\u9009\u7528\uFF0C\u4E5F\u672A\u9A8C\u8BC1\u79D1\u5B66\u5408\u7406\u6027\u3002" }),
+    previewPath && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(SourcePreview, { rootPath, filePath: previewPath, onClose: () => setPreviewPath("") })
   ] });
 }
 function StatusInspection({ value, rootPath }) {
   const results = Array.isArray(value.results) ? value.results : [];
   const counts = scanStates.map(([code, label, color2]) => ({ code, label, color: color2, count: results.filter((row) => row.status?.code === code).length }));
   const failed = results.filter((row) => row.error).length;
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-status-inspection", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tool-intent", children: "\u8BFB\u53D6\u4EFB\u52A1\u7684\u8BA1\u7B97\u8F93\u51FA\u4E0E\u72B6\u6001\u8BC1\u636E\uFF1B\u4E0D\u91CD\u65B0\u6821\u9A8C\u8F93\u5165\u6587\u4EF6\u3002" }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-scan-path", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-status-inspection", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tool-intent", children: "\u8BFB\u53D6\u4EFB\u52A1\u7684\u8BA1\u7B97\u8F93\u51FA\u4E0E\u72B6\u6001\u8BC1\u636E\uFF1B\u4E0D\u91CD\u65B0\u6821\u9A8C\u8F93\u5165\u6587\u4EF6\u3002" }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-scan-path", children: [
       "\u9879\u76EE\u76EE\u5F55\uFF1A",
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { children: rootPath || "\u672A\u77E5" }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("code", { children: rootPath || "\u672A\u77E5" }),
       " \xB7 \u67E5\u770B ",
       results.length,
       " \u4E2A\u4EFB\u52A1",
       failed ? ` \xB7 ${failed} \u4E2A\u76EE\u5F55\u8BFB\u53D6\u5931\u8D25` : ""
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-scan-bar", role: "img", "aria-label": counts.map((item) => `${item.label} ${item.count}`).join("\uFF0C"), children: counts.filter((item) => item.count).map((item) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { style: { width: `${item.count / Math.max(results.length, 1) * 100}%`, background: item.color } }, item.code)) }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-scan-legend", children: counts.filter((item) => item.count).map((item) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", { style: { background: item.color } }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-scan-bar", role: "img", "aria-label": counts.map((item) => `${item.label} ${item.count}`).join("\uFF0C"), children: counts.filter((item) => item.count).map((item) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { style: { width: `${item.count / Math.max(results.length, 1) * 100}%`, background: item.color } }, item.code)) }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-scan-legend", children: counts.filter((item) => item.count).map((item) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("i", { style: { background: item.color } }),
       item.label,
       " ",
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: item.count })
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: item.count })
     ] }, item.code)) }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-inspection-list", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(PathTree, { items: results, pathOf: (row) => row.rootPath && row.rootPath !== rootPath ? `${row.rootPath}/${row.relPath}` : row.relPath, renderLeaf: (row, name) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("details", { className: "vfp-inspection-item", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("summary", { draggable: !row.error, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "task", rootPath: row.rootPath ?? rootPath, relPath: row.relPath }), title: "\u53EF\u62D6\u5230\u6536\u655B\u66F2\u7EBF\u3001\u539F\u5B50\u7ED3\u6784\u6216\u8BA1\u7B97\u72B6\u6001\u5361\u7247", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: name }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-state-chip", "data-status": row.error ? "error" : row.status?.code, children: row.error ? "\u8BFB\u53D6\u5931\u8D25" : row.status?.label || "\u72B6\u6001\u672A\u77E5" }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("small", { children: row.error || row.status?.reason || "" })
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-inspection-list", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PathTree, { items: results, pathOf: (row) => row.rootPath && row.rootPath !== rootPath ? `${row.rootPath}/${row.relPath}` : row.relPath, renderLeaf: (row, name) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("details", { className: "vfp-inspection-item", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("summary", { draggable: !row.error, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "task", rootPath: row.rootPath ?? rootPath, relPath: row.relPath }), title: "\u53EF\u62D6\u5230\u6536\u655B\u66F2\u7EBF\u3001\u539F\u5B50\u7ED3\u6784\u6216\u8BA1\u7B97\u72B6\u6001\u5361\u7247", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: name }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-state-chip", "data-status": row.error ? "error" : row.status?.code, children: row.error ? "\u8BFB\u53D6\u5931\u8D25" : row.status?.label || "\u72B6\u6001\u672A\u77E5" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("small", { children: row.error || row.status?.reason || "" })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-inspection-detail", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "\u72B6\u6001\u4F9D\u636E" }),
-          row.status?.evidence?.length ? row.status.evidence.map((item, i) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-inspection-detail", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { children: "\u72B6\u6001\u4F9D\u636E" }),
+          row.status?.evidence?.length ? row.status.evidence.map((item, i) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
             item.file ? `${item.file}\uFF1A` : "",
             item.message ?? item.excerpt ?? "\u8BC1\u636E"
-          ] }, i)) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: "\u6CA1\u6709\u66F4\u591A\u8F93\u51FA\u8BC1\u636E" })
+          ] }, i)) : /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: "\u6CA1\u6709\u66F4\u591A\u8F93\u51FA\u8BC1\u636E" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "\u53D1\u73B0\u7684\u8F93\u51FA\u6587\u4EF6" }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: row.outputFiles?.length ? row.outputFiles.map((file) => file.path ?? file.name).join("\u3001") : "\u672A\u53D1\u73B0" })
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { children: "\u53D1\u73B0\u7684\u8F93\u51FA\u6587\u4EF6" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: row.outputFiles?.length ? row.outputFiles.map((file) => file.path ?? file.name).join("\u3001") : "\u672A\u53D1\u73B0" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "\u5148\u524D\u8F93\u5165\u68C0\u67E5" }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: row.inputCheck?.profileId ? `${row.inputCheck.profileId} \xB7 ${row.inputCheck.label}` : "\u65E0\u8BB0\u5F55\uFF1B\u672C\u5DE5\u5177\u4E0D\u68C0\u67E5\u8F93\u5165\u6B63\u786E\u6027" })
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { children: "\u5148\u524D\u8F93\u5165\u68C0\u67E5" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: row.inputCheck?.profileId ? `${row.inputCheck.profileId} \xB7 ${row.inputCheck.label}` : "\u65E0\u8BB0\u5F55\uFF1B\u672C\u5DE5\u5177\u4E0D\u68C0\u67E5\u8F93\u5165\u6B63\u786E\u6027" })
         ] }),
-        row.filesListed && Number.isFinite(row.fileCount) && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "\u76EE\u5F55\u6587\u4EF6" }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
+        row.filesListed && Number.isFinite(row.fileCount) && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { children: "\u76EE\u5F55\u6587\u4EF6" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
             row.fileCount,
             " \u4E2A\uFF1B\u6587\u4EF6\u5185\u5BB9\u8BF7\u5728\u4EFB\u52A1\u8BE6\u60C5\u4E2D\u67E5\u770B"
           ] })
         ] }),
-        row.preview && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "\u65E7\u8C03\u7528\u9644\u5E26\u7247\u6BB5" }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
+        row.preview && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { children: "\u65E7\u8C03\u7528\u9644\u5E26\u7247\u6BB5" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
             row.preview.name,
             "\uFF1B\u65B0\u8C03\u7528\u5DF2\u5C06\u6587\u4EF6\u8BFB\u53D6\u4E0E\u72B6\u6001\u68C0\u67E5\u5206\u5F00"
           ] })
         ] }),
-        !row.error && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("button", { type: "button", onClick: () => {
+        !row.error && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { type: "button", onClick: () => {
           void openTask(row.rootPath ?? rootPath, row.relPath, "status");
         }, children: "\u5728\u53F3\u4FA7\u6253\u5F00\u4EFB\u52A1\u8BE6\u60C5" })
       ] })
@@ -103615,22 +103708,22 @@ function InputChecks({ value, args, rootPath }) {
     index: index2,
     path: typeof row.resolved === "string" ? relativePath(rootPath, row.resolved) : args.dirs?.[index2] ?? row.dir ?? `\u4EFB\u52A1 ${index2 + 1}`
   }));
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-input-checks", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-scan-path", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { children: rootPath || "\u672A\u77E5\u76EE\u5F55" }),
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-input-checks", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-scan-path", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("code", { children: rootPath || "\u672A\u77E5\u76EE\u5F55" }),
       " \xB7 ",
       results.length,
       " \u4E2A\u76EE\u5F55",
       profileId ? ` \xB7 ${profileNames[profileId] ?? profileId}` : ""
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-scan-bar", role: "img", "aria-label": counts.map((item) => `${item.label} ${item.count}`).join("\uFF0C"), children: counts.filter((item) => item.count).map((item) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { style: { width: `${item.count / Math.max(results.length, 1) * 100}%`, background: item.color } }, item.code)) }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-scan-legend", children: counts.map((item) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", { style: { background: item.color } }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-scan-bar", role: "img", "aria-label": counts.map((item) => `${item.label} ${item.count}`).join("\uFF0C"), children: counts.filter((item) => item.count).map((item) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { style: { width: `${item.count / Math.max(results.length, 1) * 100}%`, background: item.color } }, item.code)) }),
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-scan-legend", children: counts.map((item) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("i", { style: { background: item.color } }),
       item.label,
       " ",
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: item.count })
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: item.count })
     ] }, item.code)) }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-inspection-list", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(PathTree, { items: checkedRows, pathOf: (item) => item.path, renderLeaf: ({ row, index: index2 }, name) => {
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-inspection-list", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PathTree, { items: checkedRows, pathOf: (item) => item.path, renderLeaf: ({ row, index: index2 }, name) => {
       const state = statusOf(row);
       const fields = [
         ["POSCAR \u2194 POTCAR", row.poscarPotcar === "OK" ? `\u5143\u7D20\u987A\u5E8F\u4E00\u81F4${row.species?.length ? `\uFF1A${row.species.join(" \u2192 ")}` : ""}` : row.poscarPotcar],
@@ -103644,37 +103737,37 @@ function InputChecks({ value, args, rootPath }) {
         ["KPOINTS", row.kpoints === "-" || row.kpoints === "?" || /MISSING|UNREADABLE/.test(String(row.kpoints)) ? "bad" : "ok"],
         ["\u89C4\u5219", profileId ? row.input_check?.code === "PASS" ? "ok" : row.input_check?.code === "WARN" ? "warn" : "bad" : "skip"]
       ];
-      return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("details", { className: "vfp-inspection-item", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("summary", { title: `${row.resolved} \xB7 \u53EF\u62D6\u5230\u5176\u4ED6\u5DE5\u5177\u5361\u7247`, draggable: !!row.resolved && relativePath(rootPath, row.resolved) !== row.resolved, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "task", rootPath, relPath: checkedRows[index2].path }), children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: name }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-state-chip", "data-status": state === "FILE_FAIL" || state === "RULE_FAIL" ? "FAIL" : state, children: state === "PASS" ? "\u89C4\u5219\u901A\u8FC7" : state === "WARN" ? "\u6CE8\u610F" : state === "RULE_FAIL" ? "\u89C4\u5219\u672A\u8FC7" : state === "FILE_FAIL" ? "\u6587\u4EF6\u5F02\u5E38" : "\u5DF2\u89E3\u6790" }),
-          state !== "PASS" && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("small", { children: row.error || row.input_check?.evidence?.[0]?.message || row.warnings?.[0] || "" }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-check-matrix", children: checks.map(([label, code]) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { "data-check": code, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", {}),
+      return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("details", { className: "vfp-inspection-item", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("summary", { title: `${row.resolved} \xB7 \u53EF\u62D6\u5230\u5176\u4ED6\u5DE5\u5177\u5361\u7247`, draggable: !!row.resolved && relativePath(rootPath, row.resolved) !== row.resolved, onDragStart: (event) => startStructureDrag(event.dataTransfer, { kind: "task", rootPath, relPath: checkedRows[index2].path }), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: name }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-state-chip", "data-status": state === "FILE_FAIL" || state === "RULE_FAIL" ? "FAIL" : state, children: state === "PASS" ? "\u89C4\u5219\u901A\u8FC7" : state === "WARN" ? "\u6CE8\u610F" : state === "RULE_FAIL" ? "\u89C4\u5219\u672A\u8FC7" : state === "FILE_FAIL" ? "\u6587\u4EF6\u5F02\u5E38" : "\u5DF2\u89E3\u6790" }),
+          state !== "PASS" && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("small", { children: row.error || row.input_check?.evidence?.[0]?.message || row.warnings?.[0] || "" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-check-matrix", children: checks.map(([label, code]) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { "data-check": code, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("i", {}),
             label
           ] }, label)) })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-inspection-detail", children: [
-          fields.map(([label, text]) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: label }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: String(text ?? "\u672A\u8BFB\u53D6") })
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-inspection-detail", children: [
+          fields.map(([label, text]) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { children: label }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: String(text ?? "\u672A\u8BFB\u53D6") })
           ] }, label)),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "INCAR \u53C2\u6570" }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: typeof row.incar === "object" && row.incar ? Object.entries(row.incar).map(([key, val]) => `${key}=${val}`).join(" \xB7 ") || "\u672A\u63D0\u53D6\u5230\u5173\u952E\u53C2\u6570" : String(row.incar ?? "\u672A\u8BFB\u53D6") })
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { children: "INCAR \u53C2\u6570" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: typeof row.incar === "object" && row.incar ? Object.entries(row.incar).map(([key, val]) => `${key}=${val}`).join(" \xB7 ") || "\u672A\u63D0\u53D6\u5230\u5173\u952E\u53C2\u6570" : String(row.incar ?? "\u672A\u8BFB\u53D6") })
           ] }),
-          row.input_check?.evidence?.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "\u89C4\u5219\u4F9D\u636E" }),
-            row.input_check.evidence.map((item, i) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: item.message ?? item.ruleId }, i))
+          row.input_check?.evidence?.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { children: "\u89C4\u5219\u4F9D\u636E" }),
+            row.input_check.evidence.map((item, i) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: item.message ?? item.ruleId }, i))
           ] }),
-          row.input_check?.uncheckedItems?.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: "\u672A\u68C0\u67E5" }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: row.input_check.uncheckedItems.join("\u3001") })
+          row.input_check?.uncheckedItems?.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { children: "\u672A\u68C0\u67E5" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: row.input_check.uncheckedItems.join("\u3001") })
           ] })
         ] })
       ] }, `${row.resolved}-${index2}`);
     } }) }),
-    value.consistency?.uniform === false && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-discovery-foot vfp-tree-muted", children: [
+    value.consistency?.uniform === false && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-discovery-foot vfp-tree-muted", children: [
       "\u53D1\u73B0 ",
       value.consistency.groups?.length ?? 0,
       " \u79CD\u8F93\u5165\u6A21\u5F0F\uFF0C\u8BF7\u6838\u5BF9\u76EE\u5F55\u95F4\u5DEE\u5F02\u3002"
@@ -103703,9 +103796,9 @@ function CollectedResults({ value, rootPath }) {
     return [composition, { frequencyMin: Math.min(-100, ...modes.map((mode) => mode.frequencyCm1)), frequencyMax: Math.max(1e3, ...modes.map((mode) => mode.frequencyCm1)) }];
   }));
   const number7 = (item, digits) => item?.status === "ok" && typeof item.value === "number" ? item.value.toFixed(digits) : "\u2014";
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-collect", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-scan-path", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { children: rootPath }),
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-collect", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-scan-path", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("code", { children: rootPath }),
       " \xB7 ",
       frequency ? "\u9891\u7387\u4E0E ZPE" : "\u5F1B\u8C6B",
       " \xB7 ",
@@ -103713,11 +103806,11 @@ function CollectedResults({ value, rootPath }) {
       " \u4E2A\u4EFB\u52A1",
       excluded.length ? ` \xB7 ${excluded.length} \u4E2A\u6392\u9664` : ""
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-collect-scope", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-collect-scope", children: [
       (value.query?.scope?.subtrees ?? []).map((item) => `${item.relPath} \u2193${item.maxDepth} \u5C42`).concat((value.query?.scope?.taskPaths ?? []).map((item) => `\u7CBE\u786E ${item}`)).join(" \xB7 "),
       frequency && value.query?.conditions?.temperatureK ? ` \xB7 ${value.query.conditions.temperatureK} K` : !frequency && metrics.includes("last_ionic_free_energy") ? " \xB7 \u672B\u6B65 F / eV\uFF08\u540C\u4E00\u7236\u76EE\u5F55\u5171\u7528\u80FD\u91CF\u8F74\uFF09" : ""
     ] }),
-    rows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(PathTree, { items: rows, pathOf: (row) => row.relPath, renderLeaf: (row, name) => {
+    rows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PathTree, { items: rows, pathOf: (row) => row.relPath, renderLeaf: (row, name) => {
       const composition = row.composition || "\u7EC4\u6210\u672A\u77E5";
       const { hasEnergy, axisMin, axisMax } = energyScales.get(parentOf(row));
       const { frequencyMin, frequencyMax } = frequencyScales.get(composition);
@@ -103725,54 +103818,54 @@ function CollectedResults({ value, rootPath }) {
       const energy = vals.last_ionic_free_energy;
       const pos = energy?.status === "ok" ? (energy.value - axisMin) / (axisMax - axisMin) * 100 : 50;
       const modes = vals.frequencies?.value;
-      return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("button", { type: "button", className: "vfp-collect-item", title: `${row.relPath} \xB7 \u5728\u53F3\u4FA7\u67E5\u770B\u4EFB\u52A1\u8BE6\u60C5`, onClick: () => {
+      return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("button", { type: "button", className: "vfp-collect-item", title: `${row.relPath} \xB7 \u5728\u53F3\u4FA7\u67E5\u770B\u4EFB\u52A1\u8BE6\u60C5`, onClick: () => {
         void openTask(rootPath, row.relPath, "status");
       }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-collect-name", title: row.relPath, children: name }),
-        frequency ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-collect-track", "aria-label": `\u9891\u7387\u5206\u5E03 ${frequencyMin.toFixed(0)} \u81F3 ${frequencyMax.toFixed(0)} cm\u207B\xB9`, children: Array.isArray(modes) && modes.slice(0, 120).map((mode, index2) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", { "data-imaginary": mode.kind === "imaginary" ? "" : void 0, style: { left: `${Math.max(3, Math.min(97, (mode.frequencyCm1 - frequencyMin) / (frequencyMax - frequencyMin) * 100))}%` }, title: `${mode.frequencyCm1.toFixed(1)} cm\u207B\xB9` }, index2)) }),
-          metrics.includes("frequencies") && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: Array.isArray(modes) ? `${modes.length} \u6A21\u5F0F` : "\u2014" }),
-          metrics.includes("zpe") && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("b", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-collect-name", title: row.relPath, children: name }),
+        frequency ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-collect-track", "aria-label": `\u9891\u7387\u5206\u5E03 ${frequencyMin.toFixed(0)} \u81F3 ${frequencyMax.toFixed(0)} cm\u207B\xB9`, children: Array.isArray(modes) && modes.slice(0, 120).map((mode, index2) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("i", { "data-imaginary": mode.kind === "imaginary" ? "" : void 0, style: { left: `${Math.max(3, Math.min(97, (mode.frequencyCm1 - frequencyMin) / (frequencyMax - frequencyMin) * 100))}%` }, title: `${mode.frequencyCm1.toFixed(1)} cm\u207B\xB9` }, index2)) }),
+          metrics.includes("frequencies") && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("b", { children: Array.isArray(modes) ? `${modes.length} \u6A21\u5F0F` : "\u2014" }),
+          metrics.includes("zpe") && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("b", { children: [
             "ZPE ",
             number7(vals.zpe, 4),
             " eV"
           ] }),
-          metrics.includes("vibrational_entropy") && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("b", { children: [
+          metrics.includes("vibrational_entropy") && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("b", { children: [
             "S\u1D65\u1D62\u1D66 ",
             number7(vals.vibrational_entropy, 6),
             " eV/K"
           ] }),
-          metrics.includes("vibrational_free_energy") && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("b", { children: [
+          metrics.includes("vibrational_free_energy") && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("b", { children: [
             "F\u1D65\u1D62\u1D66 ",
             number7(vals.vibrational_free_energy, 4),
             " eV"
           ] })
-        ] }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
-          metrics.includes("last_ionic_free_energy") && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-collect-track", "data-range": hasEnergy ? "" : void 0, "data-min": axisMin.toFixed(3), "data-max": axisMax.toFixed(3), "aria-label": hasEnergy ? `\u672B\u6B65\u81EA\u7531\u80FD\u8F74\uFF1A${axisMin.toFixed(3)} \u81F3 ${axisMax.toFixed(3)} eV` : "\u6682\u65E0\u80FD\u91CF\u6570\u636E", children: energy?.status === "ok" && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", { style: { left: `${pos}%` } }) }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("b", { className: "vfp-collect-energy", children: [
+        ] }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
+          metrics.includes("last_ionic_free_energy") && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-collect-track", "data-range": hasEnergy ? "" : void 0, "data-min": axisMin.toFixed(3), "data-max": axisMax.toFixed(3), "aria-label": hasEnergy ? `\u672B\u6B65\u81EA\u7531\u80FD\u8F74\uFF1A${axisMin.toFixed(3)} \u81F3 ${axisMax.toFixed(3)} eV` : "\u6682\u65E0\u80FD\u91CF\u6570\u636E", children: energy?.status === "ok" && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("i", { style: { left: `${pos}%` } }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("b", { className: "vfp-collect-energy", children: [
               number7(energy, 6),
               " eV"
             ] })
           ] }),
-          metrics.includes("last_max_force") && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "vfp-collect-force", children: [
+          metrics.includes("last_max_force") && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { className: "vfp-collect-force", children: [
             "\u529B ",
             number7(vals.last_max_force, 3)
           ] }),
-          metrics.includes("ionic_steps") && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "vfp-collect-steps", children: [
+          metrics.includes("ionic_steps") && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { className: "vfp-collect-steps", children: [
             number7(vals.ionic_steps, 0),
             " \u6B65"
           ] })
         ] })
       ] });
     } }),
-    !rows.length && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-result-summary", children: "\u8303\u56F4\u5185\u6CA1\u6709\u8BE5\u7C7B\u522B\u4EFB\u52A1" }),
-    excluded.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("details", { className: "vfp-collect-excluded", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("summary", { children: [
+    !rows.length && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-result-summary", children: "\u8303\u56F4\u5185\u6CA1\u6709\u8BE5\u7C7B\u522B\u4EFB\u52A1" }),
+    excluded.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("details", { className: "vfp-collect-excluded", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("summary", { children: [
         "\u672A\u7EB3\u5165 ",
         excluded.length
       ] }),
-      excluded.map((item, index2) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { children: [
+      excluded.map((item, index2) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
         item.relPath,
         " \xB7 ",
         item.reason
@@ -103788,25 +103881,25 @@ function VaspToolRow({ block, toolName }) {
   const toolError = block?.result?.isError ? block.result.content?.find((item) => item.type === "text")?.text ?? "\u5DE5\u5177\u6267\u884C\u5931\u8D25" : "";
   const storageKey = toolName === "vasp_structure_scene" ? droppedStorageKey(block) : "";
   const otherStorageKey = ["vasp_convergence", "vasp_inspect_tasks", "vasp_inspect_task"].includes(toolName) ? droppedStorageKey(block, toolName) : "";
-  const [dropped, setDropped] = (0, import_react171.useState)(() => readDroppedStructures(storageKey));
-  const [otherDropped, setOtherDropped] = (0, import_react171.useState)(() => readDroppedRows(otherStorageKey));
-  const [dropFocus, setDropFocus] = (0, import_react171.useState)({ key: "", nonce: 0 });
-  const [dropActive, setDropActive] = (0, import_react171.useState)(false);
-  const [dropRejected, setDropRejected] = (0, import_react171.useState)(false);
-  const [dropBusy, setDropBusy] = (0, import_react171.useState)(false);
-  const [dropError, setDropError] = (0, import_react171.useState)("");
-  (0, import_react171.useEffect)(() => {
+  const [dropped, setDropped] = (0, import_react172.useState)(() => readDroppedStructures(storageKey));
+  const [otherDropped, setOtherDropped] = (0, import_react172.useState)(() => readDroppedRows(otherStorageKey));
+  const [dropFocus, setDropFocus] = (0, import_react172.useState)({ key: "", nonce: 0 });
+  const [dropActive, setDropActive] = (0, import_react172.useState)(false);
+  const [dropRejected, setDropRejected] = (0, import_react172.useState)(false);
+  const [dropBusy, setDropBusy] = (0, import_react172.useState)(false);
+  const [dropError, setDropError] = (0, import_react172.useState)("");
+  (0, import_react172.useEffect)(() => {
     if (storageKey) setDropped(readDroppedStructures(storageKey));
   }, [storageKey]);
-  (0, import_react171.useEffect)(() => {
+  (0, import_react172.useEffect)(() => {
     if (otherStorageKey) setOtherDropped(readDroppedRows(otherStorageKey));
   }, [otherStorageKey]);
   if (toolName === "vasp_say") {
-    if (!settled) return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_say", className: "vfp-tree-muted", children: "\u6B63\u5728\u51C6\u5907\u56DE\u590D\u2026" });
-    if (toolError) return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_say", className: "vfp-result-summary", "data-error": "", children: toolError });
-    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_say", className: "vfp-say", "data-kind": args.kind, children: args.text });
+    if (!settled) return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_say", className: "vfp-tree-muted", children: "\u6B63\u5728\u51C6\u5907\u56DE\u590D\u2026" });
+    if (toolError) return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_say", className: "vfp-result-summary", "data-error": "", children: toolError });
+    return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_say", className: "vfp-say", "data-kind": args.kind, children: args.text });
   }
-  if (toolName === "vasp_done") return toolError ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_done", className: "vfp-result-summary", "data-error": "", children: toolError }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { "data-dsh-vaspflow-tool": "vasp_done", "data-complete": "", hidden: true });
+  if (toolName === "vasp_done") return toolError ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { "data-dsh-vaspflow-tool": "vasp_done", className: "vfp-result-summary", "data-error": "", children: toolError }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { "data-dsh-vaspflow-tool": "vasp_done", "data-complete": "", hidden: true });
   const rootPath = value.rootPath ?? args.rootPath ?? value.projectRoot ?? args.projectRoot ?? panelStore.getSnapshot().projectPath;
   const relPath = value.relPath ?? value.rel_path ?? args.relPath ?? "";
   const visualRows = Array.isArray(value.results) ? value.results : [];
@@ -103897,7 +103990,7 @@ function VaspToolRow({ block, toolName }) {
   const exceptionalCount = toolName === "vasp_inspect_task" ? Number(value.status?.code === "ERROR_DETECTED" || value.inputCheck?.code === "FAIL") : (toolName === "vasp_scan" ? value.tasks : value.results)?.filter((row) => row.error || row.status_record?.code === "ERROR_DETECTED" || row.status?.code === "ERROR_DETECTED" || row.input_check?.code === "FAIL")?.length ?? 0;
   const withExceptions = (label) => `${label}${exceptionalCount ? ` \xB7 ${exceptionalCount} \u5F02\u5E38` : ""}`;
   const compactSummary = toolName === "vasp_collect_results" ? `${value.summary?.included ?? 0} \u4E2A\u4EFB\u52A1` : toolName === "vasp_scan" ? withExceptions(`${value.tasks?.length ?? 0} \u4E2A\u4EFB\u52A1`) : toolName === "vasp_discover_inputs" ? `${value.sources?.files?.length ?? 0} \u4E2A\u7ED3\u6784\u6E90 \xB7 ${value.templates?.length ?? 0} \u4E2A\u6A21\u677F` : toolName === "vasp_inspect_task" ? withExceptions("1 \u4E2A\u4EFB\u52A1") : toolName === "vasp_inspect_tasks" || toolName === "vasp_check_inputs" ? withExceptions(`${visualRows.length || value.results?.length || 0} \u4E2A\u4EFB\u52A1`) : toolName === "vasp_convergence" ? withExceptions(`${visualRows.length + otherDropped.length} \u6761\u66F2\u7EBF`) : toolName === "vasp_structure_scene" ? withExceptions(`${visualRows.length + dropped.length} \u4E2A\u7ED3\u6784`) : "";
-  return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(
     "div",
     {
       "data-dsh-vaspflow-tool": toolName,
@@ -103927,30 +104020,30 @@ function VaspToolRow({ block, toolName }) {
         void handleDrop(event);
       },
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-tree-head", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("button", { type: "button", className: "vfp-card-toggle", "aria-expanded": !collapsed, onClick: () => setCardCollapsed(!collapsed), children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { "aria-hidden": "true", children: collapsed ? "\u25B8" : "\u25BE" }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("strong", { children: toolName === "vasp_collect_results" ? (value.query?.calculationType ?? args.calculationType) === "FREQUENCY_ZPE" ? "\u67E5\u770B\u9891\u7387\u4E0E ZPE" : "\u67E5\u770B\u5F1B\u8C6B\u6570\u636E" : titles[toolName] })
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-tree-head", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("button", { type: "button", className: "vfp-card-toggle", "aria-expanded": !collapsed, onClick: () => setCardCollapsed(!collapsed), children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { "aria-hidden": "true", children: collapsed ? "\u25B8" : "\u25BE" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: toolName === "vasp_collect_results" ? (value.query?.calculationType ?? args.calculationType) === "FREQUENCY_ZPE" ? "\u67E5\u770B\u9891\u7387\u4E0E ZPE" : "\u67E5\u770B\u5F1B\u8C6B\u6570\u636E" : titles[toolName] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-tree-muted", children: settled ? error ? "\u5931\u8D25" : collapsed && compactSummary ? `\u5B8C\u6210 \xB7 ${compactSummary}` : "\u5B8C\u6210" : "\u5904\u7406\u4E2D" })
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-tree-muted", children: settled ? error ? "\u5931\u8D25" : collapsed && compactSummary ? `\u5B8C\u6210 \xB7 ${compactSummary}` : "\u5B8C\u6210" : "\u5904\u7406\u4E2D" })
         ] }),
-        dropActive && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-structure-drop-hint", children: [
+        dropActive && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-structure-drop-hint", children: [
           "\u677E\u5F00\u4EE5",
           toolName === "vasp_structure_scene" ? "\u6DFB\u52A0\u7ED3\u6784\u6587\u4EF6\u6807\u7B7E\u9875\uFF08\u4EFB\u52A1\u4F1A\u6DFB\u52A0\u76F4\u5C5E\u7ED3\u6784\u6587\u4EF6\uFF09" : toolName === "vasp_convergence" ? "\u6DFB\u52A0 1 \u4E2A\u4EFB\u52A1\u66F2\u7EBF\u6807\u7B7E\u9875" : "\u8865\u5145 1 \u6761\u4EFB\u52A1\u72B6\u6001\u8BB0\u5F55"
         ] }),
-        dropRejected && /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-structure-drop-hint", "data-rejected": "", children: [
+        dropRejected && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-structure-drop-hint", "data-rejected": "", children: [
           "\u6B64\u5361\u7247",
           toolName === "vasp_structure_scene" ? "\u53EA\u63A5\u53D7\u7ED3\u6784\u6587\u4EF6\u6216\u4EFB\u52A1" : "\u53EA\u63A5\u53D7\u4EFB\u52A1"
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { hidden: collapsed, children: [
-          dropBusy && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-tree-muted", children: "\u6B63\u5728\u8BFB\u53D6\u4EFB\u52A1\u2026" }),
-          dropError && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: dropError }),
-          settled && (error ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: error }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
-            toolName === "vasp_collect_results" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(CollectedResults, { value, rootPath }) : toolName === "vasp_scan" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(ScanOverview, { value, rootPath }) : toolName === "vasp_discover_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(InputDiscovery, { value, rootPath, args }) : toolName === "vasp_inspect_tasks" || toolName === "vasp_inspect_task" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(StatusInspection, { value: { ...value, results: [...toolName === "vasp_inspect_task" ? [{ relPath, status: value.status, inputCheck: value.inputCheck, outputFiles: value.outputFiles }] : visualRows, ...otherDropped] }, rootPath }) : toolName === "vasp_check_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(InputChecks, { value, rootPath, args }) : toolName === "vasp_convergence" || toolName === "vasp_structure_scene" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-result-summary", children: toolName === "vasp_convergence" && otherDropped.length ? `${visualRows.length} \u4E2A\u539F\u59CB\u4EFB\u52A1 \xB7 ${otherDropped.length} \u4E2A\u62D6\u5165\u4EFB\u52A1` : summary }),
-              (visualRows.length > 0 || dropped.length > 0 || otherDropped.length > 0) && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(ResultTabs, { rows: toolName === "vasp_structure_scene" ? [...visualRows, ...dropped] : [...visualRows, ...otherDropped], kind: toolName === "vasp_convergence" ? "convergence" : "structure", rootPath, focus: dropFocus, orderStorageKey: droppedStorageKey(block, `${toolName}-tab-order`) })
-            ] }) : /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-result-summary", children: summary || "\u65E0\u7ED3\u679C" }),
-            rows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(IssueRows, { rows, rootPath, tab })
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { hidden: collapsed, children: [
+          dropBusy && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-muted", children: "\u6B63\u5728\u8BFB\u53D6\u4EFB\u52A1\u2026" }),
+          dropError && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: dropError }),
+          settled && (error ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-result-summary", "data-error": "", children: error }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
+            toolName === "vasp_collect_results" ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(CollectedResults, { value, rootPath }) : toolName === "vasp_scan" ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(ScanOverview, { value, rootPath }) : toolName === "vasp_discover_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(InputDiscovery, { value, rootPath, args }) : toolName === "vasp_inspect_tasks" || toolName === "vasp_inspect_task" ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(StatusInspection, { value: { ...value, results: [...toolName === "vasp_inspect_task" ? [{ relPath, status: value.status, inputCheck: value.inputCheck, outputFiles: value.outputFiles }] : visualRows, ...otherDropped] }, rootPath }) : toolName === "vasp_check_inputs" ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(InputChecks, { value, rootPath, args }) : toolName === "vasp_convergence" || toolName === "vasp_structure_scene" ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-result-summary", children: toolName === "vasp_convergence" && otherDropped.length ? `${visualRows.length} \u4E2A\u539F\u59CB\u4EFB\u52A1 \xB7 ${otherDropped.length} \u4E2A\u62D6\u5165\u4EFB\u52A1` : summary }),
+              (visualRows.length > 0 || dropped.length > 0 || otherDropped.length > 0) && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(ResultTabs, { rows: toolName === "vasp_structure_scene" ? [...visualRows, ...dropped] : [...visualRows, ...otherDropped], kind: toolName === "vasp_convergence" ? "convergence" : "structure", rootPath, focus: dropFocus, orderStorageKey: droppedStorageKey(block, `${toolName}-tab-order`) })
+            ] }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-result-summary", children: summary || "\u65E0\u7ED3\u679C" }),
+            rows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(IssueRows, { rows, rootPath, tab })
           ] }))
         ] })
       ]
@@ -104057,7 +104150,7 @@ function mountWorkCollapse() {
 }
 
 // src/client/index.tsx
-var import_jsx_runtime9 = require("react/jsx-runtime");
+var import_jsx_runtime10 = require("react/jsx-runtime");
 var ENTRY_ATTR = "data-dsh-vaspflow-entry";
 var PANEL_ATTR = "data-dsh-vaspflow-panel";
 var ENTRY_LABEL = "VASP";
@@ -104542,10 +104635,10 @@ function buildTaskTree(tasks) {
 function BuildInputsToolRow({ block }) {
   const { collapsed, setCardCollapsed } = useToolCardCollapse(block, "vasp_build_inputs");
   const { buildDryRun, buildModeError } = usePanelStore();
-  const args = import_react172.default.useMemo(() => parseToolArgs(block), [block]);
+  const args = import_react173.default.useMemo(() => parseToolArgs(block), [block]);
   const settled = block?.kind === "tool-result";
-  const originalPreview = import_react172.default.useMemo(() => parseBuildResult(block), [block]);
-  const [revision, setRevision] = import_react172.default.useState(() => {
+  const originalPreview = import_react173.default.useMemo(() => parseBuildResult(block), [block]);
+  const [revision, setRevision] = import_react173.default.useState(() => {
     if (!originalPreview.planId) return null;
     try {
       const saved2 = sessionStorage.getItem(`dsh-vaspflow:build-repreview:${originalPreview.planId}`);
@@ -104555,7 +104648,7 @@ function BuildInputsToolRow({ block }) {
     }
   });
   const historyKey = originalPreview.planId ? `dsh-vaspflow:build-history:${originalPreview.planId}` : "";
-  const [history, setHistory] = import_react172.default.useState(() => {
+  const [history, setHistory] = import_react173.default.useState(() => {
     try {
       const saved2 = JSON.parse(sessionStorage.getItem(historyKey) || "[]");
       return Array.isArray(saved2) ? saved2 : [];
@@ -104563,7 +104656,7 @@ function BuildInputsToolRow({ block }) {
       return [];
     }
   });
-  const historyRef = import_react172.default.useRef(history);
+  const historyRef = import_react173.default.useRef(history);
   const recordAction = (text) => {
     const next2 = [...historyRef.current, { at: Date.now(), text }].slice(-20);
     historyRef.current = next2;
@@ -104575,11 +104668,11 @@ function BuildInputsToolRow({ block }) {
   };
   const tasks = revision?.tasks ?? (Array.isArray(args.tasks) ? args.tasks : []);
   const preview = revision?.preview ?? originalPreview;
-  const inheritSummary = import_react172.default.useMemo(
+  const inheritSummary = import_react173.default.useMemo(
     () => summarizeBatch({ tasks, results: preview.results ?? [] }, preview.projectRoot || args.projectRoot || ""),
     [tasks, preview, args.projectRoot]
   );
-  const inheritHint = import_react172.default.useMemo(() => {
+  const inheritHint = import_react173.default.useMemo(() => {
     if (!inheritSummary) return "";
     const parts = [];
     if (inheritSummary.templates.length > 1 || inheritSummary.untemplated) {
@@ -104592,27 +104685,27 @@ function BuildInputsToolRow({ block }) {
     }
     return parts.join(" \xB7 ");
   }, [inheritSummary]);
-  const [selectedState, setSelected] = import_react172.default.useState(() => new Set(tasks.map((_, index2) => index2)));
-  const [focused, setFocused] = import_react172.default.useState(null);
-  const [openDirectory, setOpenDirectory] = import_react172.default.useState("");
-  const [rootOpen, setRootOpen] = import_react172.default.useState(true);
-  const buildTreeRef = import_react172.default.useRef(null);
+  const [selectedState, setSelected] = import_react173.default.useState(() => new Set(tasks.map((_, index2) => index2)));
+  const [focused, setFocused] = import_react173.default.useState(null);
+  const [openDirectory, setOpenDirectory] = import_react173.default.useState("");
+  const [rootOpen, setRootOpen] = import_react173.default.useState(true);
+  const buildTreeRef = import_react173.default.useRef(null);
   const buildScrollPath = useTreeScrollPath(buildTreeRef, `${rootOpen}:${openDirectory}:${tasks.length}`);
-  const [phaseState, setPhase] = import_react172.default.useState("preview");
-  const [writeRowsState, setWriteRows] = import_react172.default.useState({});
-  const [messageState, setMessage] = import_react172.default.useState("");
-  const [requestErrorState, setRequestError] = import_react172.default.useState(false);
-  const [dropBusy, setDropBusy] = import_react172.default.useState(null);
-  const [dropActive, setDropActive] = import_react172.default.useState(null);
-  const [cancelBusy, setCancelBusy] = import_react172.default.useState(false);
-  const saved = import_react172.default.useSyncExternalStore(subscribeBuildOutcomes, () => readBuildOutcome(preview.planId), () => null);
+  const [phaseState, setPhase] = import_react173.default.useState("preview");
+  const [writeRowsState, setWriteRows] = import_react173.default.useState({});
+  const [messageState, setMessage] = import_react173.default.useState("");
+  const [requestErrorState, setRequestError] = import_react173.default.useState(false);
+  const [dropBusy, setDropBusy] = import_react173.default.useState(null);
+  const [dropActive, setDropActive] = import_react173.default.useState(null);
+  const [cancelBusy, setCancelBusy] = import_react173.default.useState(false);
+  const saved = import_react173.default.useSyncExternalStore(subscribeBuildOutcomes, () => readBuildOutcome(preview.planId), () => null);
   const selected = saved ? new Set(saved.selectedIndices) : selectedState;
   const phase = saved?.phase ?? phaseState;
   const writeRows = saved?.writeRows ?? writeRowsState;
   const message = messageState || saved?.message || "";
   const requestError = messageState ? requestErrorState : saved?.requestError ?? requestErrorState;
   const directMode = buildDryRun === false;
-  const submitLock = import_react172.default.useRef(false);
+  const submitLock = import_react173.default.useRef(false);
   const isPreview = preview.dryRun !== false;
   const taskTree = buildTaskTree(tasks);
   const canConfirm = settled && isPreview && !!preview.planId && !preview.error && !buildModeError && phase === "preview" && dropBusy === null && !cancelBusy;
@@ -104662,7 +104755,7 @@ function BuildInputsToolRow({ block }) {
       setRequestError(true);
     }
   };
-  import_react172.default.useEffect(() => {
+  import_react173.default.useEffect(() => {
     if (!settled || !originalPreview.planId || originalPreview.dryRun === false) return;
     let active = true;
     let timer;
@@ -104868,7 +104961,7 @@ function BuildInputsToolRow({ block }) {
     const row = writeRows[index2] ?? preview.results?.[index2];
     const status = row?.errors?.length ? "error" : row?.warnings?.length ? "warn" : "ok";
     const label = !settled ? "\u5904\u7406\u4E2D" : status === "error" ? "\u9519\u8BEF" : row?.wrote ? "\u5DF2\u5199\u5165" : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : phase === "unavailable" ? "\u5F85\u6838\u67E5" : phase === "done" && selected.has(index2) ? "\u672A\u5199\u5165" : status === "warn" ? "\u9700\u6CE8\u610F" : isPreview ? "\u53EF\u6784\u5EFA" : "\u5B8C\u6210";
-    return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(
+    return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(
       "div",
       {
         className: "vfp-tree-task",
@@ -104894,16 +104987,16 @@ function BuildInputsToolRow({ block }) {
           if (row?.wrote) startStructureDrag(event.dataTransfer, { kind: "task", rootPath: preview.projectRoot || args.projectRoot || "", relPath: tasks[index2].dir || "." });
         },
         children: [
-          canConfirm && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("input", { type: "checkbox", "aria-label": `\u9009\u62E9 ${tasks[index2].dir || `\u4EFB\u52A1 ${index2 + 1}`}`, checked: selected.has(index2), onChange: (event) => setSelected((old) => {
+          canConfirm && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("input", { type: "checkbox", "aria-label": `\u9009\u62E9 ${tasks[index2].dir || `\u4EFB\u52A1 ${index2 + 1}`}`, checked: selected.has(index2), onChange: (event) => setSelected((old) => {
             const next2 = new Set(old);
             if (event.target.checked) next2.add(index2);
             else next2.delete(index2);
             return next2;
           }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("button", { type: "button", className: "vfp-tree-open", onClick: () => showTask(index2), "aria-label": `\u5728\u53F3\u4FA7\u67E5\u770B ${tasks[index2].dir || `\u4EFB\u52A1 ${index2 + 1}`} \u8BE6\u60C5`, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-tree-name", children: name }),
-            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-tree-status", "data-status": status, children: dropBusy === index2 ? "\u91CD\u7B97\u9884\u89C8" : label }),
-            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { "aria-hidden": "true", children: "\u203A" })
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("button", { type: "button", className: "vfp-tree-open", onClick: () => showTask(index2), "aria-label": `\u5728\u53F3\u4FA7\u67E5\u770B ${tasks[index2].dir || `\u4EFB\u52A1 ${index2 + 1}`} \u8BE6\u60C5`, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "vfp-tree-name", children: name }),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "vfp-tree-status", "data-status": status, children: dropBusy === index2 ? "\u91CD\u7B97\u9884\u89C8" : label }),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { "aria-hidden": "true", children: "\u203A" })
           ] })
         ]
       }
@@ -104911,11 +105004,11 @@ function BuildInputsToolRow({ block }) {
   };
   const renderNode = (node2) => {
     const children = [...node2.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true }));
-    if (!children.length) return node2.taskIndices.map((index2) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": node2.path.split("/").slice(0, -1).join("/"), children: renderTaskRow(index2, node2.name) }, `${node2.path}-${index2}`));
+    if (!children.length) return node2.taskIndices.map((index2) => /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": node2.path.split("/").slice(0, -1).join("/"), children: renderTaskRow(index2, node2.name) }, `${node2.path}-${index2}`));
     const isOpen = openDirectory === node2.path || openDirectory.startsWith(`${node2.path}/`);
-    return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-build-folder vfp-path-folder", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-tree-group", title: node2.path, "data-vfp-tree-path": node2.path, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { type: "button", className: "vfp-tree-toggle", "aria-label": `${isOpen ? "\u6536\u8D77" : "\u5C55\u5F00"} ${node2.path}`, "aria-expanded": isOpen, onClick: (event) => {
+    return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "vfp-build-folder vfp-path-folder", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "vfp-tree-group", title: node2.path, "data-vfp-tree-path": node2.path, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { type: "button", className: "vfp-tree-toggle", "aria-label": `${isOpen ? "\u6536\u8D77" : "\u5C55\u5F00"} ${node2.path}`, "aria-expanded": isOpen, onClick: (event) => {
           if (isOpen) setOpenDirectory(node2.path.split("/").slice(0, -1).join("/"));
           else {
             let current = node2;
@@ -104928,29 +105021,29 @@ function BuildInputsToolRow({ block }) {
             scrollExpandedTreeRow(event.currentTarget.parentElement);
           }
         }, children: isOpen ? "\u25BE" : "\u25B8" }),
-        canConfirm && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("input", { type: "checkbox", "aria-label": `\u9009\u62E9 ${node2.path} \u4E0B\u5168\u90E8\u4EFB\u52A1`, checked: node2.indices.every((index2) => selected.has(index2)), ref: (input) => {
+        canConfirm && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("input", { type: "checkbox", "aria-label": `\u9009\u62E9 ${node2.path} \u4E0B\u5168\u90E8\u4EFB\u52A1`, checked: node2.indices.every((index2) => selected.has(index2)), ref: (input) => {
           if (input) input.indeterminate = node2.indices.some((index2) => selected.has(index2)) && !node2.indices.every((index2) => selected.has(index2));
         }, onChange: (event) => setSelected((old) => {
           const next2 = new Set(old);
           node2.indices.forEach((index2) => event.target.checked ? next2.add(index2) : next2.delete(index2));
           return next2;
         }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: node2.name }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-tree-muted", children: node2.indices.length })
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { children: node2.name }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "vfp-tree-muted", children: node2.indices.length })
       ] }),
-      isOpen && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-path-children", children: [
-        node2.taskIndices.map((index2) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": node2.path, children: renderTaskRow(index2, "\u672C\u76EE\u5F55") }, `${node2.path}-${index2}`)),
+      isOpen && /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "vfp-path-children", children: [
+        node2.taskIndices.map((index2) => /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-path-leaf", "data-vfp-tree-parent": node2.path, children: renderTaskRow(index2, "\u672C\u76EE\u5F55") }, `${node2.path}-${index2}`)),
         children.map(renderNode)
       ] })
     ] }, node2.path);
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { "data-dsh-vaspflow-tool": "vasp_build_inputs", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-tree-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("button", { type: "button", className: "vfp-card-toggle", "aria-expanded": !collapsed, onClick: () => setCardCollapsed(!collapsed), children: [
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { "aria-hidden": "true", children: collapsed ? "\u25B8" : "\u25BE" }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("strong", { children: "\u6784\u5EFA\u4EFB\u52A1" })
+  return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { "data-dsh-vaspflow-tool": "vasp_build_inputs", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "vfp-tree-head", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("button", { type: "button", className: "vfp-card-toggle", "aria-expanded": !collapsed, onClick: () => setCardCollapsed(!collapsed), children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { "aria-hidden": "true", children: collapsed ? "\u25B8" : "\u25BE" }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("strong", { children: "\u6784\u5EFA\u4EFB\u52A1" })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { className: "vfp-tree-muted", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "vfp-tree-muted", children: [
         !settled ? "\u5904\u7406\u4E2D" : phase === "done" ? `\u5DF2\u5199\u5165 ${writtenCount}/${selectedIndices.length}` : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : phase === "unavailable" ? "\u4E0D\u53EF\u786E\u8BA4" : isPreview ? "\u5F85\u786E\u8BA4\u9884\u89C8" : `\u5DF2\u5199\u5165 ${writtenCount}/${tasks.length}`,
         " \xB7 ",
         tasks.length,
@@ -104959,53 +105052,53 @@ function BuildInputsToolRow({ block }) {
         writeErrors ? ` \xB7 ${writeErrors} \u9519\u8BEF` : ""
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { hidden: collapsed, children: [
-      (preview.projectRoot || args.projectRoot) && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-scan-path", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("code", { children: preview.projectRoot || args.projectRoot }) }),
-      settled && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-build-steps", "aria-label": "\u6784\u5EFA\u8FDB\u5EA6", children: isPreview ? /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { "data-stage": "done", children: "\u2460 \u9884\u89C8\u5DF2\u751F\u6210" }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { "data-stage": phase === "preview" ? "current" : phase === "building" || phase === "done" ? "done" : "stopped", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { hidden: collapsed, children: [
+      (preview.projectRoot || args.projectRoot) && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-scan-path", children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("code", { children: preview.projectRoot || args.projectRoot }) }),
+      settled && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-build-steps", "aria-label": "\u6784\u5EFA\u8FDB\u5EA6", children: isPreview ? /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(import_jsx_runtime10.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { "data-stage": "done", children: "\u2460 \u9884\u89C8\u5DF2\u751F\u6210" }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { "data-stage": phase === "preview" ? "current" : phase === "building" || phase === "done" ? "done" : "stopped", children: [
           "\u2461 ",
           phase === "preview" ? "\u7B49\u5F85\u786E\u8BA4" : phase === "building" || phase === "done" ? "\u5DF2\u786E\u8BA4" : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : "\u786E\u8BA4\u72B6\u6001\u5F85\u6838\u67E5"
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { "data-stage": phase === "done" ? "done" : phase === "building" ? "current" : phase === "unavailable" ? "stopped" : "pending", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { "data-stage": phase === "done" ? "done" : phase === "building" ? "current" : phase === "unavailable" ? "stopped" : "pending", children: [
           "\u2462 ",
           phase === "done" ? `\u5DF2\u5199\u5165 ${writtenCount}/${selectedIndices.length}` : phase === "building" ? "\u6B63\u5728\u5199\u5165" : phase === "unavailable" ? "\u5199\u5165\u72B6\u6001\u5F85\u6838\u67E5" : "\u5C1A\u672A\u5199\u5165"
         ] })
-      ] }) : /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(import_jsx_runtime9.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { "data-stage": "done", children: "AI \u76F4\u63A5\u6784\u5EFA" }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { "data-stage": "done", children: [
+      ] }) : /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(import_jsx_runtime10.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { "data-stage": "done", children: "AI \u76F4\u63A5\u6784\u5EFA" }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { "data-stage": "done", children: [
           "\u5DF2\u5199\u5165 ",
           writtenCount,
           "/",
           tasks.length
         ] })
       ] }) }),
-      (sourceChanges.length > 0 || history.length > 0) && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("details", { className: "vfp-build-changes", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("summary", { children: [
+      (sourceChanges.length > 0 || history.length > 0) && /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("details", { className: "vfp-build-changes", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("summary", { children: [
           "\u64CD\u4F5C\u8BB0\u5F55 \xB7 ",
           history.length,
           " \u6761",
           sourceChanges.length ? ` \xB7 ${sourceChanges.length} \u4E2A\u6765\u6E90\u53D8\u5316` : ""
         ] }),
-        sourceChanges.map((change, index2) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("strong", { children: [
+        sourceChanges.map((change, index2) => /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("strong", { children: [
             change.dir,
             " / ",
             change.file
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { title: change.before || "", children: change.before || "\u672A\u6307\u5B9A" }),
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { "aria-hidden": "true", children: "\u2192" }),
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { title: change.after || "", children: change.after || "\u672A\u6307\u5B9A" })
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { title: change.before || "", children: change.before || "\u672A\u6307\u5B9A" }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { "aria-hidden": "true", children: "\u2192" }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { title: change.after || "", children: change.after || "\u672A\u6307\u5B9A" })
         ] }, `${change.dir}-${change.file}-${index2}`)),
-        history.map((action, index2) => /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("p", { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("time", { children: new Date(action.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }),
+        history.map((action, index2) => /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("p", { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("time", { children: new Date(action.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) }),
           action.text
         ] }, `${action.at}-${index2}`))
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-tree-shell", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-breadcrumb", hidden: !buildScrollPath, title: buildScrollPath, children: buildScrollPath }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { ref: buildTreeRef, className: "vfp-build-tree vfp-path-tree", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("details", { className: "vfp-path-root vfp-path-folder", open: rootOpen, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("summary", { onClick: (event) => {
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "vfp-tree-shell", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-tree-breadcrumb", hidden: !buildScrollPath, title: buildScrollPath, children: buildScrollPath }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { ref: buildTreeRef, className: "vfp-build-tree vfp-path-tree", children: /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("details", { className: "vfp-path-root vfp-path-folder", open: rootOpen, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("summary", { onClick: (event) => {
             event.preventDefault();
             if (rootOpen) setOpenDirectory("");
             else {
@@ -105020,48 +105113,48 @@ function BuildInputsToolRow({ block }) {
             }
             setRootOpen(!rootOpen);
           }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { children: "\u6839\u76EE\u5F55" }),
-            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("small", { children: tasks.length })
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { children: "\u6839\u76EE\u5F55" }),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("small", { children: tasks.length })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-path-children", children: [...taskTree.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true })).map(renderNode) })
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-path-children", children: [...taskTree.children.values()].sort((a2, b) => a2.name.localeCompare(b.name, void 0, { numeric: true })).map(renderNode) })
         ] }) })
       ] }),
-      tasks.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-message", children: "\u6CA1\u6709\u6784\u5EFA\u4EFB\u52A1" }),
-      isPreview && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-tree-actions", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
+      tasks.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-tree-message", children: "\u6CA1\u6709\u6784\u5EFA\u4EFB\u52A1" }),
+      isPreview && tasks.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "vfp-tree-actions", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { children: [
           selected.size,
           " \u4E2A\u4EFB\u52A1\u5DF2\u9009\u4E2D",
           selectedErrors ? ` \xB7 ${selectedErrors} \u4E2A\u4EFB\u52A1\u5B58\u5728\u9519\u8BEF` : ""
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { children: [
-          phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { type: "button", disabled: cancelBusy, onClick: () => {
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { children: [
+          phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { type: "button", disabled: cancelBusy, onClick: () => {
             void cancelPreview();
           }, children: cancelBusy ? "\u6B63\u5728\u53D6\u6D88\u2026" : "\u53D6\u6D88\u9884\u89C8" }),
-          phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { type: "button", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, title: "\u6267\u884C\u672C\u6B21\u6240\u9009\u4EFB\u52A1\uFF0C\u5E76\u8BA9\u540E\u7EED AI \u8C03\u7528\u76F4\u63A5\u6784\u5EFA", onClick: () => {
+          phase === "preview" && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { type: "button", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, title: "\u6267\u884C\u672C\u6B21\u6240\u9009\u4EFB\u52A1\uFF0C\u5E76\u8BA9\u540E\u7EED AI \u8C03\u7528\u76F4\u63A5\u6784\u5EFA", onClick: () => {
             void confirm2(true);
           }, children: "\u4EA4\u7ED9 AI \u76F4\u63A5\u6784\u5EFA" }),
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { type: "button", className: "vfp-tree-confirm", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, onClick: () => {
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { type: "button", className: "vfp-tree-confirm", disabled: !canConfirm || selected.size === 0 || selectedErrors > 0, onClick: () => {
             void confirm2();
           }, children: phase === "building" ? "\u6B63\u5728\u6784\u5EFA\u2026" : phase === "done" ? "\u5DF2\u5B8C\u6210" : phase === "cancelled" ? "\u5DF2\u53D6\u6D88" : phase === "unavailable" ? "\u4E0D\u53EF\u786E\u8BA4" : `\u786E\u8BA4\u6784\u5EFA ${selected.size} \u4E2A\u4EFB\u52A1` })
         ] })
       ] }),
-      directMode && settled && /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "vfp-tree-actions", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "vfp-tree-muted", children: "\u540E\u7EED AI \u8C03\u7528\u5C06\u76F4\u63A5\u6784\u5EFA" }),
-        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("button", { type: "button", onClick: () => {
+      directMode && settled && /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "vfp-tree-actions", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "vfp-tree-muted", children: "\u540E\u7EED AI \u8C03\u7528\u5C06\u76F4\u63A5\u6784\u5EFA" }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { type: "button", onClick: () => {
           void restorePreview();
         }, children: "\u6062\u590D\u9884\u89C8\u786E\u8BA4" })
       ] }),
-      preview.error && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: preview.error }),
-      buildModeError && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: buildModeError }),
-      settled && isPreview && !preview.planId && !preview.error && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-message", children: "\u6B64\u9884\u89C8\u7F3A\u5C11\u786E\u8BA4\u51ED\u636E\uFF0C\u8BF7\u5728\u5BF9\u8BDD\u4E2D\u91CD\u65B0\u8FD0\u884C\u9884\u89C8\u3002" }),
-      message && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "vfp-tree-message", "data-error": requestError ? "" : void 0, children: message })
+      preview.error && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: preview.error }),
+      buildModeError && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-tree-message", "data-error": "", children: buildModeError }),
+      settled && isPreview && !preview.planId && !preview.error && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-tree-message", children: "\u6B64\u9884\u89C8\u7F3A\u5C11\u786E\u8BA4\u51ED\u636E\uFF0C\u8BF7\u5728\u5BF9\u8BDD\u4E2D\u91CD\u65B0\u8FD0\u884C\u9884\u89C8\u3002" }),
+      message && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "vfp-tree-message", "data-error": requestError ? "" : void 0, children: message })
     ] })
   ] });
 }
 function PanelRoot(props) {
-  const dark = (0, import_react172.useSyncExternalStore)(subscribeDarkTheme, getDarkTheme, getDarkTheme);
+  const dark = (0, import_react173.useSyncExternalStore)(subscribeDarkTheme, getDarkTheme, getDarkTheme);
   const api = panelLayoutApi.current;
-  return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
     config_provider_default,
     {
       locale: import_zh_CN2.default,
@@ -105069,7 +105162,7 @@ function PanelRoot(props) {
         algorithm: dark ? theme_default3.darkAlgorithm : theme_default3.defaultAlgorithm,
         token: { colorPrimary: dark ? "#99baff" : "#396bd7", borderRadius: 6, fontSize: 13, controlHeightSM: 28 }
       },
-      children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
+      children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
         Panel3,
         {
           ...props,
@@ -105100,7 +105193,7 @@ function apply(ctx) {
       ctx.slots.inject("tool.call.toolview", () => ctx.slots.register({
         name: "tool.call.toolview",
         key: toolName
-      }, (props) => /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(VaspToolRow, { ...props, toolName })));
+      }, (props) => /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(VaspToolRow, { ...props, toolName })));
     }
   } catch (error) {
     console.error("[dsh-vaspflow] conversation tool row mount failed:", error);
@@ -105147,7 +105240,7 @@ function apply(ctx) {
       }
     }
   };
-  const panel = /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PanelRoot, { onAnalyzeTask: handleAnalyzeTask, onPickWorkspace });
+  const panel = /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(PanelRoot, { onAnalyzeTask: handleAnalyzeTask, onPickWorkspace });
   const disposers = [];
   try {
     disposers.push(mountWorkCollapse());
