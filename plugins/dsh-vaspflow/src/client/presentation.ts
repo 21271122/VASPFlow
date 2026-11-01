@@ -259,10 +259,10 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-batch-dot { width:7px; height:7px; border-radius:50%; background:var(--vfp-accent); flex:none; }
 .vfp-batch-path-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1.5 Consolas,"Cascadia Mono",monospace; color:var(--vfp-text); }
 .vfp-batch-count { margin-left:auto; color:var(--vfp-muted); font-size:11px; font-variant-numeric:tabular-nums; }
-.vfp-batch-row { display:grid; grid-template-columns:190px minmax(0,1fr); gap:10px; align-items:start; min-width:0; }
+.vfp-batch-row { display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-start; gap:8px; width:min(100%,586px); margin:0 auto; }
 .vfp-batch-row + .vfp-batch-row { margin-top:12px; padding-top:12px; border-top:1px dashed var(--vfp-line); }
-.vfp-batch-row-source { min-width:0; }
-.vfp-batch-children { display:flex; flex-wrap:wrap; align-content:flex-start; justify-content:flex-start; gap:8px; box-sizing:border-box; min-width:0; margin:0; padding:0; list-style:none; }
+.vfp-batch-row-source { flex:0 0 190px; min-width:0; }
+.vfp-batch-children { display:contents; }
 
 .vfp-batch-children li::before { content:none; }
 .vfp-batch-task { width:100%; padding:2px 6px; border:0; border-radius:4px; background:transparent; color:inherit; font:inherit; cursor:pointer; text-align:left; }

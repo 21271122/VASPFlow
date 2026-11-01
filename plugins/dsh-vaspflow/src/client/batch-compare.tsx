@@ -83,7 +83,15 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                     const shown = source.tasks;
                     // The directory that holds the template is what the user
                     // names the source by ("C1"), not the word 模板.
-                    const sourceName = toPosix(source.path).split('/').filter(Boolean).slice(-2, -1)[0] || '模板';
+                    // Several structure files often sit in one folder: name those
+                    // tiles by the file, and same-folder templates by the folder.
+                    const sourceParts = toPosix(source.path).split('/').filter(Boolean);
+                    const sourceDirs = new Set(group.sources.map((entry) => toPosix(entry.path).split('/').slice(0, -1).join('/').toLowerCase()));
+                    // Files that sit together (several structure files in one
+                    // folder) are named by the file; a lone template by its folder.
+                    const sourceName = group.sources.length > 1 && sourceDirs.size === 1
+                      ? (sourceParts[sourceParts.length - 1] || '模板').replace(/\.[^.]+$/, '')
+                      : (sourceParts[sourceParts.length - 2] || '模板');
                     const slotFileName = group.key === 'submit'
                       ? toPosix(tasks[source.tasks[0]]?.submitSrc || '').split('/').pop() || 'submit.sh'
                       : FILE_NAME_BY_SLOT[group.key] ?? group.key;
