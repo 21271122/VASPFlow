@@ -59753,10 +59753,17 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
     group?.reportChanged(paneId, changed);
   }, [group, paneId, changed]);
   const hideFlags = import_react130.default.useMemo(() => {
-    if (!changed) return void 0;
-    if (!group) return changed;
-    return changed.map((flag, index2) => flag || group.changed.has(index2));
-  }, [changed, group]);
+    if (!lines?.length) return void 0;
+    const length2 = Math.min(lines.length, PREVIEW_LINES);
+    const flags = new Array(length2).fill(false);
+    if (changed) {
+      for (let index2 = 0; index2 < Math.min(changed.length, length2); index2 += 1) if (changed[index2]) flags[index2] = true;
+    }
+    if (group) {
+      for (const index2 of group.changed) if (index2 < length2) flags[index2] = true;
+    }
+    return flags.some(Boolean) ? flags : void 0;
+  }, [changed, group, lines]);
   const rows = import_react130.default.useMemo(
     () => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), hideFlags?.slice(0, PREVIEW_LINES), gapsOpen),
     [lines, hideFlags, gapsOpen]

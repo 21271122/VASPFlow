@@ -208,11 +208,19 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
   React.useEffect(() => {
     group?.reportChanged(paneId, changed);
   }, [group, paneId, changed]);
+  // A line is only collapsed when no pane in the group changes it: the template
+  // reports its own marks when it has them, the tasks always report theirs, and
+  // the group keeps the union. With nothing changed anywhere the file is shown
+  // whole, so a template never collapses into a single placeholder.
   const hideFlags = React.useMemo(() => {
-    if (!changed) return undefined;
-    if (!group) return changed;
-    return changed.map((flag, index) => flag || group.changed.has(index));
-  }, [changed, group]);
+    if (!lines?.length) return undefined;
+    const length = Math.min(lines.length, PREVIEW_LINES);
+    const flags = new Array<boolean>(length).fill(false);
+    if (changed) for (let index = 0; index < Math.min(changed.length, length); index += 1) if (changed[index]) flags[index] = true;
+    if (group) for (const index of group.changed) if (index < length) flags[index] = true;
+    return flags.some(Boolean) ? flags : undefined;
+  }, [changed, group, lines]);
+
 
   const rows = React.useMemo(
     () => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), hideFlags?.slice(0, PREVIEW_LINES), gapsOpen),
