@@ -29,7 +29,7 @@ const FILE_NAME_BY_SLOT: Record<string, string> = {
 
 function taskLabel(dir?: string): string {
   const parts = toPosix(dir || '').split('/').filter(Boolean);
-  return parts.slice(-2).join('/') || dir || '任务';
+  return parts[parts.length - 1] || dir || '任务';
 }
 
 export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }: BatchCompareProps) {
@@ -86,6 +86,9 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                   {group.sources.map((source) => {
                     const shown = showAll.has(source.path) ? source.tasks : source.tasks.slice(0, NODE_LIMIT);
                     const hidden = source.tasks.length - shown.length;
+                    // The directory that holds the template is what the user
+                    // names the source by ("C1"), not the word 模板.
+                    const sourceName = toPosix(source.path).split('/').filter(Boolean).slice(-2, -1)[0] || '模板';
                     return (
                       <div className="vfp-batch-row" key={source.path}>
                         <div className="vfp-batch-row-source">
@@ -94,7 +97,8 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                             variant="source"
                             projectRoot={projectRoot}
                             projectName={projectName}
-                            slotLabel={source.tasks.length > 1 ? `模板 ×${source.tasks.length}` : '模板'}
+                            slotLabel={source.tasks.length > 1 ? `${sourceName} ×${source.tasks.length}` : sourceName}
+                            hint={source.path}
                             source={{ path: source.path }}
                             fileName=""
                           />
@@ -114,6 +118,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                                   projectRoot={projectRoot}
                                   projectName={projectName}
                                   slotLabel={taskLabel(task?.dir)}
+                                  hint={task?.dir}
                                   source={{ path: source.path }}
                                   fileName={fileName}
                                   planId={planId}

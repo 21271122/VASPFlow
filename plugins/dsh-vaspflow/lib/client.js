@@ -59744,7 +59744,7 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2, compact, writtenLabel, variant = "both" }) {
+function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2, compact, writtenLabel, hint, variant = "both" }) {
   const [compared, setCompared] = import_react129.default.useState();
   import_react129.default.useEffect(() => {
     let cancelled = false;
@@ -59803,9 +59803,9 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
     () => buildAddressTree(projectName, projectRoot, source.path),
     [projectName, projectRoot, source.path]
   );
-  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", "data-compact": compact ? "" : void 0, "data-variant": variant, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp vaspflow-task-popover", "data-compact": compact ? "" : void 0, "data-variant": variant, title: hint, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-head", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { className: "vfp-cmp-title", children: variant === "source" ? "\u6A21\u677F" : slotLabel }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { className: "vfp-cmp-title", children: slotLabel || "\u6A21\u677F" }),
       !compact && (note2 || compared?.notice || overrideCount > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "vfp-cmp-notes", children: [
         note2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: note2 }) : null,
         compared?.notice && variant !== "source" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-note", children: compared.notice }) : null,
@@ -59880,7 +59880,7 @@ var FILE_NAME_BY_SLOT = {
 };
 function taskLabel(dir) {
   const parts = toPosix(dir || "").split("/").filter(Boolean);
-  return parts.slice(-2).join("/") || dir || "\u4EFB\u52A1";
+  return parts[parts.length - 1] || dir || "\u4EFB\u52A1";
 }
 function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
   const groups = import_react130.default.useMemo(() => groupBatchBySource(batch, projectRoot), [batch, projectRoot]);
@@ -59942,6 +59942,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
           group.sources.map((source) => {
             const shown = showAll.has(source.path) ? source.tasks : source.tasks.slice(0, NODE_LIMIT);
             const hidden = source.tasks.length - shown.length;
+            const sourceName = toPosix(source.path).split("/").filter(Boolean).slice(-2, -1)[0] || "\u6A21\u677F";
             return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-row", children: [
               /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-batch-row-source", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                 SourceCompare,
@@ -59950,7 +59951,8 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
                   variant: "source",
                   projectRoot,
                   projectName,
-                  slotLabel: source.tasks.length > 1 ? `\u6A21\u677F \xD7${source.tasks.length}` : "\u6A21\u677F",
+                  slotLabel: source.tasks.length > 1 ? `${sourceName} \xD7${source.tasks.length}` : sourceName,
+                  hint: source.path,
                   source: { path: source.path },
                   fileName: ""
                 }
@@ -59968,6 +59970,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
                       projectRoot,
                       projectName,
                       slotLabel: taskLabel(task?.dir),
+                      hint: task?.dir,
                       source: { path: source.path },
                       fileName,
                       planId,

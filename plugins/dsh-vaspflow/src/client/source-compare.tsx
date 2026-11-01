@@ -263,6 +263,8 @@ export type SourceCompareProps = {
   rewritten?: boolean;
   /** Extra transformation noted next to the title. */
   note?: string;
+  /** Native tooltip for the whole card (usually the absolute path). */
+  hint?: string;
   /** Header text for the write pane; defaults to the source path. */
   writtenLabel?: string;
   /** Embedded in a node: smaller panes, no address tree. */
@@ -273,7 +275,7 @@ export type SourceCompareProps = {
 
 type Compared = { source: string[]; written: string[]; error?: string; notice?: string };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note, compact, writtenLabel, variant = 'both' }: SourceCompareProps) {
+export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note, compact, writtenLabel, hint, variant = 'both' }: SourceCompareProps) {
   const [compared, setCompared] = React.useState<Compared>();
 
   React.useEffect(() => {
@@ -338,9 +340,9 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
   );
 
   return (
-    <div className="vfp-cmp vaspflow-task-popover" data-compact={compact ? '' : undefined} data-variant={variant}>
+    <div className="vfp-cmp vaspflow-task-popover" data-compact={compact ? '' : undefined} data-variant={variant} title={hint}>
       <div className="vfp-cmp-head">
-        <strong className="vfp-cmp-title">{variant === 'source' ? '模板' : slotLabel}</strong>
+        <strong className="vfp-cmp-title">{slotLabel || '模板'}</strong>
         {!compact && (note || compared?.notice || overrideCount > 0) && (
           <div className="vfp-cmp-notes">
             {note ? <span className="vfp-cmp-note">{note}</span> : null}
