@@ -59570,10 +59570,35 @@ init_api();
 var import_react129 = __toESM(require("react"), 1);
 var import_jsx_runtime = require("react/jsx-runtime");
 var CompareGroupContext = import_react129.default.createContext(null);
+function sameFlags(left, right) {
+  if (left.length !== right.length) return false;
+  for (let index2 = 0; index2 < left.length; index2 += 1) if (left[index2] !== right[index2]) return false;
+  return true;
+}
 function CompareGroupProvider({ id, children }) {
   const [gapsOpen, setGapsOpen] = import_react129.default.useState(false);
+  const panes = import_react129.default.useRef(/* @__PURE__ */ new Map()).current;
+  const [version4, setVersion] = import_react129.default.useState(0);
+  const reportChanged = import_react129.default.useCallback((paneId, flags) => {
+    const next2 = flags ?? [];
+    if (sameFlags(panes.get(paneId) ?? [], next2)) return;
+    panes.set(paneId, next2);
+    setVersion((current) => current + 1);
+  }, [panes]);
+  const changed = import_react129.default.useMemo(() => {
+    const union = /* @__PURE__ */ new Set();
+    for (const flags of panes.values()) {
+      flags.forEach((flag, index2) => {
+        if (flag) union.add(index2);
+      });
+    }
+    return union;
+  }, [panes, version4]);
   const toggleGaps = import_react129.default.useCallback(() => setGapsOpen((current) => !current), []);
-  const value = import_react129.default.useMemo(() => ({ id, gapsOpen, toggleGaps }), [id, gapsOpen, toggleGaps]);
+  const value = import_react129.default.useMemo(
+    () => ({ id, changed, gapsOpen, toggleGaps, reportChanged }),
+    [id, changed, gapsOpen, toggleGaps, reportChanged]
+  );
   return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CompareGroupContext.Provider, { value, children });
 }
 function useCompareGroup() {
@@ -59709,45 +59734,9 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
   const bodyRef = import_react130.default.useRef(null);
   const group = useCompareGroup();
   const [localGapsOpen, setLocalGapsOpen] = import_react130.default.useState(false);
+  const paneId = import_react130.default.useId();
   const gapsOpen = group ? group.gapsOpen : localGapsOpen;
   const toggleGaps = group ? group.toggleGaps : () => setLocalGapsOpen((current) => !current);
-  import_react130.default.useEffect(() => {
-    const body = bodyRef.current;
-    if (!body || !group) return;
-    let frame = 0;
-    let applying = false;
-    const broadcast = () => {
-      const maxY = body.scrollHeight - body.clientHeight;
-      const maxX = body.scrollWidth - body.clientWidth;
-      window.dispatchEvent(new CustomEvent("vfp-group-scroll", {
-        detail: { group: group.id, source: body, ratioY: maxY > 0 ? body.scrollTop / maxY : 0, ratioX: maxX > 0 ? body.scrollLeft / maxX : 0 }
-      }));
-    };
-    const onScroll = () => {
-      if (applying || frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        broadcast();
-      });
-    };
-    const receive = (event) => {
-      const detail = event.detail;
-      if (!detail || detail.group !== group.id || detail.source === body) return;
-      applying = true;
-      body.scrollTop = detail.ratioY * (body.scrollHeight - body.clientHeight);
-      body.scrollLeft = detail.ratioX * (body.scrollWidth - body.clientWidth);
-      requestAnimationFrame(() => {
-        applying = false;
-      });
-    };
-    body.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("vfp-group-scroll", receive);
-    return () => {
-      body.removeEventListener("scroll", onScroll);
-      window.removeEventListener("vfp-group-scroll", receive);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [group]);
   const mapPointer = (event) => {
     const body = bodyRef.current;
     if (!body) return;
@@ -59760,7 +59749,18 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
     body.scrollTop = ratioY * (body.scrollHeight - body.clientHeight);
     body.scrollLeft = ratioX * (body.scrollWidth - body.clientWidth);
   };
-  const rows = import_react130.default.useMemo(() => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), changed?.slice(0, PREVIEW_LINES), gapsOpen), [lines, changed, gapsOpen]);
+  import_react130.default.useEffect(() => {
+    group?.reportChanged(paneId, changed);
+  }, [group, paneId, changed]);
+  const hideFlags = import_react130.default.useMemo(() => {
+    if (!changed) return void 0;
+    if (!group) return changed;
+    return changed.map((flag, index2) => flag || group.changed.has(index2));
+  }, [changed, group]);
+  const rows = import_react130.default.useMemo(
+    () => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), hideFlags?.slice(0, PREVIEW_LINES), gapsOpen),
+    [lines, hideFlags, gapsOpen]
+  );
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
     "section",
     {

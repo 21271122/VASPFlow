@@ -178,44 +178,10 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
   const bodyRef = React.useRef<HTMLPreElement>(null);
   const group = useCompareGroup();
   const [localGapsOpen, setLocalGapsOpen] = React.useState(false);
+  const paneId = React.useId();
   const gapsOpen = group ? group.gapsOpen : localGapsOpen;
   const toggleGaps = group ? group.toggleGaps : () => setLocalGapsOpen((current) => !current);
 
-  // Panes of one template-and-tasks group keep the same window onto the file:
-  // scrolling any of them broadcasts the relative position, and the siblings
-  // apply it against their own height.
-  React.useEffect(() => {
-    const body = bodyRef.current;
-    if (!body || !group) return;
-    let frame = 0;
-    let applying = false;
-    const broadcast = () => {
-      const maxY = body.scrollHeight - body.clientHeight;
-      const maxX = body.scrollWidth - body.clientWidth;
-      window.dispatchEvent(new CustomEvent('vfp-group-scroll', {
-        detail: { group: group.id, source: body, ratioY: maxY > 0 ? body.scrollTop / maxY : 0, ratioX: maxX > 0 ? body.scrollLeft / maxX : 0 },
-      }));
-    };
-    const onScroll = () => {
-      if (applying || frame) return;
-      frame = requestAnimationFrame(() => { frame = 0; broadcast(); });
-    };
-    const receive = (event: Event) => {
-      const detail = (event as CustomEvent).detail;
-      if (!detail || detail.group !== group.id || detail.source === body) return;
-      applying = true;
-      body.scrollTop = detail.ratioY * (body.scrollHeight - body.clientHeight);
-      body.scrollLeft = detail.ratioX * (body.scrollWidth - body.clientWidth);
-      requestAnimationFrame(() => { applying = false; });
-    };
-    body.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('vfp-group-scroll', receive);
-    return () => {
-      body.removeEventListener('scroll', onScroll);
-      window.removeEventListener('vfp-group-scroll', receive);
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [group]);
 
   // Moving the pointer inside a pane drives both scroll axes linearly: top-left
   // maps to the start of the file, bottom-right to the end. Cheaper to aim than
@@ -237,7 +203,21 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
     body.scrollLeft = ratioX * (body.scrollWidth - body.clientWidth);
   };
 
-  const rows = React.useMemo(() => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), changed?.slice(0, PREVIEW_LINES), gapsOpen), [lines, changed, gapsOpen]);
+  // Tell the group which lines this pane changes, then collapse only the lines
+  // no pane in the group touches — so every pane hides the same content.
+  React.useEffect(() => {
+    group?.reportChanged(paneId, changed);
+  }, [group, paneId, changed]);
+  const hideFlags = React.useMemo(() => {
+    if (!changed) return undefined;
+    if (!group) return changed;
+    return changed.map((flag, index) => flag || group.changed.has(index));
+  }, [changed, group]);
+
+  const rows = React.useMemo(
+    () => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), hideFlags?.slice(0, PREVIEW_LINES), gapsOpen),
+    [lines, hideFlags, gapsOpen],
+  );
 
   return (
     <section
