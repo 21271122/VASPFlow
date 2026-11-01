@@ -20,9 +20,6 @@ export type BatchCompareProps = {
   maxWidth?: number;
 };
 
-/** Nodes rendered per source before the list has to be expanded by hand. */
-const NODE_LIMIT = 5;
-
 const FILE_NAME_BY_SLOT: Record<string, string> = {
   POSCAR: 'POSCAR', INCAR: 'INCAR', KPOINTS: 'KPOINTS', POTCAR: 'POTCAR',
 };
@@ -37,12 +34,10 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
   // Accordion: expanding one file type closes the others, so only one set of
   // previews is on screen at a time.
   const [openKey, setOpenKey] = React.useState<string | null>(() => groups[0]?.key ?? null);
-  const [showAll, setShowAll] = React.useState<Set<string>>(() => new Set());
   const [treeKeys, setTreeKeys] = React.useState<Set<string>>(() => new Set());
 
   const toggle = (key: string) => setOpenKey((current) => (current === key ? null : key));
 
-  const revealAll = (path: string) => setShowAll((current) => new Set(current).add(path));
   const toggleTree = (key: string) => setTreeKeys((current) => {
     const next = new Set(current);
     if (next.has(key)) next.delete(key); else next.add(key);
@@ -84,8 +79,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
               {open && (
                 <div className="vfp-batch-tree">
                   {group.sources.map((source) => {
-                    const shown = showAll.has(source.path) ? source.tasks : source.tasks.slice(0, NODE_LIMIT);
-                    const hidden = source.tasks.length - shown.length;
+                    const shown = source.tasks;
                     // The directory that holds the template is what the user
                     // names the source by ("C1"), not the word 模板.
                     const sourceName = toPosix(source.path).split('/').filter(Boolean).slice(-2, -1)[0] || '模板';
@@ -131,11 +125,6 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                               </li>
                             );
                           })}
-                          {hidden > 0 ? (
-                            <li className="vfp-batch-more">
-                              <button type="button" onClick={() => revealAll(source.path)}>还有 {hidden} 个任务，展开</button>
-                            </li>
-                          ) : null}
                         </ul>
                       </div>
                     );

@@ -322,9 +322,9 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
 .vfp-cmp[data-compact] .vfp-cmp-side[data-side="read"] .vfp-cmp-step { background:rgba(120,132,150,.10); color:var(--vfp-muted); }
 .vfp-cmp[data-compact] .vfp-cmp-side pre { max-height:150px; }
 .vfp-cmp[data-compact] .vfp-cmp-line { padding:0 7px; }
-.vfp-batch-more { margin:2px 0 4px; }
-.vfp-batch-more button { border:1px dashed var(--vfp-line); border-radius:6px; background:transparent; color:var(--vfp-muted); font:inherit; font-size:11px; padding:3px 8px; cursor:pointer; }
-.vfp-batch-more button:hover { background:var(--vfp-soft); }
+
+
+
 .vfp-batch-trigger { cursor:pointer; border-radius:8px; }
 .vfp-batch-trigger[data-pinned] { outline:1px solid var(--vfp-accent); outline-offset:2px; }
 .vfp-inherit-row { cursor:pointer; }
