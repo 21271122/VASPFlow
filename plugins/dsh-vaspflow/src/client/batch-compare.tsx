@@ -83,6 +83,12 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                     // The directory that holds the template is what the user
                     // names the source by ("C1"), not the word 模板.
                     const sourceName = toPosix(source.path).split('/').filter(Boolean).slice(-2, -1)[0] || '模板';
+                    const slotFileName = group.key === 'submit'
+                      ? toPosix(tasks[source.tasks[0]]?.submitSrc || '').split('/').pop() || 'submit.sh'
+                      : FILE_NAME_BY_SLOT[group.key] ?? group.key;
+                    const compareWith = source.tasks
+                      .map((index) => results[index]?.files?.[slotFileName]?.written)
+                      .filter((text) => typeof text === 'string') as string[];
                     return (
                       <div className="vfp-batch-row" key={source.path}>
                         <div className="vfp-batch-row-source">
@@ -93,6 +99,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                             projectName={projectName}
                             slotLabel={source.tasks.length > 1 ? `${sourceName} ×${source.tasks.length}` : sourceName}
                             hint={projectRelative(projectRoot, source.path)}
+                            compareWith={compareWith}
                             source={{ path: source.path }}
                             fileName=""
                           />
@@ -115,6 +122,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                                   hint={toPosix(task?.dir || "")}
                                   source={{ path: source.path }}
                                   fileName={fileName}
+                                  files={results[index]?.files}
                                   planId={planId}
                                   taskIndex={index}
                                   incarOverrides={group.key === 'INCAR' ? task?.incarOverrides : undefined}
@@ -153,7 +161,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
 }
 
 /** Directory graph: every node is a folder, edges are nesting. */
-function DirTree({ root }: { root: DirNode }) {
+export function DirTree({ root }: { root: DirNode }) {
   const render = (node: DirNode) => (
     <li className="vfp-dir-item" data-kind={node.kind} key={node.path || node.name}>
       <span className="vfp-dir-label" title={node.path}>

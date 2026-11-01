@@ -146,6 +146,12 @@ function shortPath(projectRoot: string, absolutePath: string): string {
   return `${prefix}/${name}`;
 }
 
+/** Same normalisation the loader uses: CRLF→LF and drop one trailing blank. */
+function toLines(text: string): string[] {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+  return lines;
+}
 /** Thickness, in pixels, of the pinned band along each edge of a preview. */
 const EDGE_BAND = 20;
 
@@ -263,6 +269,8 @@ export type SourceCompareProps = {
   rewritten?: boolean;
   /** Extra transformation noted next to the title. */
   note?: string;
+  /** Written texts from sibling tasks; the source pane flags every line any of them changes. */
+  compareWith?: string[];
   /** Native tooltip for the whole card (usually the absolute path). */
   hint?: string;
   /** Header text for the write pane; defaults to the source path. */
@@ -275,7 +283,7 @@ export type SourceCompareProps = {
 
 type Compared = { source: string[]; written: string[]; error?: string; notice?: string };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note, compact, writtenLabel, hint, variant = 'both' }: SourceCompareProps) {
+export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note, compact, writtenLabel, hint, compareWith, variant = 'both' }: SourceCompareProps) {
   const [compared, setCompared] = React.useState<Compared>();
 
   React.useEffect(() => {
@@ -334,6 +342,18 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
   const delta = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : undefined;
+  // A template tile serves several tasks: flag a line if *any* of them changes
+  // it, so the reference shows which lines get rewritten at all.
+  const unionMarks = React.useMemo(() => {
+    if (variant !== 'source' || !compareWith?.length || !compared?.source?.length) return undefined;
+    const flags = new Array(compared.source.length).fill(false);
+    for (const text of compareWith) {
+      const written = toLines(text).slice(0, PREVIEW_LINES);
+      const result = markDifferences(compared.source.slice(0, PREVIEW_LINES), written);
+      result.left.forEach((flag, index) => { if (flag) flags[index] = true; });
+    }
+    return flags;
+  }, [variant, compareWith, compared]);
   const addressTree = React.useMemo(
     () => buildAddressTree(projectName, projectRoot, source.path),
     [projectName, projectRoot, source.path],
@@ -361,7 +381,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
       <div className="vfp-cmp-grid" data-single={variant === 'both' ? undefined : ''}>
         {variant !== 'written' && (
           <FilePane step={variant === 'source' ? '模板内容' : '参考来源'} path={source.path} dirLabel={shortPath(projectRoot, source.path)}
-            lines={compared?.source} error={error} changed={variant === 'both' ? marks?.left : undefined} />
+            lines={compared?.source} error={error} changed={variant === 'source' ? unionMarks : variant === 'both' ? marks?.left : undefined} />
         )}
         {variant !== 'source' && (
           <FilePane step={variant === 'written' ? '本任务写入' : '将写入'} path={source.path}

@@ -11,12 +11,12 @@ import {
 } from '@ant-design/icons';
 import { panelStore, usePanelStore } from './store';
 import {
-  absoluteTaskPath, basenameOf, buildShareIndex, describeSlots, originLabel,
+  absoluteTaskPath, basenameOf, buildRelativeTree, buildShareIndex, describeSlots, originLabel,
   projectRelative, shortenPath, summarizeBatch, toPosix,
 } from './inheritance';
 import type { BuildBatchSummary } from './inheritance';
 import { SourceCompare } from './source-compare';
-import { BatchCompare } from './batch-compare';
+import { BatchCompare, DirTree } from './batch-compare';
 import { startStructureDrag } from './structure-drag';
 import type { BuildTaskDetail } from './store';
 import { scanProject, scanProjectEvents, openTaskByPath, checkTaskInputs } from './api';
@@ -267,6 +267,15 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
           <span>{extras.map((extra) => <code key={extra.name} title={extra.path || ''}>{extra.name}</code>)}</span>
         </div> : null}
         {!result && <div className="vfp-inherit-empty">尚未生成预览，来源为任务声明值，未经解析校验。</div>}
+      </div>
+      <div className="vfp-build-detail-section"><b>相对目录</b>
+        {(() => {
+          const templateDir = task.template
+            ? absoluteTaskPath(projectRoot, task.template)
+            : (Object.values(result?.sources ?? {}) as string[]).slice(0, 1).map((value) => toPosix(value).split('/').slice(0, -1).join('/'))[0] || '';
+          const tree = buildRelativeTree(templateDir ? [templateDir] : [], [absoluteTaskPath(projectRoot, task.dir)], projectRoot);
+          return tree ? <DirTree root={tree} /> : <div className="vfp-inherit-empty">暂无可比较的目录</div>;
+        })()}
       </div>
       <div className="vfp-build-detail-section"><b>构建设置与检查</b>
         <div>Selective dynamics：{result?.sd || (task.freeAtoms?.length ? `放开原子 ${task.freeAtoms.join(', ')}` : task.fixedAtoms?.length ? `固定原子 ${task.fixedAtoms.join(', ')}` : task.sdPolicy === 'keep' ? '沿用源文件' : '待预览')}</div>

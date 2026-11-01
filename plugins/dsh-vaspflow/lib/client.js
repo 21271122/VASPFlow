@@ -59677,6 +59677,11 @@ function shortPath(projectRoot, absolutePath) {
   const prefix2 = dirs.length <= 2 ? dirs.join("/") : `\u2026/${dirs.slice(-2).join("/")}`;
   return `${prefix2}/${name}`;
 }
+function toLines(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+  return lines;
+}
 var EDGE_BAND = 20;
 function positionRatio(offset3, size, band2) {
   if (size <= 0) return 0;
@@ -59744,7 +59749,7 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2, compact, writtenLabel, hint, variant = "both" }) {
+function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2, compact, writtenLabel, hint, compareWith, variant = "both" }) {
   const [compared, setCompared] = import_react129.default.useState();
   import_react129.default.useEffect(() => {
     let cancelled = false;
@@ -59799,6 +59804,18 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
   const delta = marks ? { added: marks.right.filter(Boolean).length, removed: marks.left.filter(Boolean).length } : void 0;
+  const unionMarks = import_react129.default.useMemo(() => {
+    if (variant !== "source" || !compareWith?.length || !compared?.source?.length) return void 0;
+    const flags = new Array(compared.source.length).fill(false);
+    for (const text of compareWith) {
+      const written = toLines(text).slice(0, PREVIEW_LINES);
+      const result = markDifferences(compared.source.slice(0, PREVIEW_LINES), written);
+      result.left.forEach((flag, index2) => {
+        if (flag) flags[index2] = true;
+      });
+    }
+    return flags;
+  }, [variant, compareWith, compared]);
   const addressTree = import_react129.default.useMemo(
     () => buildAddressTree(projectName, projectRoot, source.path),
     [projectName, projectRoot, source.path]
@@ -59838,7 +59855,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
           dirLabel: shortPath(projectRoot, source.path),
           lines: compared?.source,
           error,
-          changed: variant === "both" ? marks?.left : void 0
+          changed: variant === "source" ? unionMarks : variant === "both" ? marks?.left : void 0
         }
       ),
       variant !== "source" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -59939,6 +59956,8 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
           group.sources.map((source) => {
             const shown = source.tasks;
             const sourceName = toPosix(source.path).split("/").filter(Boolean).slice(-2, -1)[0] || "\u6A21\u677F";
+            const slotFileName = group.key === "submit" ? toPosix(tasks[source.tasks[0]]?.submitSrc || "").split("/").pop() || "submit.sh" : FILE_NAME_BY_SLOT[group.key] ?? group.key;
+            const compareWith = source.tasks.map((index2) => results[index2]?.files?.[slotFileName]?.written).filter((text) => typeof text === "string");
             return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "vfp-batch-row", children: [
               /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-batch-row-source", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
                 SourceCompare,
@@ -59949,6 +59968,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
                   projectName,
                   slotLabel: source.tasks.length > 1 ? `${sourceName} \xD7${source.tasks.length}` : sourceName,
                   hint: projectRelative(projectRoot, source.path),
+                  compareWith,
                   source: { path: source.path },
                   fileName: ""
                 }
@@ -59968,6 +59988,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
                     hint: toPosix(task?.dir || ""),
                     source: { path: source.path },
                     fileName,
+                    files: results[index2]?.files,
                     planId,
                     taskIndex: index2,
                     incarOverrides: group.key === "INCAR" ? task?.incarOverrides : void 0,
@@ -101531,6 +101552,14 @@ function BuildPreviewDetail({ detail }) {
         /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { children: extras.map((extra) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("code", { title: extra.path || "", children: extra.name }, extra.name)) })
       ] }) : null,
       !result && /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-inherit-empty", children: "\u5C1A\u672A\u751F\u6210\u9884\u89C8\uFF0C\u6765\u6E90\u4E3A\u4EFB\u52A1\u58F0\u660E\u503C\uFF0C\u672A\u7ECF\u89E3\u6790\u6821\u9A8C\u3002" })
+    ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-detail-section", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("b", { children: "\u76F8\u5BF9\u76EE\u5F55" }),
+      (() => {
+        const templateDir = task.template ? absoluteTaskPath(projectRoot, task.template) : Object.values(result?.sources ?? {}).slice(0, 1).map((value) => toPosix(value).split("/").slice(0, -1).join("/"))[0] || "";
+        const tree = buildRelativeTree(templateDir ? [templateDir] : [], [absoluteTaskPath(projectRoot, task.dir)], projectRoot);
+        return tree ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(DirTree, { root: tree }) : /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "vfp-inherit-empty", children: "\u6682\u65E0\u53EF\u6BD4\u8F83\u7684\u76EE\u5F55" });
+      })()
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "vfp-build-detail-section", children: [
       /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("b", { children: "\u6784\u5EFA\u8BBE\u7F6E\u4E0E\u68C0\u67E5" }),
