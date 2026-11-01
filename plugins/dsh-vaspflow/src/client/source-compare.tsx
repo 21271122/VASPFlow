@@ -248,6 +248,7 @@ function FilePane({ step, path, dirLabel, lines, changed, error, showGroupChange
         : !lines ? <div className="vfp-cmp-empty">读取中…</div>
           : lines.length === 0 || (lines.length === 1 && lines[0] === '') ? <div className="vfp-cmp-empty">空文件</div>
             : <pre ref={bodyRef}>
+              <div className="vfp-cmp-body">
               {rows.map((row) => row.kind === 'gap'
                 ? <span key={`gap-${row.from}`} className="vfp-cmp-gap">
                     <button type="button" onClick={toggleGaps}>隐藏 {row.count} 行 无变化</button>
@@ -255,6 +256,7 @@ function FilePane({ step, path, dirLabel, lines, changed, error, showGroupChange
                 : <span key={row.index} className="vfp-cmp-line" data-changed={highlightFlags?.[row.index] ? '' : undefined}>
                     <i>{row.index + 1}</i>{row.text || ' '}
                   </span>)}
+              </div>
             </pre>}
     </section>
   );

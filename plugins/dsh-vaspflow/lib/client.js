@@ -59786,14 +59786,14 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error, showGrou
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-step", children: step }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "vfp-cmp-dir", title: path3, children: dirLabel })
         ] }),
-        error ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-empty", "data-error": "", title: error, children: error }) : !lines ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : lines.length === 0 || lines.length === 1 && lines[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { ref: bodyRef, children: rows.map((row) => row.kind === "gap" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-gap", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", onClick: toggleGaps, children: [
+        error ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-empty", "data-error": "", title: error, children: error }) : !lines ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-empty", children: "\u8BFB\u53D6\u4E2D\u2026" }) : lines.length === 0 || lines.length === 1 && lines[0] === "" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-empty", children: "\u7A7A\u6587\u4EF6" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { ref: bodyRef, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-body", children: rows.map((row) => row.kind === "gap" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-gap", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { type: "button", onClick: toggleGaps, children: [
           "\u9690\u85CF ",
           row.count,
           " \u884C \u65E0\u53D8\u5316"
         ] }) }, `gap-${row.from}`) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-line", "data-changed": highlightFlags?.[row.index] ? "" : void 0, children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { children: row.index + 1 }),
           row.text || " "
-        ] }, row.index)) })
+        ] }, row.index)) }) })
       ]
     }
   );
@@ -102690,11 +102690,12 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
   scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.32) transparent;
 }
 /* Collapsed run of unchanged lines inside a compare pane. */
-.vfp-cmp-gap { display:flex; align-items:center; gap:8px; width:max-content; min-width:100%; box-sizing:border-box; padding:3px 9px; }
+.vfp-cmp-gap { display:flex; align-items:center; gap:8px; padding:3px 9px; }
 .vfp-cmp-gap::before, .vfp-cmp-gap::after { content:""; flex:1 1 auto; border-top:1px dashed var(--vfp-line); }
 .vfp-cmp-gap button { flex:none; border:1px solid var(--vfp-line); border-radius:99px; background:var(--vfp-surface); color:var(--vfp-muted); font:inherit; font-size:10.5px; line-height:16px; padding:0 9px; cursor:pointer; }
 .vfp-cmp-gap button:hover { color:var(--vfp-text); border-color:var(--vfp-accent); }
-.vfp-cmp-line { display:block; width:max-content; min-width:100%; box-sizing:border-box; padding:0 9px; white-space:pre; }
+.vfp-cmp-body { width:max-content; min-width:100%; box-sizing:border-box; }
+.vfp-cmp-line { display:block; padding:0 9px; white-space:pre; }
 .vfp-cmp-line i { display:inline-block; width:24px; margin-right:8px; color:var(--vfp-muted); opacity:.72; font-style:normal; text-align:right; user-select:none; font-variant-numeric:tabular-nums; }
 .vfp-cmp-line[data-changed] { background:rgba(149,104,23,.13); box-shadow:inset 2px 0 0 var(--vfp-warning); }
 .vfp-cmp-line[data-changed] i { opacity:1; color:var(--vfp-warning); }
