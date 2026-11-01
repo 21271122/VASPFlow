@@ -167,13 +167,15 @@ function positionRatio(offset: number, size: number, band: number): number {
   if (offset >= size - band) return 1;
   return (offset - band) / Math.max(1, size - band * 2);
 }
-function FilePane({ step, path, dirLabel, lines, changed, error }: {
+function FilePane({ step, path, dirLabel, lines, changed, error, showGroupChanges }: {
   step: string;
   path: string;
   dirLabel: string;
   lines?: string[];
   changed?: boolean[];
   error?: string;
+  /** Template pane: highlight every line the group changes, not only its own. */
+  showGroupChanges?: boolean;
 }) {
   const bodyRef = React.useRef<HTMLPreElement>(null);
   const group = useCompareGroup();
@@ -222,6 +224,8 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
   }, [changed, group, lines]);
 
 
+  const highlightFlags = showGroupChanges ? hideFlags : changed;
+
   const rows = React.useMemo(
     () => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), hideFlags?.slice(0, PREVIEW_LINES), gapsOpen),
     [lines, hideFlags, gapsOpen],
@@ -248,7 +252,7 @@ function FilePane({ step, path, dirLabel, lines, changed, error }: {
                 ? <span key={`gap-${row.from}`} className="vfp-cmp-gap">
                     <button type="button" onClick={toggleGaps}>隐藏 {row.count} 行 无变化</button>
                   </span>
-                : <span key={row.index} className="vfp-cmp-line" data-changed={changed?.[row.index] ? '' : undefined}>
+                : <span key={row.index} className="vfp-cmp-line" data-changed={highlightFlags?.[row.index] ? '' : undefined}>
                     <i>{row.index + 1}</i>{row.text || ' '}
                   </span>)}
             </pre>}
@@ -447,7 +451,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
       </div>
       <div className="vfp-cmp-grid" data-single={variant === 'both' ? undefined : ''}>
         {variant !== 'written' && (
-          <FilePane step={variant === 'source' ? '模板内容' : '参考来源'} path={source.path} dirLabel={shortPath(projectRoot, source.path)}
+          <FilePane step={variant === 'source' ? '模板内容' : '参考来源'} path={source.path} dirLabel={shortPath(projectRoot, source.path)} showGroupChanges={variant === 'source'}
             lines={compared?.source} error={error} changed={variant === 'source' ? unionMarks : variant === 'both' ? marks?.left : undefined} />
         )}
         {variant !== 'source' && (

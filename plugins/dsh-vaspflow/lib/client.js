@@ -59730,7 +59730,7 @@ function positionRatio(offset3, size, band2) {
   if (offset3 >= size - band2) return 1;
   return (offset3 - band2) / Math.max(1, size - band2 * 2);
 }
-function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
+function FilePane({ step, path: path3, dirLabel, lines, changed, error, showGroupChanges }) {
   const bodyRef = import_react130.default.useRef(null);
   const group = useCompareGroup();
   const [localGapsOpen, setLocalGapsOpen] = import_react130.default.useState(false);
@@ -59764,6 +59764,7 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
     }
     return flags.some(Boolean) ? flags : void 0;
   }, [changed, group, lines]);
+  const highlightFlags = showGroupChanges ? hideFlags : changed;
   const rows = import_react130.default.useMemo(
     () => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), hideFlags?.slice(0, PREVIEW_LINES), gapsOpen),
     [lines, hideFlags, gapsOpen]
@@ -59789,7 +59790,7 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error }) {
           "\u9690\u85CF ",
           row.count,
           " \u884C \u65E0\u53D8\u5316"
-        ] }) }, `gap-${row.from}`) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-line", "data-changed": changed?.[row.index] ? "" : void 0, children: [
+        ] }) }, `gap-${row.from}`) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-line", "data-changed": highlightFlags?.[row.index] ? "" : void 0, children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("i", { children: row.index + 1 }),
           row.text || " "
         ] }, row.index)) })
@@ -59948,6 +59949,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
           step: variant === "source" ? "\u6A21\u677F\u5185\u5BB9" : "\u53C2\u8003\u6765\u6E90",
           path: source.path,
           dirLabel: shortPath(projectRoot, source.path),
+          showGroupChanges: variant === "source",
           lines: compared?.source,
           error,
           changed: variant === "source" ? unionMarks : variant === "both" ? marks?.left : void 0
@@ -102688,11 +102690,11 @@ body[data-ds-dark-theme] .vfp-cmp-side pre { scrollbar-color:rgba(158,170,188,.3
   scrollbar-width:thin; scrollbar-color:rgba(120,132,150,.32) transparent;
 }
 /* Collapsed run of unchanged lines inside a compare pane. */
-.vfp-cmp-gap { display:flex; align-items:center; gap:8px; padding:3px 9px; }
+.vfp-cmp-gap { display:flex; align-items:center; gap:8px; width:max-content; min-width:100%; box-sizing:border-box; padding:3px 9px; }
 .vfp-cmp-gap::before, .vfp-cmp-gap::after { content:""; flex:1 1 auto; border-top:1px dashed var(--vfp-line); }
 .vfp-cmp-gap button { flex:none; border:1px solid var(--vfp-line); border-radius:99px; background:var(--vfp-surface); color:var(--vfp-muted); font:inherit; font-size:10.5px; line-height:16px; padding:0 9px; cursor:pointer; }
 .vfp-cmp-gap button:hover { color:var(--vfp-text); border-color:var(--vfp-accent); }
-.vfp-cmp-line { display:block; padding:0 9px; white-space:pre; }
+.vfp-cmp-line { display:block; width:max-content; min-width:100%; box-sizing:border-box; padding:0 9px; white-space:pre; }
 .vfp-cmp-line i { display:inline-block; width:24px; margin-right:8px; color:var(--vfp-muted); opacity:.72; font-style:normal; text-align:right; user-select:none; font-variant-numeric:tabular-nums; }
 .vfp-cmp-line[data-changed] { background:rgba(149,104,23,.13); box-shadow:inset 2px 0 0 var(--vfp-warning); }
 .vfp-cmp-line[data-changed] i { opacity:1; color:var(--vfp-warning); }
