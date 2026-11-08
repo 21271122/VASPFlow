@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const pluginRoot = resolve(scriptDir, '..');
 const pkg = JSON.parse(readFileSync(resolve(pluginRoot, 'package.json'), 'utf8'));
-const supportedDshVersion = '0.2.0-rc.2';
+const supportedDshVersion = '0.2.2-rc.1';
 
 const args = process.argv.slice(2);
 let profile = null;

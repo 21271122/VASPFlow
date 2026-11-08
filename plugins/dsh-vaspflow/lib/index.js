@@ -62,9 +62,10 @@ const WEB_SERVER_KEYS = ['webServer', 'httpServer'];
 // never report themselves as development builds.
 const developmentMode = existsSync(joinPath(dirname(fileURLToPath(import.meta.url)), '..', '.vaspflow-development'));
 
-/** Session workspace cwd for a tool call (same contract as dsh-tool-fs.sessionCwd). */
-function workspaceOf(exec) {
-  return exec?.agent?.session?.header?.cwd || process.cwd();
+/** Resolve the committed session directory through DSH 0.2.2 workingDirectory. */
+async function workspaceOf(ctx, exec) {
+  if (!exec?.agent) return process.cwd();
+  return ctx.workingDirectory.ensure(exec.agent, exec.signal);
 }
 
 /** Every vasp_* tool returns a top-level error string; '' means the call itself succeeded. */
@@ -730,7 +731,7 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
     async execute(args, exec) {
       const dryRun = buildMode.dryRun;
       try {
-        const projectRoot = args.projectRoot ?? workspaceOf(exec);
+        const projectRoot = args.projectRoot ?? await workspaceOf(ctx, exec);
         const result = await buildInputs(projectRoot, args.tasks ?? [], { dryRun, linkPotcar: !!args.linkPotcar, previewText: true });
         if (dryRun && Array.isArray(args.tasks) && args.tasks.length > 0) {
           for (const [id, plan] of buildPlans) {
@@ -841,8 +842,8 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
       }],
       presentationMeta: (args, value) => ({ projectRoot: value.project_root ?? args.projectRoot, profileId: args.profileId, results: value.results, consistency: value.consistency, error: value.error }),
     },
-    execute(args, exec) {
-      const projectRoot = args.projectRoot ?? workspaceOf(exec);
+    async execute(args, exec) {
+      const projectRoot = args.projectRoot ?? await workspaceOf(ctx, exec);
       try {
         const result = checkInputs(args.dirs ?? [], { projectRoot });
         const rows = result.results.map((row) => ({ ...row, input_check: buildInputCheck(row, args.profileId) }));
@@ -892,8 +893,8 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
       }],
       presentationMeta: (_args, value) => ({ rootPath: value.root_path, sources: value.sources, templates: value.templates, error: value.error }),
     },
-    execute(args, exec) {
-      const rootPath = resolvePath(args.rootPath ?? workspaceOf(exec));
+    async execute(args, exec) {
+      const rootPath = resolvePath(args.rootPath ?? await workspaceOf(ctx, exec));
       const error = directoryError(rootPath);
       if (error) return { root_path: rootPath, sources: { files: [], count: 0, consistency: { uniform: true, groups: [], note: '' } }, templates: [], error };
       try {
@@ -981,8 +982,8 @@ export function registerVaspTools(ctx, store, buildPlans = new Map(), buildMode 
         }).join('\n'),
       }],
     },
-    execute(args, exec) {
-      const rootPath = args.rootPath ?? workspaceOf(exec);
+    async execute(args, exec) {
+      const rootPath = args.rootPath ?? await workspaceOf(ctx, exec);
       const error = directoryError(rootPath);
       if (error) return { templates: [], count: 0, error };
       try {
@@ -1050,13 +1051,10 @@ export function apply(ctx, config) {
     for (const row of rows) if (row.state === 'pending' && !buildPlans.has(row.planId)) updateBuildOutcome(sessionId, row.planId, { state: 'invalidated', invalidReason: '计划已清理' });
   }
 
-  ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
-    const assembly = await next();
-    if (!assembly.tools?.some((tool) => tool.name === 'vasp_build_inputs')) return assembly;
-    const sessionId = context.agent?.session?.header?.id;
-    const outcomes = buildOutcomes.get(sessionId)?.slice(-8);
-    if (!outcomes?.length) return assembly;
-    const text = outcomes.map((item) => item.state === 'confirmed'
+  const outcomeContext = ({ agent }) => {
+    const outcomes = buildOutcomes.get(agent?.session?.header?.id)?.slice(-8);
+    if (!outcomes?.length) return '';
+    return outcomes.map((item) => item.state === 'confirmed'
       ? `构建计划 ${item.planId}：用户已在界面确认，写入 ${item.wroteCount}/${item.selectedCount} 个任务，失败 ${item.errorCount} 个；目录数据：${JSON.stringify(item.dirs.slice(0, 12))}。${item.sourceOverrides?.length ? `用户调整的来源：${JSON.stringify(item.sourceOverrides.slice(0, 8))}。` : ''}不要说仍待确认。`
       : item.state === 'cancelled'
         ? `构建计划 ${item.planId}：用户已取消，未执行写入。`
@@ -1067,14 +1065,17 @@ export function apply(ctx, config) {
         : item.state === 'invalidated' || Date.now() - item.updatedAt > 30 * 60 * 1000
           ? `构建计划 ${item.planId}：预览已失效，尚未写入；需要重新预览。`
           : `构建计划 ${item.planId}：仍在预览，尚未写入；目录数据：${JSON.stringify(item.dirs.slice(0, 12))}。${item.sourceOverrides?.length ? `用户调整的来源：${JSON.stringify(item.sourceOverrides.slice(0, 8))}。` : ''}`).join('\n');
-    return { ...assembly, contexts: [...assembly.contexts, { name: 'vasp-build-outcomes', text }] };
-  }, { global: true });
+  };
 
   // This service is consumed only by preset/vasp/tools/vaspflow-tools.mjs.
   // Its tool definitions close over this store, preserving panel/Agent state.
   ctx.provide('vaspflowTools', {
     register(toolCtx) {
       registerVaspTools(toolCtx, store, buildPlans, buildMode, buildOutcomes, saveBuildOutcomes, saveBuildPlans);
+      toolCtx.systemPrompt.context({
+        name: 'vasp-build-outcomes', order: 1500, required: true, interpolate: false,
+        text: outcomeContext,
+      });
     },
   });
 

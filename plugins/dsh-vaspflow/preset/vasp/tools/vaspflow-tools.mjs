@@ -6,7 +6,7 @@
  * the VASP preset; other presets never mount this row.
  */
 export const name = 'tool-vaspflow-tools';
-export const inject = ['tools', 'vaspflowTools'];
+export const inject = ['tools', 'systemPrompt', 'workingDirectory', 'vaspflowTools'];
 
 export function apply(ctx) {
   ctx.vaspflowTools.register(ctx);

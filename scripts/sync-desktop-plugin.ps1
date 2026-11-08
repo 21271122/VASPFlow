@@ -11,7 +11,7 @@
 $ErrorActionPreference = 'Stop'
 
 $src = (Resolve-Path (Join-Path $PSScriptRoot '..\plugins\dsh-vaspflow')).Path
-$dst = 'D:\Apps\DeepSeekHarness-0.2.0-rc.2\desktop-home\profiles\desktop\node_modules\dsh-vaspflow'
+$dst = 'D:\Apps\DeepSeekHarness-0.2.2-rc.1\desktop-home\profiles\desktop\node_modules\dsh-vaspflow'
 
 if (-not (Test-Path $dst)) { throw "Profile plugin not found: $dst" }
 

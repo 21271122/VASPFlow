@@ -1,6 +1,6 @@
 {
   "name": "dsh-vaspflow",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "VaspFlow for DeepSeek Harness: right-dock VASP task panel plus a shared Node data service whose vasp_* tools are available only in the bundled VASP Agent preset.",
   "type": "module",
   "main": "./lib/index.js",
@@ -31,7 +31,10 @@
   "license": "MIT",
   "dsh": {
     "bundle": {
-      "patch": ["./cordis.patch.yml", "./preset/vasp/agent.patch.yml"]
+      "patch": [
+        "./cordis.patch.yml",
+        "./preset/vasp/agent.patch.yml"
+      ]
     },
     "client": {
       "inject": [
@@ -44,13 +47,13 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
-    "@deepseek-ai/schemastery": "~3.18.4",
+    "@deepseek-ai/schemastery": "~3.19.0",
     "antd": "^5.29.3",
     "recharts": "^2.15.4",
     "three": "^0.160.1"
@@ -60,13 +63,15 @@
     "install-dsh": "node scripts/install-dsh.mjs",
     "prepublishOnly": "npm run verify",
     "test": "node --test lib/host/*.test.mjs src/client/*.test.mjs",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "test:runtime": "node scripts/verify-dsh-runtime.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24.9.0",
+    "dsh": "0.2.2-rc.1"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.1",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "esbuild": "^0.28.2",

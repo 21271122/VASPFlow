@@ -12,11 +12,11 @@
 
 | 项目 | 已验证版本 |
 |---|---|
-| DSH | `0.2.0-rc.2` |
-| Node.js | 以 DSH 0.2 的要求为准（本地验证使用 `22.23.2`） |
+| DSH | `0.2.2-rc.1` |
+| Node.js | >=24.9.0（本地验证使用 `24.22.2`） |
 | 插件依赖安装器 | Web CLI 使用 `pnpm`；Desktop 自带运行环境 |
 
-截至 2026-10-03，npm 发布的 DSH 最新版本为 `0.2.0-rc.2`，尚非稳定版 `0.2.0`。本分支按该版本验证；原 rc6 版本保存在 Git 标签 `vaspflow-dsh-rc6-backup-2026-10-03`。
+截至 2026-11-09，npm 最新版为 `0.2.2-rc.1`，仍是预发布版。本分支锁定该版本；升级前的 0.2.0-rc.2 修复已推送至 `codex/publish-non-video`（`7ae93c7`）。新环境使用独立 DSH_HOME，迁移步骤见 [升级说明](docs/DSH-0.2.2迁移.md)。
 
 ---
 
@@ -42,13 +42,15 @@
 
 ## 快速开始
 
-> 以下步骤面向第一次接触 DSH 和本插件的用户。
+> Windows 本地测试：双击 `启动-新版Web测试.bat`。首次准备独立 Node 24 / DSH 0.2.2-rc.1，安装并构建插件，再打开 Web 界面；需要已安装 pnpm。配置与会话放在 `output/dsh-upgrade-runtime/user-home`，不会迁移旧环境的账号或会话。详见 [升级说明](docs/DSH-0.2.2迁移.md)。
+
+以下步骤面向手动安装用户。
 
 ### 1. 前置条件
 
-- **Node.js** —— 版本满足 DSH 0.2 的要求；
+- **Node.js** —— 版本 >=24.9.0；
 - **pnpm** —— Web CLI 安装插件依赖时使用；
-- **DSH（DeepSeek Harness）`0.2.0-rc.2`** —— 已安装。安装器优先使用 PATH 中的 `dsh`；Windows 上也能找到 npm npx 缓存里的该版本。
+- **DSH（DeepSeek Harness）`0.2.2-rc.1`** —— 已安装。安装器优先使用 PATH 中的 `dsh`；Windows 上也能找到 npm npx 缓存里的该版本。
 
 ### 2. 克隆并安装插件
 
@@ -60,7 +62,7 @@ cd VASPFlow
 node ./plugins/dsh-vaspflow/scripts/install-dsh.mjs install --profile web --package ./plugins/dsh-vaspflow
 ```
 
-这条命令会先确认 DSH 是已验证的 `0.2.0-rc.2`，再安装插件。VASP Agent 预设由 bundle 声明并注册，不再单独复制到 `.agent-presets`。安装后完整重启 DSH Web GUI。
+这条命令会先确认 DSH 是已验证的 `0.2.2-rc.1`，再安装插件。VASP Agent 预设由 bundle 声明并注册，不再单独复制到 `.agent-presets`。安装后完整重启 DSH Web GUI。
 
 > **npm 发布后的更简短用法**：用户无需克隆仓库，直接运行：
 >

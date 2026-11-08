@@ -52,6 +52,8 @@ function makeFakeCtx() {
     },
     logger: { info: () => {}, warn: () => {}, error: () => {} },
     tools,
+    workingDirectory: { async ensure(agent) { return agent.session.header.cwd || process.cwd(); } },
+    systemPrompt: { context(def) { hooks.set('vasp-build-outcomes', def.text); } },
   };
   const webServer = {
     register(route) {
@@ -246,7 +248,7 @@ test('a confirmed preview is visible to the next model turn and after host resta
     services.get('vaspflowTools').register(ctx);
     const builder = registered.find((item) => item.name === 'vasp_build_inputs');
     const preview = await builder.execute({ projectRoot: root, tasks: [{ dir: 'confirmed', poscarSrc: 'POSCAR', incarSrc: 'INCAR', kpointsSrc: 'KPOINTS', potcarSrc: 'POTCAR', sdPolicy: 'keep' }] }, { agent: { session: { header: { id: sessionId } } }, concludeTurn() {} });
-    const assembled = () => hooks.get('system-prompt/assemble')({}, { agent: { session: { header: { id: sessionId } } } }, async () => ({ tools: [{ name: 'vasp_build_inputs' }], contexts: [] }));
+    const assembled = () => ({ contexts: [{ text: hooks.get('vasp-build-outcomes')({ agent: { session: { header: { id: sessionId } } } }) }] });
     assert.match((await assembled()).contexts[0].text, /尚未写入/);
     const revised = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/repreview', 'POST', { planId: preview.planId, taskIndex: 0, sourceKind: 'structure', rootPath: root, relPath: '.', file: 'ALT.vasp' });
     assert.equal(revised.status, 200);
@@ -257,7 +259,8 @@ test('a confirmed preview is visible to the next model turn and after host resta
     assert.match((await assembled()).contexts[0].text, /ALT\.vasp/);
     const restarted = makeFakeCtx();
     apply(restarted.ctx, {});
-    const context = await restarted.hooks.get('system-prompt/assemble')({}, { agent: { session: { header: { id: sessionId } } } }, async () => ({ tools: [{ name: 'vasp_build_inputs' }], contexts: [] }));
+    restarted.services.get('vaspflowTools').register(restarted.ctx);
+    const context = { contexts: [{ text: restarted.hooks.get('vasp-build-outcomes')({ agent: { session: { header: { id: sessionId } } } }) }] };
     assert.match(context.contexts[0].text, /用户已在界面确认，写入 1\/1/);
   } finally {
     if (oldHome === undefined) delete process.env.DSH_HOME;
@@ -583,6 +586,8 @@ test('VASP preset bridge registers the host service only in its own scope', () =
 
   const presetCtx = {
     tools: ctx.tools,
+    systemPrompt: ctx.systemPrompt,
+    workingDirectory: ctx.workingDirectory,
     vaspflowTools: services.get('vaspflowTools'),
   };
   vaspPresetTools.apply(presetCtx);

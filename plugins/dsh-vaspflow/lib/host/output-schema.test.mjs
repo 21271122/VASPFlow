@@ -23,6 +23,8 @@ import { apply } from '../index.js';
 const registered = [];
 const services = new Map();
 const ctx = {
+  systemPrompt: { context() {} },
+  workingDirectory: { async ensure(agent) { return agent.session.header.cwd || process.cwd(); } },
   tools: { register: (t) => registered.push(t) },
   logger: { info() {}, warn() {}, error() {} },
   on() {},

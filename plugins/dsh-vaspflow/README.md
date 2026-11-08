@@ -27,7 +27,7 @@ VASP 预设采用工具输出协议：模型的每一步必须调用工具。领
 
 ### 兼容版本
 
-本分支适配 **DSH `0.2.0-rc.2`**（Web 与官方 Desktop 使用相同版本的运行时）。安装器会检查 CLI 版本；其它版本需要单独验证。旧版插件已保留在 Git 标签 `vaspflow-dsh-rc6-backup-2026-10-03`。
+本分支适配 **DSH `0.2.2-rc.1`**（Web 与官方 Desktop 使用相同版本的运行时）。安装器会检查 CLI 版本；其它版本需要单独验证。旧版插件已保留在 Git 标签 `vaspflow-dsh-rc6-backup-2026-10-03`。
 
 从仓库检出版本安装到 Web profile：
 
@@ -55,7 +55,7 @@ Desktop 拥有独立的 `desktop` profile。请在 Desktop 的 **插件** 页面
 
 ### 依赖
 
-- **Node.js：以 DSH 0.2 的要求为准**（本地验证使用 Node.js 22.23.2）
+- **Node.js：>=24.9.0**（本地验证使用 Node.js 24.22.2）
 - **pnpm**（Web CLI 的 `dsh plugin` 依赖它；官方 Desktop 自带）
 - **DSH**（`dsh` CLI 在 PATH 中）
 

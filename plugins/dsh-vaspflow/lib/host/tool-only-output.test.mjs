@@ -69,8 +69,10 @@ test('a rejected text candidate gets one tool-only retry without publishing the 
   const seen = [];
   for await (const chunk of gateStream({ ...options, system: 'original' }, stream(invalid), (retryOptions) => {
     attempts++;
-    assert.match(retryOptions.system, /^original\n\n.*ask_user_question/);
-    assert.deepEqual(retryOptions.messages, options.messages);
+    assert.equal(retryOptions.system, 'original');
+    assert.equal(retryOptions.messages[0].role, 'system');
+    assert.match(retryOptions.messages[0].content[0].text, /ask_user_question/);
+    assert.deepEqual(retryOptions.messages.slice(1), options.messages);
     return stream(repaired);
   })) seen.push(chunk);
   assert.equal(attempts, 1);
@@ -146,4 +148,19 @@ test('a provider failure during protocol recovery is also passed to DSH unchange
   const seen = [];
   for await (const chunk of gateStream(options, stream(invalid), () => stream([call('vasp_scan'), failed]))) seen.push(chunk);
   assert.deepEqual(seen, [failed]);
+});
+
+
+test('protocol recovery extends the new leading system message without changing the original history', async () => {
+  const system = { role: 'system', content: [{ type: 'text', text: 'VASP persona' }] };
+  const messages = [system, ...options.messages];
+  const invalid = [{ type: 'block-end', index: 0, block: { type: 'text', text: 'plain prose' } }, { type: 'finish', reason: { kind: 'stop' } }];
+  for await (const chunk of gateStream({ ...options, messages }, stream(invalid), (retryOptions) => {
+    assert.equal(retryOptions.system, undefined);
+    assert.deepEqual(retryOptions.messages[0].content[0], system.content[0]);
+    assert.match(retryOptions.messages[0].content[1].text, /ask_user_question/);
+    assert.deepEqual(retryOptions.messages.slice(1), options.messages);
+    assert.equal(system.content.length, 1);
+    return stream([call('vasp_say'), finish]);
+  })) {}
 });

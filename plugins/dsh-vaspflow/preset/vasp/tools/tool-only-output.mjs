@@ -5,7 +5,7 @@ const RECOVERY = Symbol('vasp-tool-only-recovery');
 const RECOVERY_INSTRUCTION = '上一候选未遵守 VASP 工具输出协议，已被丢弃，任何工具都未执行。现在只调用一个当前可用工具：需要操作就调用对应工具；需要用户回答就调用 ask_user_question；仅需解释或说明阻碍才调用 vasp_say。不要输出普通 assistant 正文。';
 
 function hasDomainResultThisTurn(messages) {
-  // DSH represents tool results as user-role messages. Only an actual user
+  // Only an actual user
   // message starts a new turn; injected context and tool replies do not.
   const lastUser = messages.findLastIndex((message) => message.role === 'user' && message.source?.kind === 'user');
   if (lastUser < 0) return false;
@@ -77,7 +77,15 @@ export async function* gateStream(options, stream, retry) {
   } catch (error) {
     const finish = chunks.findLast((chunk) => chunk.type === 'finish')?.reason;
     if (!retry || options.signal?.aborted || (finish?.kind !== 'stop' && finish?.kind !== 'tool-calls')) throw error;
-    const retryOptions = { ...options, system: `${options.system ?? ''}\n\n${RECOVERY_INSTRUCTION}`, [RECOVERY]: true };
+    const messages = [...options.messages];
+    const systemIndex = messages.findIndex((message) => message.role === 'system');
+    if (systemIndex >= 0) {
+      const original = messages[systemIndex];
+      messages[systemIndex] = { ...original, content: [...original.content, { type: 'text', text: RECOVERY_INSTRUCTION }] };
+    } else {
+      messages.unshift({ role: 'system', content: [{ type: 'text', text: RECOVERY_INSTRUCTION }] });
+    }
+    const retryOptions = { ...options, messages, [RECOVERY]: true };
     yield* gateStream(retryOptions, retry(retryOptions));
     return;
   }
