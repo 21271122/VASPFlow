@@ -320,6 +320,52 @@ test('a source changed after preview invalidates confirmation before writing', a
   }
 });
 
+test('file preview invalidates a plan when its source changes instead of displaying new bytes', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-file-stale-'));
+  try {
+    copyFileSync(join(SAMPLE_TASK, 'INCAR'), join(root, 'INCAR'));
+    const { ctx, match, registered, services } = makeFakeCtx();
+    apply(ctx, {});
+    services.get('vaspflowTools').register(ctx);
+    const builder = registered.find((item) => item.name === 'vasp_build_inputs');
+    const preview = await builder.execute({ projectRoot: root, tasks: [{ dir: 'target', incarSrc: 'INCAR' }] }, {});
+    const url = `/plugins/dsh-vaspflow/build-inputs/file?planId=${preview.planId}&taskIndex=0&name=INCAR`;
+    assert.equal((await callRoute(match, url)).status, 200);
+    writeFileSync(join(root, 'INCAR'), 'SYSTEM = changed after preview\nENCUT = 600\n');
+    const stale = await callRoute(match, url);
+    assert.equal(stale.status, 409);
+    assert.equal(stale.body.written, undefined);
+    const status = await callRoute(match, `/plugins/dsh-vaspflow/build-inputs/plan?planId=${preview.planId}`);
+    assert.equal(status.body.state, 'invalidated');
+    assert.match(status.body.invalidReason, /来源文件/);
+    assert.equal(existsSync(join(root, 'target')), false);
+  } finally {
+    assert.ok(root.startsWith(join(tmpdir(), 'vfp-file-stale-')));
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('new template inputs cannot be silently included after preview', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'vfp-new-source-'));
+  try {
+    for (const name of ['POSCAR', 'INCAR', 'POTCAR']) copyFileSync(join(SAMPLE_TASK, name), join(root, name));
+    const { ctx, match, registered, services } = makeFakeCtx();
+    apply(ctx, {});
+    services.get('vaspflowTools').register(ctx);
+    const builder = registered.find((item) => item.name === 'vasp_build_inputs');
+    const preview = await builder.execute({ projectRoot: root, tasks: [{ dir: 'target', template: '.', poscarSrc: 'POSCAR' }] }, {});
+    assert.equal(preview.results[0].sources.KPOINTS, undefined);
+    copyFileSync(join(SAMPLE_TASK, 'KPOINTS'), join(root, 'KPOINTS'));
+    const confirm = await callRoute(match, '/plugins/dsh-vaspflow/build-inputs/confirm', 'POST', { planId: preview.planId, revision: 1, selectedIndices: [0] });
+    assert.equal(confirm.status, 409);
+    assert.equal(confirm.body.state, 'invalidated');
+    assert.equal(existsSync(join(root, 'target')), false);
+  } finally {
+    assert.ok(root.startsWith(join(tmpdir(), 'vfp-new-source-')));
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('an interrupted write is reported as uncertain and cannot be confirmed again', async () => {
   const root = mkdtempSync(join(tmpdir(), 'vfp-interrupted-write-'));
   const oldHome = process.env.DSH_HOME;

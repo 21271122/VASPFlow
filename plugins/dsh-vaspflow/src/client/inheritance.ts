@@ -25,6 +25,7 @@ export type BuildBatch = { tasks: any[]; results: any[] } | undefined;
 export type BuildSlotRow = {
   key: string;
   label: string;
+  fileName: string;
   fromTemplate: boolean;
   origin: BuildOrigin;
   /** Absolute source path when the host resolved one. */
@@ -86,7 +87,7 @@ export function slotExplicit(task: any, slot: BuildSlot): boolean {
 export function slotResolvedPath(task: any, result: any, slot: BuildSlot): string | undefined {
   const sources: Record<string, string> = result?.sources ?? {};
   if (slot.key !== 'submit') return sources[slot.key] || undefined;
-  const name = basenameOf(task?.submitSrc);
+  const name = basenameOf(task?.submitSrc || task?.sources?.submit);
   if (name && sources[name]) return sources[name];
   return undefined;
 }
@@ -116,7 +117,7 @@ export function templateKeyOf(task: any): string {
 }
 
 export function describeSlots(task: any, result: any, projectRoot: string, share: Map<string, number>): BuildSlotRow[] {
-  return BUILD_SLOTS.map((slot) => {
+  const standard = BUILD_SLOTS.map((slot) => {
     const resolved = slotResolvedPath(task, result, slot);
     const origin = slotOrigin(task, slot, resolved);
     const rel = resolved
@@ -127,6 +128,7 @@ export function describeSlots(task: any, result: any, projectRoot: string, share
     return {
       key: slot.key,
       label: slot.label,
+      fileName: slot.key === 'submit' ? basenameOf(task?.submitSrc || task?.sources?.submit) || 'submit.sh' : slot.key,
       fromTemplate: slot.fromTemplate,
       origin,
       path: resolved,
@@ -134,6 +136,27 @@ export function describeSlots(task: any, result: any, projectRoot: string, share
       shared: resolved ? share.get(`${slot.key}|${resolved.toLowerCase()}`) ?? 0 : 0,
     };
   });
+  const reserved = new Set(standard.map((row) => row.fileName));
+  const extras = new Map<string, any>();
+  for (const item of task?.extraFiles ?? []) {
+    const name = item.dest || (item.src ? basenameOf(item.src) : item.fromTemplate);
+    if (typeof name === 'string' && name && !reserved.has(name)) extras.set(name, item);
+  }
+  for (const name of Object.keys(result?.sources ?? {})) {
+    if (!reserved.has(name) && !extras.has(name)) extras.set(name, {});
+  }
+  const extraRows: BuildSlotRow[] = [...extras].map(([name, item]) => {
+    const path = typeof result?.sources?.[name] === 'string' ? result.sources[name] : undefined;
+    const fromTemplate = !item.src && Boolean(item.fromTemplate);
+    const key = `extra:${name}`;
+    return {
+      key, label: name, fileName: name, fromTemplate, path,
+      origin: path ? (fromTemplate ? 'inherit' : 'explicit') : result ? 'missing' : 'pending',
+      rel: path ? shortenPath(projectRelative(projectRoot, path)) : item.src || item.fromTemplate || '',
+      shared: path ? share.get(`${key}|${path.toLowerCase()}`) ?? 0 : 0,
+    };
+  });
+  return [...standard, ...extraRows];
 }
 
 /** Count how many tasks in the batch point at the same resolved file per slot. */
@@ -141,8 +164,8 @@ export function buildShareIndex(batch: BuildBatch, projectRoot: string): Map<str
   const share = new Map<string, number>();
   (batch?.tasks ?? []).forEach((entry, index) => {
     const result = batch?.results?.[index];
-    for (const slot of BUILD_SLOTS) {
-      const resolved = slotResolvedPath(entry, result, slot);
+    for (const slot of describeSlots(entry, result, projectRoot, new Map())) {
+      const resolved = slot.path;
       if (!resolved) continue;
       const key = `${slot.key}|${resolved.toLowerCase()}`;
       share.set(key, (share.get(key) ?? 0) + 1);
@@ -157,8 +180,8 @@ export function buildSourceTasks(batch: BuildBatch): Map<string, string[]> {
   (batch?.tasks ?? []).forEach((entry, index) => {
     const result = batch?.results?.[index];
     const dir = typeof entry?.dir === 'string' && entry.dir ? entry.dir.replace(/[\\/]+/g, '/') : '(未命名任务)';
-    for (const slot of BUILD_SLOTS) {
-      const resolved = slotResolvedPath(entry, result, slot);
+    for (const slot of describeSlots(entry, result, '', new Map())) {
+      const resolved = slot.path;
       if (!resolved) continue;
       const key = `${slot.key}|${resolved.toLowerCase()}`;
       owners.set(key, [...(owners.get(key) ?? []), dir]);
@@ -177,6 +200,8 @@ export type BatchSourceGroup = {
 };
 
 export type BatchFileGroup = {
+  /** Destination names may differ between tasks, e.g. submit.sh and lqf.sh. */
+  fileNames: Record<number, string>;
   key: string;
   label: string;
   fromTemplate: boolean;
@@ -190,23 +215,26 @@ export type BatchFileGroup = {
  * from. This is what the batch card renders as source-node → task-node edges.
  */
 export function groupBatchBySource(batch: BuildBatch, projectRoot: string): BatchFileGroup[] {
-  const tasks = batch?.tasks ?? [];
-  return BUILD_SLOTS.map((slot) => {
+  const rows = (batch?.tasks ?? []).map((task, index) => describeSlots(task, batch?.results?.[index], projectRoot, new Map()));
+  const kinds = new Map<string, BuildSlotRow>();
+  rows.forEach((taskRows) => taskRows.forEach((row) => { if (!kinds.has(row.key)) kinds.set(row.key, row); }));
+  return [...kinds.values()].map((kind) => {
     const byPath = new Map<string, BatchSourceGroup>();
     const missing: number[] = [];
-    tasks.forEach((entry, index) => {
-      const resolved = slotResolvedPath(entry, batch?.results?.[index], slot);
-      if (!resolved) {
-        missing.push(index);
-        return;
-      }
+    const fileNames: Record<number, string> = {};
+    rows.forEach((taskRows, index) => {
+      const row = taskRows.find((candidate) => candidate.key === kind.key);
+      if (!row) return; // An extra file is optional for other tasks.
+      fileNames[index] = row.fileName;
+      const resolved = row.path;
+      if (!resolved) { missing.push(index); return; }
       const key = resolved.toLowerCase();
       const existing = byPath.get(key);
       if (existing) existing.tasks.push(index);
       else byPath.set(key, { path: resolved, rel: shortenPath(projectRelative(projectRoot, resolved)), tasks: [index] });
     });
     const sources = [...byPath.values()].sort((a, b) => b.tasks.length - a.tasks.length);
-    return { key: slot.key, label: slot.label, fromTemplate: slot.fromTemplate, sources, missing };
+    return { key: kind.key, label: kind.label, fromTemplate: kind.fromTemplate, sources, missing, fileNames };
   }).filter((group) => group.sources.length > 0 || group.missing.length > 0);
 }
 
@@ -275,10 +303,11 @@ export function buildRelativeTree(sources: string[], taskDirs: string[], project
   return root;
 }
 
-export function summarizeBatch(batch: BuildBatch, projectRoot: string): BuildBatchSummary | null {  const tasks = batch?.tasks ?? [];
+export function summarizeBatch(batch: BuildBatch, projectRoot: string): BuildBatchSummary | null {
+  const tasks = batch?.tasks ?? [];
   if (tasks.length < 2) return null;
   const templates = new Map<string, { name: string; rel: string; count: number }>();
-  const slots = BUILD_SLOTS.map((slot) => ({ key: slot.key as string, label: slot.label, fromTemplate: slot.fromTemplate, inherit: 0, explicit: 0, missing: 0 }));
+  const slots: BuildBatchSummary['slots'] = BUILD_SLOTS.map((slot) => ({ key: slot.key as string, label: slot.label, fromTemplate: slot.fromTemplate, inherit: 0, explicit: 0, missing: 0 }));
   for (let index = 0; index < tasks.length; index += 1) {
     const task = tasks[index];
     const template = templateKeyOf(task);
@@ -289,11 +318,16 @@ export function summarizeBatch(batch: BuildBatch, projectRoot: string): BuildBat
       templates.set(template.toLowerCase(), entry);
     }
     const rows = describeSlots(task, batch?.results?.[index], projectRoot, new Map());
-    rows.forEach((row, position) => {
-      if (row.origin === 'explicit') slots[position].explicit += 1;
-      else if (row.origin === 'inherit') slots[position].inherit += 1;
-      else if (row.origin === 'missing') slots[position].missing += 1;
-      else slots[position].explicit += 1; // unresolved declaration still counts as task-specific
+    rows.forEach((row) => {
+      let slot = slots.find((entry) => entry.key === row.key);
+      if (!slot) {
+        slot = { key: row.key, label: row.label, fromTemplate: row.fromTemplate, inherit: 0, explicit: 0, missing: 0 };
+        slots.push(slot);
+      }
+      if (row.origin === 'explicit') slot.explicit += 1;
+      else if (row.origin === 'inherit') slot.inherit += 1;
+      else if (row.origin === 'missing') slot.missing += 1;
+      else slot.explicit += 1;
     });
   }
   return {

@@ -59,7 +59,7 @@
     "build": "node scripts/build-client.mjs",
     "install-dsh": "node scripts/install-dsh.mjs",
     "prepublishOnly": "npm run verify",
-    "test": "node --test lib/host/*.test.mjs",
+    "test": "node --test lib/host/*.test.mjs src/client/*.test.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "engines": {
@@ -72,6 +72,7 @@
     "esbuild": "^0.28.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-test-renderer": "18.3.1",
     "typescript": "^5.9.3"
   }
 }

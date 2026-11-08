@@ -727,9 +727,10 @@ function BuildInputsToolRow({ block }: { block: any }) {
                 if (flags.length && flags.every(Boolean)) writtenIndices.push(entry.index);
               }
               if (writtenIndices.length > 0) {
-                const inferred = `已写入 ${writtenIndices.length} 个任务（按目标文件存在推断）`;
-                saveBuildOutcome(originalPreview.planId, { phase: 'done', selectedIndices: writtenIndices, writeRows: {}, message: inferred, requestError: false });
-                setPhase('done');
+                const inferred = `${writtenIndices.length} 个任务的目标文件已存在，但缺少确认记录；写入状态待核查`;
+                saveBuildOutcome(originalPreview.planId, { phase: 'unavailable', selectedIndices: writtenIndices, writeRows: {}, message: inferred, requestError: true });
+                setPhase('unavailable');
+                setRequestError(true);
                 setMessage(inferred);
                 return;
               }
@@ -767,7 +768,7 @@ function BuildInputsToolRow({ block }: { block: any }) {
       const sourceName = item.kind === 'file' ? item.file : item.relPath;
       setMessage(`任务 ${tasks[index].dir} 已改用 ${sourceName}；预览已更新，尚未写入磁盘`);
       recordAction(`${tasks[index].dir}：${item.kind === 'file' ? 'POSCAR' : 'INCAR/KPOINTS/POTCAR'} 来源改为 ${sourceName}，预览已更新`);
-      if (focused === index) panelStore.setSelectedBuildTask({ task: result.tasks[index], result: result.results?.[index], projectRoot: result.projectRoot || args.projectRoot || '', linkPotcar: !!args.linkPotcar, phase: 'preview', batch: { tasks: result.tasks ?? [], results: result.results ?? [] } });
+      if (focused === index) panelStore.setSelectedBuildTask({ task: result.tasks[index], result: result.results?.[index], projectRoot: result.projectRoot || args.projectRoot || '', linkPotcar: !!args.linkPotcar, phase: 'preview', batch: { tasks: result.tasks ?? [], results: result.results ?? [] }, planId: result.planId, taskIndex: index });
     } catch (caught) {
       setRequestError(true);
       setMessage(caught instanceof Error ? caught.message : String(caught));

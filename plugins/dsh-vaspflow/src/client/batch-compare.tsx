@@ -21,10 +21,6 @@ export type BatchCompareProps = {
   maxWidth?: number;
 };
 
-const FILE_NAME_BY_SLOT: Record<string, string> = {
-  POSCAR: 'POSCAR', INCAR: 'INCAR', KPOINTS: 'KPOINTS', POTCAR: 'POTCAR',
-};
-
 function taskLabel(dir?: string): string {
   const parts = toPosix(dir || '').split('/').filter(Boolean);
   return parts[parts.length - 1] || dir || '任务';
@@ -92,9 +88,7 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                     const sourceName = group.sources.length > 1 && sourceDirs.size === 1
                       ? (sourceParts[sourceParts.length - 1] || '模板').replace(/\.[^.]+$/, '')
                       : (sourceParts[sourceParts.length - 2] || '模板');
-                    const slotFileName = group.key === 'submit'
-                      ? toPosix(tasks[source.tasks[0]]?.submitSrc || '').split('/').pop() || 'submit.sh'
-                      : FILE_NAME_BY_SLOT[group.key] ?? group.key;
+                    const slotFileName = group.fileNames[source.tasks[0]];
                     const compareWith = source.tasks
                       .map((index) => results[index]?.files?.[slotFileName]?.written)
                       .filter((text) => typeof text === 'string') as string[];
@@ -111,16 +105,15 @@ export function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth
                             hint={projectRelative(projectRoot, source.path)}
                             compareWith={compareWith}
                             source={{ path: source.path }}
-                            fileName=""
+                            fileName={slotFileName}
+                            files={results[source.tasks[0]]?.files}
                           />
                         </div>
                         <ul className="vfp-batch-children">
                           {shown.map((index) => {
                             const task = tasks[index];
                             const result = results[index];
-                            const fileName = group.key === 'submit'
-                              ? toPosix(task?.submitSrc || '').split('/').pop() || 'submit.sh'
-                              : FILE_NAME_BY_SLOT[group.key] ?? group.key;
+                            const fileName = group.fileNames[index];
                             return (
                               <li className="vfp-batch-leaf" key={`${group.key}-${index}`}>
                                 <SourceCompare

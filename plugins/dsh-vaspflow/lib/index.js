@@ -1013,7 +1013,7 @@ export function apply(ctx, config) {
   const saveBuildPlans = () => {
     try {
       writeJsonAtomic(planFile, Object.fromEntries([...buildPlans].slice(-40).map(([id, plan]) => [id, withoutFiles(plan)])));
-    } catch { /* live session still retains plans */ }
+    } catch (error) { ctx.logger?.warn?.(`Failed to persist VASP build plans: ${error.message}`); }
   };
   let savedOutcomes = {};
   try { savedOutcomes = JSON.parse(readFileSync(outcomeFile, 'utf8')); } catch { /* no prior outcomes */ }
@@ -1021,7 +1021,7 @@ export function apply(ctx, config) {
   const saveBuildOutcomes = () => {
     try {
       writeJsonAtomic(outcomeFile, Object.fromEntries([...buildOutcomes].slice(-40)));
-    } catch { /* live session still retains the result */ }
+    } catch (error) { ctx.logger?.warn?.(`Failed to persist VASP build outcomes: ${error.message}`); }
   };
   const updateBuildOutcome = (sessionId, planId, patch) => {
     if (!sessionId) return;
@@ -1145,6 +1145,7 @@ export function apply(ctx, config) {
         return json(res, 200, {
           planId, state: light.state, revision: light.revision, projectRoot: light.projectRoot, tasks: light.tasks,
           preview: light.preview, selectedIndices: light.selectedIndices, result: light.result,
+          invalidReason: light.invalidReason,
         });
       },
     }), 'dsh-vaspflow: build plan status');
@@ -1234,6 +1235,13 @@ export function apply(ctx, config) {
           return json(res, 400, { error: '无效的任务序号' });
         }
         if (!name) return json(res, 400, { error: '缺少文件名' });
+        if (plan.state === 'invalidated' || plan.state === 'uncertain' || plan.state === 'cancelled') {
+          return json(res, 409, { error: '此预览已失效，无法提供写入内容', state: plan.state });
+        }
+        if (JSON.stringify(buildSourceStamps(plan.preview?.results)) !== JSON.stringify(plan.sourceStamps)) {
+          if (plan.state === 'pending') markPlan(query.planId, plan, 'invalidated', { invalidReason: '来源文件在预览后被改动' });
+          return json(res, 409, { error: '构建来源在预览后已变化，请重新预览' });
+        }
         try {
           const result = await buildOneTask(plan.tasks[index], plan.projectRoot, {
             dryRun: true, linkPotcar: plan.linkPotcar, previewText: true,
@@ -1324,6 +1332,11 @@ export function apply(ctx, config) {
           markPlan(planId, plan, 'confirming');
           const tasks = selectedIndices.map((index) => plan.tasks[index]);
           const preview = await buildInputs(plan.projectRoot, tasks, { dryRun: true, linkPotcar: plan.linkPotcar, previewText: true });
+          if (JSON.stringify(preview.results.map((row) => row.sources))
+            !== JSON.stringify(selectedIndices.map((index) => plan.preview.results[index]?.sources))) {
+            markPlan(planId, plan, 'invalidated', { invalidReason: '预览后的文件来源发生变化' });
+            return json(res, 409, { error: '构建来源在预览后已变化，请重新预览', state: 'invalidated' });
+          }
           if (preview.errorCount > 0) {
             markPlan(planId, plan, 'invalidated', { invalidReason: '复查预览发现错误' });
             return json(res, 409, { error: '任务预览已出现错误，请重新检查', invalidReason: '复查预览发现错误', ...preview });

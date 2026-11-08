@@ -98,10 +98,6 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
   const templateFullRel = task.template ? projectRelative(projectRoot, absoluteTaskPath(projectRoot, task.template)) : '';
   const templateRel = templateFullRel ? shortenPath(templateFullRel) : '';
   const templateShared = templateFullRel ? summary?.templates.find((entry) => entry.rel === templateFullRel)?.count ?? 0 : 0;
-  const extras = (task.extraFiles ?? []).map((item, index) => ({
-    name: item.dest || item.fromTemplate || basenameOf(item.src) || `额外文件 ${index + 1}`,
-    path: (result?.sources ?? {})[item.dest || item.fromTemplate || basenameOf(item.src) || ''] as string | undefined,
-  }));
   /** Hover previews; a click pins the card so it survives the pointer leaving. */
   const [hoverSlot, setHoverSlot] = useState<string | null>(null);
   const [pinnedSlot, setPinnedSlot] = useState<string | null>(null);
@@ -212,7 +208,7 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
               {slot.shared > 1 ? <span className="vfp-inherit-share" title={`${slot.shared} 个任务使用同一来源`}>×{slot.shared}</span> : null}
             </li>;
             if (!slot.path) return row;
-            const destination = slot.key === 'submit' ? basenameOf(task.submitSrc) : slot.key;
+            const destination = slot.fileName;
             const open = hoverSlot === slot.key || pinnedSlot === slot.key;
             return <Popover
               key={slot.key}
@@ -262,10 +258,6 @@ function BuildPreviewDetail({ detail }: { detail: BuildTaskDetail }) {
             </Popover>;
           })}
         </ul>
-        {extras.length ? <div className="vfp-inherit-extras">
-          <span className="vfp-inherit-name">额外文件</span>
-          <span>{extras.map((extra) => <code key={extra.name} title={extra.path || ''}>{extra.name}</code>)}</span>
-        </div> : null}
         {!result && <div className="vfp-inherit-empty">尚未生成预览，来源为任务声明值，未经解析校验。</div>}
       </div>
       <div className="vfp-build-detail-section"><b>相对目录</b>

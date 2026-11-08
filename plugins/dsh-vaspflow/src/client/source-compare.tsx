@@ -9,135 +9,19 @@
  *
  * File contents come from the existing task routes: open-by-path registers any
  * existing directory, then file-content reads one file inside it. Results are
- * cached per absolute path so reopening the same source costs nothing.
+ * deduplicated while in flight; reopening a source reads its current content.
  */
 import React from 'react';
 import { Tree } from 'antd';
 import { FileTextOutlined, FolderOutlined } from '@ant-design/icons';
-import { fetchFileContent, openTaskByPath } from './api';
+import { loadSourceComparison } from './source-content';
+import type { Compared } from './source-content';
+import { markDifferences, toLines, collapseUnchanged } from './file-compare';
+export { applyIncarOverrides } from '../../lib/shared/incar.js';
 import { projectRelative, toPosix } from './inheritance';
 import { useCompareGroup } from './compare-group';
 
-type FileState = { text: string; lines: string[]; error?: string; truncated?: boolean };
-
-const fileCache = new Map<string, FileState>();
-const pending = new Map<string, Promise<FileState>>();
-
-/** Read one file inside the project through the task routes (cached). */
-async function readProjectFile(projectRoot: string, absolutePath: string): Promise<FileState> {
-  const key = absolutePath.toLowerCase();
-  const cached = fileCache.get(key);
-  if (cached) return cached;
-  const running = pending.get(key);
-  if (running) return running;
-  const job = (async (): Promise<FileState> => {
-    try {
-      const rel = projectRelative(projectRoot, absolutePath);
-      const parts = toPosix(rel).split('/').filter(Boolean);
-      const name = parts.at(-1) ?? '';
-      if (!name) throw new Error('无法解析文件名');
-      const dir = parts.slice(0, -1).join('/') || '.';
-      const task = await openTaskByPath(projectRoot, dir);
-      const response = await fetchFileContent(task.id, name, { offset: 0 });
-      const text = response.content ?? '';
-      const lines = text.replace(/\r\n?/g, '\n').split('\n');
-      // A trailing newline is not a line of its own in a side-by-side view.
-      if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
-      const value: FileState = { text, lines, truncated: !!response.hasAfter };
-      fileCache.set(key, value);
-      return value;
-    } catch (error) {
-      const value: FileState = { text: '', lines: [], error: error instanceof Error ? error.message : String(error) };
-      fileCache.set(key, value);
-      return value;
-    } finally {
-      pending.delete(key);
-    }
-  })();
-  pending.set(key, job);
-  return job;
-}
-
-const INCAR_TAG_RE = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.+?)\s*(?:[#!].*)?$/;
-
-/**
- * Mirror of the host's applyIncarOverrides: replace tags in place (semicolon
- * aware) and append tags the file does not declare yet. Kept in step with
- * lib/host/input-builder.js so the preview matches what gets written.
- */
-export function applyIncarOverrides(incarText: string, overrides?: Record<string, unknown>): string {
-  const entries = Object.entries(overrides ?? {});
-  if (!entries.length) return incarText;
-  const escape = (value: string) => value.replace(/[.*+?^()|[\]\\]/g, '\\$&');
-  const lines = incarText.split(/\r?\n/).map((line) => {
-    const segments = line.split(';');
-    let touched = false;
-    for (let i = 0; i < segments.length; i += 1) {
-      for (const [key, value] of entries) {
-        const pattern = new RegExp('^\\s*' + escape(key) + '\\s*=\\s*[^\\r\\n]*');
-        if (pattern.test(segments[i])) {
-          segments[i] = segments[i].replace(pattern, () => `${key} = ${String(value)}`);
-          touched = true;
-        }
-      }
-    }
-    return touched ? segments.join(';') : line;
-  });
-  let out = lines.join('\n');
-  const declared = new Set<string>();
-  for (const raw of out.split(/\r?\n/)) {
-    for (const segment of raw.split(';')) {
-      const match = INCAR_TAG_RE.exec(segment);
-      if (match) declared.add(match[1]);
-    }
-  }
-  for (const [key, value] of entries) {
-    if (!declared.has(key)) out += `\n${key} = ${String(value)}\n`;
-  }
-  return out;
-}
-
-/** Which lines of each side have no counterpart on the other side. */
-function markDifferences(left: string[], right: string[]): { left: boolean[]; right: boolean[] } {
-  const n = left.length;
-  const m = right.length;
-  const fallback = () => {
-    const setRight = new Set(right);
-    const setLeft = new Set(left);
-    return { left: left.map((line) => !setRight.has(line)), right: right.map((line) => !setLeft.has(line)) };
-  };
-  if (!n || !m || n * m > 400_000) return fallback();
-  const width = m + 1;
-  const table = new Int32Array((n + 1) * width);
-  for (let i = n - 1; i >= 0; i -= 1) {
-    for (let j = m - 1; j >= 0; j -= 1) {
-      table[i * width + j] = left[i] === right[j]
-        ? table[(i + 1) * width + j + 1] + 1
-        : Math.max(table[(i + 1) * width + j], table[i * width + j + 1]);
-    }
-  }
-  const leftFlags = new Array<boolean>(n).fill(true);
-  const rightFlags = new Array<boolean>(m).fill(true);
-  let i = 0;
-  let j = 0;
-  while (i < n && j < m) {
-    if (left[i] === right[j]) {
-      leftFlags[i] = false;
-      rightFlags[j] = false;
-      i += 1;
-      j += 1;
-    } else if (table[(i + 1) * width + j] >= table[i * width + j + 1]) {
-      i += 1;
-    } else {
-      j += 1;
-    }
-  }
-  return { left: leftFlags, right: rightFlags };
-}
-
-const PREVIEW_LINES = 140;
-
-/** Compact path for the header: at most two parent directories plus the file. */
+/** Compact header path: at most two parent folders followed by the file. */
 function shortPath(projectRoot: string, absolutePath: string): string {
   const parts = toPosix(projectRelative(projectRoot, absolutePath)).split('/').filter(Boolean);
   const name = parts.at(-1) ?? '';
@@ -147,12 +31,6 @@ function shortPath(projectRoot: string, absolutePath: string): string {
   return `${prefix}/${name}`;
 }
 
-/** Same normalisation the loader uses: CRLF→LF and drop one trailing blank. */
-function toLines(text: string): string[] {
-  const lines = text.replace(/\r\n?/g, '\n').split('\n');
-  if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
-  return lines;
-}
 /** Thickness, in pixels, of the pinned band along each edge of a preview. */
 const EDGE_BAND = 20;
 
@@ -181,6 +59,7 @@ function FilePane({ step, path, dirLabel, lines, changed, error, showGroupChange
   const group = useCompareGroup();
   const [localGapsOpen, setLocalGapsOpen] = React.useState(false);
   const paneId = React.useId();
+  const reportChanged = group?.reportChanged;
   const gapsOpen = group ? group.gapsOpen : localGapsOpen;
   const toggleGaps = group ? group.toggleGaps : () => setLocalGapsOpen((current) => !current);
 
@@ -208,15 +87,16 @@ function FilePane({ step, path, dirLabel, lines, changed, error, showGroupChange
   // Tell the group which lines this pane changes, then collapse only the lines
   // no pane in the group touches — so every pane hides the same content.
   React.useEffect(() => {
-    group?.reportChanged(paneId, changed);
-  }, [group, paneId, changed]);
+    reportChanged?.(paneId, changed);
+    return () => reportChanged?.(paneId, undefined);
+  }, [reportChanged, paneId, changed]);
   // A line is only collapsed when no pane in the group changes it: the template
   // reports its own marks when it has them, the tasks always report theirs, and
   // the group keeps the union. With nothing changed anywhere the file is shown
   // whole, so a template never collapses into a single placeholder.
   const hideFlags = React.useMemo(() => {
     if (!lines?.length) return undefined;
-    const length = Math.min(lines.length, PREVIEW_LINES);
+    const length = lines.length;
     const flags = new Array<boolean>(length).fill(false);
     if (changed) for (let index = 0; index < Math.min(changed.length, length); index += 1) if (changed[index]) flags[index] = true;
     if (group) for (const index of group.changed) if (index < length) flags[index] = true;
@@ -227,7 +107,7 @@ function FilePane({ step, path, dirLabel, lines, changed, error, showGroupChange
   const highlightFlags = showGroupChanges ? hideFlags : changed;
 
   const rows = React.useMemo(
-    () => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), hideFlags?.slice(0, PREVIEW_LINES), gapsOpen),
+    () => collapseUnchanged(lines, hideFlags, gapsOpen),
     [lines, hideFlags, gapsOpen],
   );
 
@@ -260,40 +140,6 @@ function FilePane({ step, path, dirLabel, lines, changed, error, showGroupChange
             </pre>}
     </section>
   );
-}
-
-type PaneRow = { kind: 'line'; index: number; text: string } | { kind: 'gap'; from: number; count: number };
-
-/**
- * Collapse runs of unchanged lines so a compare shows what actually differs.
- * A short file, or one with no differences, renders whole: hiding two lines
- * would only add noise.
- */
-function collapseUnchanged(lines: string[] | undefined, changed: boolean[] | undefined, expanded: boolean): PaneRow[] {
-  if (!lines) return [];
-  const allLines = lines.map((text, index) => ({ kind: 'line' as const, index, text }));
-  if (expanded || !changed || changed.length === 0) return allLines;
-  const MIN_RUN = 4;
-  const rows: PaneRow[] = [];
-  let index = 0;
-  while (index < lines.length) {
-    if (changed[index]) {
-      rows.push({ kind: 'line', index, text: lines[index] });
-      index += 1;
-      continue;
-    }
-    let end = index;
-    while (end < lines.length && !changed[end]) end += 1;
-    const count = end - index;
-    if (count >= MIN_RUN) {
-      rows.push({ kind: 'gap', from: index, count });
-      index = end;
-      continue;
-    }
-    for (let cursor = index; cursor < end; cursor += 1) rows.push({ kind: 'line', index: cursor, text: lines[cursor] });
-    index = end;
-  }
-  return rows;
 }
 
 type PathNode = { title: React.ReactNode; key: string; icon?: React.ReactNode; children?: PathNode[] };
@@ -354,63 +200,46 @@ export type SourceCompareProps = {
   variant?: 'both' | 'source' | 'written';
 };
 
-type Compared = { source: string[]; written: string[]; error?: string; notice?: string };
+/** A malformed file preview must not unmount the surrounding task panel. */
+class SourceCompareBoundary extends React.Component<{ children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
 
-export function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note, compact, writtenLabel, hint, compareWith, variant = 'both' }: SourceCompareProps) {
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[dsh-vaspflow] file preview render failed:', error);
+  }
+
+  render() {
+    if (this.state.failed) return <div className="vfp-cmp vaspflow-task-popover"><div className="vfp-cmp-empty" data-error="" role="alert">该文件暂时无法预览，请重新打开。其他文件仍可查看。</div></div>;
+    return this.props.children;
+  }
+}
+
+export function SourceCompare(props: SourceCompareProps) {
+  const identity = JSON.stringify([props.source?.path, props.fileName, props.planId, props.taskIndex]);
+  return <SourceCompareBoundary key={identity}><SourceCompareContent {...props} /></SourceCompareBoundary>;
+}
+
+function SourceCompareContent({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note, compact, writtenLabel, hint, compareWith, variant = 'both' }: SourceCompareProps) {
   const [compared, setCompared] = React.useState<Compared>();
 
   React.useEffect(() => {
     let cancelled = false;
     setCompared(undefined);
-    let hostStale = false;
-    const splitLines = (text: string) => {
-      const lines = text.replace(/\r\n?/g, '\n').split('\n');
-      if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
-      return lines;
-    };
-    const load = async () => {
-      // 1) Bytes the host computed for this exact plan — authoritative.
-      const baked = files?.[fileName];
-      if (baked && typeof baked.source === 'string' && typeof baked.written === 'string') {
-        if (!cancelled) setCompared({ source: splitLines(baked.source), written: splitLines(baked.written) });
-        return;
-      }
-      // Preferred: the host runs the same builder it uses for the real write,
-      // so POSCAR flag rewrites and INCAR overrides are reflected exactly.
-      if (variant !== 'source' && planId && taskIndex !== undefined) {
-        try {
-          const url = `/plugins/dsh-vaspflow/build-inputs/file?planId=${encodeURIComponent(planId)}`
-            + `&taskIndex=${taskIndex}&name=${encodeURIComponent(fileName)}`;
-          const response = await fetch(url);
-          if (response.status === 404) hostStale = true;
-          if (response.ok) {
-            const payload = await response.json() as { source?: string; written?: string };
-            if (typeof payload.source === 'string' && typeof payload.written === 'string') {
-              if (!cancelled) setCompared({ source: splitLines(payload.source), written: splitLines(payload.written) });
-              return;
-            }
-          }
-        } catch { /* fall back to reading the file directly */ }
-      }
-      const state = await readProjectFile(projectRoot, source.path);
-      if (cancelled) return;
-      if (state.error) { setCompared({ source: [], written: [], error: state.error }); return; }
-      const written = Object.keys(incarOverrides ?? {}).length
-        ? splitLines(applyIncarOverrides(state.text, incarOverrides))
-        : state.lines;
-      const notice = hostStale
-        ? '宿主版本过旧，未提供写入内容（重启 DSH 后生效）'
-        : rewritten ? '未取得宿主写入内容，此处仅为来源' : undefined;
-      setCompared({ source: state.lines, written, notice });
-    };
-    void load();
+    void loadSourceComparison({
+      projectRoot, sourcePath: source.path, fileName, files, planId, taskIndex, incarOverrides, rewritten, variant,
+    }).then((value) => { if (!cancelled) setCompared(value); })
+      .catch((error) => { if (!cancelled) setCompared({ source: [], error: error instanceof Error ? error.message : String(error) }); });
     return () => { cancelled = true; };
   }, [projectRoot, source.path, fileName, files, planId, taskIndex, incarOverrides, rewritten, variant]);
 
   const overrideCount = Object.keys(incarOverrides ?? {}).length;
   const error = compared?.error;
   const marks = React.useMemo(
-    () => (compared && !error ? markDifferences(compared.source.slice(0, PREVIEW_LINES), compared.written.slice(0, PREVIEW_LINES)) : undefined),
+    () => (compared?.written && !error && !compared.partial ? markDifferences(compared.source, compared.written) : undefined),
     [compared, error],
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
@@ -421,8 +250,8 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
     if (variant !== 'source' || !compareWith?.length || !compared?.source?.length) return undefined;
     const flags = new Array(compared.source.length).fill(false);
     for (const text of compareWith) {
-      const written = toLines(text).slice(0, PREVIEW_LINES);
-      const result = markDifferences(compared.source.slice(0, PREVIEW_LINES), written);
+      const written = toLines(text);
+      const result = markDifferences(compared.source, written);
       result.left.forEach((flag, index) => { if (flag) flags[index] = true; });
     }
     return flags;
@@ -445,8 +274,9 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
               : null}
           </div>
         )}
-        {variant !== 'source' && (error
+        {compared?.partial ? <span className="vfp-cmp-same" data-tone="muted" title={compared.notice}>部分内容</span> : variant !== 'source' && (error
           ? <span className="vfp-cmp-same" data-tone="muted">来源不可读</span>
+          : compared?.writeError ? <span className="vfp-cmp-same" data-tone="muted" title={compared.writeError}>写入内容不可用</span>
           : marks && (same
             ? <span className="vfp-cmp-same">{compact ? '相同' : '与来源相同'}</span>
             : <span className="vfp-cmp-diff">{compact ? '不同' : '与来源不同'}{delta && <em className="vfp-cmp-delta"><b>+{delta.added}</b><b>−{delta.removed}</b></em>}</span>))}
@@ -459,7 +289,7 @@ export function SourceCompare({ projectRoot, projectName, slotLabel, source, fil
         {variant !== 'source' && (
           <FilePane step={variant === 'written' ? '本任务写入' : '将写入'} path={source.path}
             dirLabel={writtenLabel ?? shortPath(projectRoot, source.path)}
-            lines={compared?.written} changed={marks?.right} />
+            lines={compared?.written} changed={marks?.right} error={compared?.writeError || error} />
         )}
       </div>
       <div className="vfp-cmp-address" hidden={compact}>

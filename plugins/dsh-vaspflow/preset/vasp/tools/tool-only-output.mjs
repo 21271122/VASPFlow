@@ -86,7 +86,11 @@ export async function* gateStream(options, stream, retry) {
 
 export function apply(ctx) {
   ctx.on('llm/stream', (options, next) => {
-    if (!options.sessionId || !options.tools?.some((tool) => tool.name === 'vasp_say')
+    // Internal (non-agent) calls such as compaction summaries and title
+    // generation replay the conversation's tools so the provider cache stays
+    // warm, but they must be free to answer in prose. The protocol below only
+    // governs real agent turns, which never set `purpose`.
+    if (options.purpose !== undefined || !options.sessionId || !options.tools?.some((tool) => tool.name === 'vasp_say')
       || !options.tools.some((tool) => tool.name === 'vasp_done')) return next();
     const llm = ctx.get?.('llm') ?? ctx.llm;
     const retry = options[RECOVERY] || !llm ? undefined : (retryOptions) => llm.stream(retryOptions);

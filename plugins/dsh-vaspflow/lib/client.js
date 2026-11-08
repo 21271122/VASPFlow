@@ -3682,8 +3682,8 @@ var require_toNumber = __commonJS({
         return value === 0 ? value : +value;
       }
       value = baseTrim(value);
-      var isBinary = reIsBinary.test(value);
-      return isBinary || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
+      var isBinary2 = reIsBinary.test(value);
+      return isBinary2 || reIsOctal.test(value) ? freeParseInt(value.slice(2), isBinary2 ? 2 : 8) : reIsBadHex.test(value) ? NAN : +value;
     }
     module2.exports = toNumber;
   }
@@ -59417,7 +59417,7 @@ function slotExplicit(task, slot) {
 function slotResolvedPath(task, result, slot) {
   const sources = result?.sources ?? {};
   if (slot.key !== "submit") return sources[slot.key] || void 0;
-  const name = basenameOf(task?.submitSrc);
+  const name = basenameOf(task?.submitSrc || task?.sources?.submit);
   if (name && sources[name]) return sources[name];
   return void 0;
 }
@@ -59435,13 +59435,14 @@ function templateKeyOf(task) {
   return template || "";
 }
 function describeSlots(task, result, projectRoot, share) {
-  return BUILD_SLOTS.map((slot) => {
+  const standard = BUILD_SLOTS.map((slot) => {
     const resolved = slotResolvedPath(task, result, slot);
     const origin = slotOrigin(task, slot, resolved);
     const rel = resolved ? shortenPath(projectRelative(projectRoot, resolved)) : origin === "pending" ? shortenPath(toPosix(slotDeclaredPath(task, slot) || "")) : "";
     return {
       key: slot.key,
       label: slot.label,
+      fileName: slot.key === "submit" ? basenameOf(task?.submitSrc || task?.sources?.submit) || "submit.sh" : slot.key,
       fromTemplate: slot.fromTemplate,
       origin,
       path: resolved,
@@ -59449,13 +59450,38 @@ function describeSlots(task, result, projectRoot, share) {
       shared: resolved ? share.get(`${slot.key}|${resolved.toLowerCase()}`) ?? 0 : 0
     };
   });
+  const reserved = new Set(standard.map((row) => row.fileName));
+  const extras = /* @__PURE__ */ new Map();
+  for (const item of task?.extraFiles ?? []) {
+    const name = item.dest || (item.src ? basenameOf(item.src) : item.fromTemplate);
+    if (typeof name === "string" && name && !reserved.has(name)) extras.set(name, item);
+  }
+  for (const name of Object.keys(result?.sources ?? {})) {
+    if (!reserved.has(name) && !extras.has(name)) extras.set(name, {});
+  }
+  const extraRows = [...extras].map(([name, item]) => {
+    const path3 = typeof result?.sources?.[name] === "string" ? result.sources[name] : void 0;
+    const fromTemplate = !item.src && Boolean(item.fromTemplate);
+    const key = `extra:${name}`;
+    return {
+      key,
+      label: name,
+      fileName: name,
+      fromTemplate,
+      path: path3,
+      origin: path3 ? fromTemplate ? "inherit" : "explicit" : result ? "missing" : "pending",
+      rel: path3 ? shortenPath(projectRelative(projectRoot, path3)) : item.src || item.fromTemplate || "",
+      shared: path3 ? share.get(`${key}|${path3.toLowerCase()}`) ?? 0 : 0
+    };
+  });
+  return [...standard, ...extraRows];
 }
 function buildShareIndex(batch, projectRoot) {
   const share = /* @__PURE__ */ new Map();
   (batch?.tasks ?? []).forEach((entry, index2) => {
     const result = batch?.results?.[index2];
-    for (const slot of BUILD_SLOTS) {
-      const resolved = slotResolvedPath(entry, result, slot);
+    for (const slot of describeSlots(entry, result, projectRoot, /* @__PURE__ */ new Map())) {
+      const resolved = slot.path;
       if (!resolved) continue;
       const key = `${slot.key}|${resolved.toLowerCase()}`;
       share.set(key, (share.get(key) ?? 0) + 1);
@@ -59464,12 +59490,20 @@ function buildShareIndex(batch, projectRoot) {
   return share;
 }
 function groupBatchBySource(batch, projectRoot) {
-  const tasks = batch?.tasks ?? [];
-  return BUILD_SLOTS.map((slot) => {
+  const rows = (batch?.tasks ?? []).map((task, index2) => describeSlots(task, batch?.results?.[index2], projectRoot, /* @__PURE__ */ new Map()));
+  const kinds = /* @__PURE__ */ new Map();
+  rows.forEach((taskRows) => taskRows.forEach((row) => {
+    if (!kinds.has(row.key)) kinds.set(row.key, row);
+  }));
+  return [...kinds.values()].map((kind) => {
     const byPath = /* @__PURE__ */ new Map();
     const missing = [];
-    tasks.forEach((entry, index2) => {
-      const resolved = slotResolvedPath(entry, batch?.results?.[index2], slot);
+    const fileNames = {};
+    rows.forEach((taskRows, index2) => {
+      const row = taskRows.find((candidate) => candidate.key === kind.key);
+      if (!row) return;
+      fileNames[index2] = row.fileName;
+      const resolved = row.path;
       if (!resolved) {
         missing.push(index2);
         return;
@@ -59480,7 +59514,7 @@ function groupBatchBySource(batch, projectRoot) {
       else byPath.set(key, { path: resolved, rel: shortenPath(projectRelative(projectRoot, resolved)), tasks: [index2] });
     });
     const sources = [...byPath.values()].sort((a2, b) => b.tasks.length - a2.tasks.length);
-    return { key: slot.key, label: slot.label, fromTemplate: slot.fromTemplate, sources, missing };
+    return { key: kind.key, label: kind.label, fromTemplate: kind.fromTemplate, sources, missing, fileNames };
   }).filter((group) => group.sources.length > 0 || group.missing.length > 0);
 }
 function buildRelativeTree(sources, taskDirs, projectRoot) {
@@ -59541,11 +59575,16 @@ function summarizeBatch(batch, projectRoot) {
       templates.set(template.toLowerCase(), entry);
     }
     const rows = describeSlots(task, batch?.results?.[index2], projectRoot, /* @__PURE__ */ new Map());
-    rows.forEach((row, position3) => {
-      if (row.origin === "explicit") slots[position3].explicit += 1;
-      else if (row.origin === "inherit") slots[position3].inherit += 1;
-      else if (row.origin === "missing") slots[position3].missing += 1;
-      else slots[position3].explicit += 1;
+    rows.forEach((row) => {
+      let slot = slots.find((entry) => entry.key === row.key);
+      if (!slot) {
+        slot = { key: row.key, label: row.label, fromTemplate: row.fromTemplate, inherit: 0, explicit: 0, missing: 0 };
+        slots.push(slot);
+      }
+      if (row.origin === "explicit") slot.explicit += 1;
+      else if (row.origin === "inherit") slot.inherit += 1;
+      else if (row.origin === "missing") slot.missing += 1;
+      else slot.explicit += 1;
     });
   }
   return {
@@ -59564,7 +59603,190 @@ function originLabel(origin) {
 
 // src/client/source-compare.tsx
 var import_react130 = __toESM(require("react"), 1);
+
+// src/client/source-content.ts
 init_api();
+
+// src/client/file-compare.ts
+function collapseUnchanged(lines, changed, expanded) {
+  if (!lines) return [];
+  const allLines = lines.map((text, index3) => ({ kind: "line", index: index3, text }));
+  if (expanded || !changed?.some(Boolean)) return allLines;
+  const MIN_RUN = 4;
+  const rows = [];
+  let index2 = 0;
+  while (index2 < lines.length) {
+    if (changed[index2]) {
+      rows.push({ kind: "line", index: index2, text: lines[index2] });
+      index2 += 1;
+      continue;
+    }
+    let end = index2;
+    while (end < lines.length && !changed[end]) end += 1;
+    const count = end - index2;
+    if (count >= MIN_RUN) {
+      rows.push({ kind: "gap", from: index2, count });
+      index2 = end;
+      continue;
+    }
+    for (let cursor = index2; cursor < end; cursor += 1) rows.push({ kind: "line", index: cursor, text: lines[cursor] });
+    index2 = end;
+  }
+  return rows;
+}
+function toLines(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+  return lines;
+}
+function markDifferences(left, right) {
+  const leftFlags = new Array(left.length).fill(false);
+  const rightFlags = new Array(right.length).fill(false);
+  let start = 0;
+  while (start < left.length && start < right.length && left[start] === right[start]) start += 1;
+  let leftEnd = left.length;
+  let rightEnd = right.length;
+  while (leftEnd > start && rightEnd > start && left[leftEnd - 1] === right[rightEnd - 1]) {
+    leftEnd -= 1;
+    rightEnd -= 1;
+  }
+  leftFlags.fill(true, start, leftEnd);
+  rightFlags.fill(true, start, rightEnd);
+  const n = leftEnd - start;
+  const m = rightEnd - start;
+  if (!n || !m || n * m > 4e5) return { left: leftFlags, right: rightFlags };
+  const width = m + 1;
+  const table = new Int32Array((n + 1) * width);
+  for (let i2 = n - 1; i2 >= 0; i2 -= 1) {
+    for (let j2 = m - 1; j2 >= 0; j2 -= 1) {
+      table[i2 * width + j2] = left[start + i2] === right[start + j2] ? table[(i2 + 1) * width + j2 + 1] + 1 : Math.max(table[(i2 + 1) * width + j2], table[i2 * width + j2 + 1]);
+    }
+  }
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (left[start + i] === right[start + j]) {
+      leftFlags[start + i++] = false;
+      rightFlags[start + j++] = false;
+    } else if (table[(i + 1) * width + j] >= table[i * width + j + 1]) i += 1;
+    else j += 1;
+  }
+  return { left: leftFlags, right: rightFlags };
+}
+
+// lib/shared/incar.js
+function escapeRegExp(s2) {
+  return String(s2).replace(/[.*+?^()|[\]\\]/g, "\\$&");
+}
+var INCAR_TAG_RE = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.+?)\s*(?:[#!].*)?$/;
+function collectIncarTags(text) {
+  const tags = /* @__PURE__ */ new Set();
+  for (const rawLine of text.split(/\r?\n/)) {
+    for (const segment of rawLine.split(";")) {
+      const m = INCAR_TAG_RE.exec(segment);
+      if (m) tags.add(m[1]);
+    }
+  }
+  return tags;
+}
+function applyIncarOverrides(incarText, overrides) {
+  const entries = Object.entries(overrides ?? {});
+  if (entries.length === 0) return incarText;
+  const lines = incarText.split(/\r?\n/).map((line2) => {
+    const segments = line2.split(";");
+    let touched = false;
+    for (let i = 0; i < segments.length; i += 1) {
+      for (const [key, val] of entries) {
+        const pattern6 = new RegExp("^\\s*" + escapeRegExp(key) + "\\s*=\\s*[^\\r\\n]*");
+        if (pattern6.test(segments[i])) {
+          segments[i] = segments[i].replace(pattern6, () => key + " = " + val);
+          touched = true;
+        }
+      }
+    }
+    return touched ? segments.join(";") : line2;
+  });
+  let out = lines.join("\n");
+  const existing = collectIncarTags(out);
+  for (const [key, val] of entries) {
+    if (!existing.has(key)) out += "\n" + key + " = " + val + "\n";
+  }
+  return out;
+}
+
+// src/client/source-content.ts
+var SOURCE_PREVIEW_BYTES = 64 * 1024;
+var SOURCE_PREVIEW_LINES = 400;
+var binaryMessage = "\u4E8C\u8FDB\u5236\u6587\u4EF6\u4E0D\u652F\u6301\u6587\u672C\u9884\u89C8\uFF0C\u6784\u5EFA\u65F6\u4ECD\u6309\u539F\u6587\u4EF6\u5B8C\u6574\u590D\u5236";
+var isBinary = (text) => /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text.slice(0, 8192));
+function textComparison(source, written) {
+  if (isBinary(source) || isBinary(written)) return { source: [], error: binaryMessage };
+  return { source: toLines(source), written: toLines(written) };
+}
+async function loadSourceComparison(request2) {
+  const { projectRoot, sourcePath, fileName, files, planId, taskIndex, incarOverrides, rewritten, variant = "both" } = request2;
+  const baked = files?.[fileName];
+  if (typeof baked?.source === "string" && typeof baked.written === "string") {
+    return textComparison(baked.source, baked.written);
+  }
+  let hostStale = false;
+  if (variant !== "source" && planId && taskIndex !== void 0) {
+    try {
+      const url2 = `/plugins/dsh-vaspflow/build-inputs/file?planId=${encodeURIComponent(planId)}&taskIndex=${taskIndex}&name=${encodeURIComponent(fileName)}`;
+      const response = await fetch(url2);
+      hostStale = response.status === 404 || response.status === 409;
+      if (response.ok) {
+        const payload = await response.json();
+        if (typeof payload.source === "string" && typeof payload.written === "string") {
+          return textComparison(payload.source, payload.written);
+        }
+      }
+    } catch {
+    }
+  }
+  const state = await readProjectFile(projectRoot, sourcePath);
+  if (state.error) return { source: [], error: state.error };
+  if (state.truncated && !rewritten && !Object.keys(incarOverrides ?? {}).length) {
+    const lines = state.lines.slice(0, SOURCE_PREVIEW_LINES);
+    return { source: lines, written: lines, partial: true, notice: "\u4EC5\u663E\u793A\u6587\u4EF6\u5F00\u5934\u7684\u90E8\u5206\u5185\u5BB9\uFF1B\u6784\u5EFA\u65F6\u4ECD\u5B8C\u6574\u590D\u5236\uFF0C\u672A\u5BF9\u5168\u6587\u4EF6\u8FDB\u884C\u6BD4\u8F83" };
+  }
+  if (state.truncated || rewritten && variant !== "source") {
+    return { source: state.lines.slice(0, SOURCE_PREVIEW_LINES), writeError: state.truncated ? "\u6765\u6E90\u5185\u5BB9\u672A\u5B8C\u6574\u8BFB\u53D6\uFF0C\u65E0\u6CD5\u6BD4\u8F83\u5199\u5165\u7ED3\u679C" : "\u672A\u53D6\u5F97\u5BBF\u4E3B\u5199\u5165\u5185\u5BB9\uFF0C\u4E0D\u80FD\u4EE5\u6765\u6E90\u4EE3\u66FF\u7ED3\u679C" };
+  }
+  return {
+    source: state.lines,
+    written: Object.keys(incarOverrides ?? {}).length ? toLines(applyIncarOverrides(state.text, incarOverrides)) : state.lines,
+    notice: hostStale ? "\u6784\u5EFA\u8BA1\u5212\u4E0D\u53EF\u7528\uFF0C\u6B64\u5904\u6309\u5F53\u524D\u6765\u6E90\u9884\u89C8" : void 0
+  };
+}
+var pending = /* @__PURE__ */ new Map();
+async function readProjectFile(projectRoot, absolutePath) {
+  const key = `${projectRoot}\0${absolutePath}`;
+  const running = pending.get(key);
+  if (running) return running;
+  const job = (async () => {
+    try {
+      const rel = projectRelative(projectRoot, absolutePath);
+      const parts = toPosix(rel).split("/").filter(Boolean);
+      const name = parts.at(-1) ?? "";
+      if (!name) throw new Error("\u65E0\u6CD5\u89E3\u6790\u6587\u4EF6\u540D");
+      const dir = parts.slice(0, -1).join("/") || ".";
+      const task = await openTaskByPath(projectRoot, dir);
+      const response = await fetchFileContent(task.id, name, { offset: 0, length: SOURCE_PREVIEW_BYTES });
+      const text = response.content ?? "";
+      if (isBinary(text)) return { text: "", lines: [], error: binaryMessage };
+      const value = { text, lines: toLines(text), truncated: !!response.hasAfter };
+      return value;
+    } catch (error) {
+      const value = { text: "", lines: [], error: error instanceof Error ? error.message : String(error) };
+      return value;
+    } finally {
+      pending.delete(key);
+    }
+  })();
+  pending.set(key, job);
+  return job;
+}
 
 // src/client/compare-group.tsx
 var import_react129 = __toESM(require("react"), 1);
@@ -59580,7 +59802,11 @@ function CompareGroupProvider({ id, children }) {
   const panes = import_react129.default.useRef(/* @__PURE__ */ new Map()).current;
   const [version4, setVersion] = import_react129.default.useState(0);
   const reportChanged = import_react129.default.useCallback((paneId, flags) => {
-    const next2 = flags ?? [];
+    if (!flags) {
+      if (panes.delete(paneId)) setVersion((current) => current + 1);
+      return;
+    }
+    const next2 = flags;
     if (sameFlags(panes.get(paneId) ?? [], next2)) return;
     panes.set(paneId, next2);
     setVersion((current) => current + 1);
@@ -59607,109 +59833,6 @@ function useCompareGroup() {
 
 // src/client/source-compare.tsx
 var import_jsx_runtime2 = require("react/jsx-runtime");
-var fileCache = /* @__PURE__ */ new Map();
-var pending = /* @__PURE__ */ new Map();
-async function readProjectFile(projectRoot, absolutePath) {
-  const key = absolutePath.toLowerCase();
-  const cached2 = fileCache.get(key);
-  if (cached2) return cached2;
-  const running = pending.get(key);
-  if (running) return running;
-  const job = (async () => {
-    try {
-      const rel = projectRelative(projectRoot, absolutePath);
-      const parts = toPosix(rel).split("/").filter(Boolean);
-      const name = parts.at(-1) ?? "";
-      if (!name) throw new Error("\u65E0\u6CD5\u89E3\u6790\u6587\u4EF6\u540D");
-      const dir = parts.slice(0, -1).join("/") || ".";
-      const task = await openTaskByPath(projectRoot, dir);
-      const response = await fetchFileContent(task.id, name, { offset: 0 });
-      const text = response.content ?? "";
-      const lines = text.replace(/\r\n?/g, "\n").split("\n");
-      if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
-      const value = { text, lines, truncated: !!response.hasAfter };
-      fileCache.set(key, value);
-      return value;
-    } catch (error) {
-      const value = { text: "", lines: [], error: error instanceof Error ? error.message : String(error) };
-      fileCache.set(key, value);
-      return value;
-    } finally {
-      pending.delete(key);
-    }
-  })();
-  pending.set(key, job);
-  return job;
-}
-var INCAR_TAG_RE = /^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.+?)\s*(?:[#!].*)?$/;
-function applyIncarOverrides(incarText, overrides) {
-  const entries = Object.entries(overrides ?? {});
-  if (!entries.length) return incarText;
-  const escape2 = (value) => value.replace(/[.*+?^()|[\]\\]/g, "\\$&");
-  const lines = incarText.split(/\r?\n/).map((line2) => {
-    const segments = line2.split(";");
-    let touched = false;
-    for (let i = 0; i < segments.length; i += 1) {
-      for (const [key, value] of entries) {
-        const pattern6 = new RegExp("^\\s*" + escape2(key) + "\\s*=\\s*[^\\r\\n]*");
-        if (pattern6.test(segments[i])) {
-          segments[i] = segments[i].replace(pattern6, () => `${key} = ${String(value)}`);
-          touched = true;
-        }
-      }
-    }
-    return touched ? segments.join(";") : line2;
-  });
-  let out = lines.join("\n");
-  const declared = /* @__PURE__ */ new Set();
-  for (const raw of out.split(/\r?\n/)) {
-    for (const segment of raw.split(";")) {
-      const match2 = INCAR_TAG_RE.exec(segment);
-      if (match2) declared.add(match2[1]);
-    }
-  }
-  for (const [key, value] of entries) {
-    if (!declared.has(key)) out += `
-${key} = ${String(value)}
-`;
-  }
-  return out;
-}
-function markDifferences(left, right) {
-  const n = left.length;
-  const m = right.length;
-  const fallback = () => {
-    const setRight = new Set(right);
-    const setLeft = new Set(left);
-    return { left: left.map((line2) => !setRight.has(line2)), right: right.map((line2) => !setLeft.has(line2)) };
-  };
-  if (!n || !m || n * m > 4e5) return fallback();
-  const width = m + 1;
-  const table = new Int32Array((n + 1) * width);
-  for (let i2 = n - 1; i2 >= 0; i2 -= 1) {
-    for (let j2 = m - 1; j2 >= 0; j2 -= 1) {
-      table[i2 * width + j2] = left[i2] === right[j2] ? table[(i2 + 1) * width + j2 + 1] + 1 : Math.max(table[(i2 + 1) * width + j2], table[i2 * width + j2 + 1]);
-    }
-  }
-  const leftFlags = new Array(n).fill(true);
-  const rightFlags = new Array(m).fill(true);
-  let i = 0;
-  let j = 0;
-  while (i < n && j < m) {
-    if (left[i] === right[j]) {
-      leftFlags[i] = false;
-      rightFlags[j] = false;
-      i += 1;
-      j += 1;
-    } else if (table[(i + 1) * width + j] >= table[i * width + j + 1]) {
-      i += 1;
-    } else {
-      j += 1;
-    }
-  }
-  return { left: leftFlags, right: rightFlags };
-}
-var PREVIEW_LINES = 140;
 function shortPath(projectRoot, absolutePath) {
   const parts = toPosix(projectRelative(projectRoot, absolutePath)).split("/").filter(Boolean);
   const name = parts.at(-1) ?? "";
@@ -59717,11 +59840,6 @@ function shortPath(projectRoot, absolutePath) {
   if (!dirs.length) return name;
   const prefix2 = dirs.length <= 2 ? dirs.join("/") : `\u2026/${dirs.slice(-2).join("/")}`;
   return `${prefix2}/${name}`;
-}
-function toLines(text) {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n");
-  if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
-  return lines;
 }
 var EDGE_BAND = 20;
 function positionRatio(offset3, size, band2) {
@@ -59735,6 +59853,7 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error, showGrou
   const group = useCompareGroup();
   const [localGapsOpen, setLocalGapsOpen] = import_react130.default.useState(false);
   const paneId = import_react130.default.useId();
+  const reportChanged = group?.reportChanged;
   const gapsOpen = group ? group.gapsOpen : localGapsOpen;
   const toggleGaps = group ? group.toggleGaps : () => setLocalGapsOpen((current) => !current);
   const mapPointer = (event) => {
@@ -59750,11 +59869,12 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error, showGrou
     body.scrollLeft = ratioX * (body.scrollWidth - body.clientWidth);
   };
   import_react130.default.useEffect(() => {
-    group?.reportChanged(paneId, changed);
-  }, [group, paneId, changed]);
+    reportChanged?.(paneId, changed);
+    return () => reportChanged?.(paneId, void 0);
+  }, [reportChanged, paneId, changed]);
   const hideFlags = import_react130.default.useMemo(() => {
     if (!lines?.length) return void 0;
-    const length2 = Math.min(lines.length, PREVIEW_LINES);
+    const length2 = lines.length;
     const flags = new Array(length2).fill(false);
     if (changed) {
       for (let index2 = 0; index2 < Math.min(changed.length, length2); index2 += 1) if (changed[index2]) flags[index2] = true;
@@ -59766,7 +59886,7 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error, showGrou
   }, [changed, group, lines]);
   const highlightFlags = showGroupChanges ? hideFlags : changed;
   const rows = import_react130.default.useMemo(
-    () => collapseUnchanged(lines?.slice(0, PREVIEW_LINES), hideFlags?.slice(0, PREVIEW_LINES), gapsOpen),
+    () => collapseUnchanged(lines, hideFlags, gapsOpen),
     [lines, hideFlags, gapsOpen]
   );
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
@@ -59798,32 +59918,6 @@ function FilePane({ step, path: path3, dirLabel, lines, changed, error, showGrou
     }
   );
 }
-function collapseUnchanged(lines, changed, expanded) {
-  if (!lines) return [];
-  const allLines = lines.map((text, index3) => ({ kind: "line", index: index3, text }));
-  if (expanded || !changed || changed.length === 0) return allLines;
-  const MIN_RUN = 4;
-  const rows = [];
-  let index2 = 0;
-  while (index2 < lines.length) {
-    if (changed[index2]) {
-      rows.push({ kind: "line", index: index2, text: lines[index2] });
-      index2 += 1;
-      continue;
-    }
-    let end = index2;
-    while (end < lines.length && !changed[end]) end += 1;
-    const count = end - index2;
-    if (count >= MIN_RUN) {
-      rows.push({ kind: "gap", from: index2, count });
-      index2 = end;
-      continue;
-    }
-    for (let cursor = index2; cursor < end; cursor += 1) rows.push({ kind: "line", index: cursor, text: lines[cursor] });
-    index2 = end;
-  }
-  return rows;
-}
 function buildAddressTree(projectName, projectRoot, absolutePath) {
   const parts = toPosix(projectRelative(projectRoot, absolutePath)).split("/").filter(Boolean);
   const file = parts.at(-1) ?? "";
@@ -59845,49 +59939,46 @@ function buildAddressTree(projectName, projectRoot, absolutePath) {
   node2.children = [...node2.children ?? [], { title: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-file", children: file }), key: `${node2.key}/${file}`, icon: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(FileTextOutlined_default2, {}) }];
   return [root];
 }
-function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2, compact, writtenLabel, hint, compareWith, variant = "both" }) {
+var SourceCompareBoundary = class extends import_react130.default.Component {
+  constructor() {
+    super(...arguments);
+    __publicField(this, "state", { failed: false });
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error) {
+    console.error("[dsh-vaspflow] file preview render failed:", error);
+  }
+  render() {
+    if (this.state.failed) return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp vaspflow-task-popover", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "vfp-cmp-empty", "data-error": "", role: "alert", children: "\u8BE5\u6587\u4EF6\u6682\u65F6\u65E0\u6CD5\u9884\u89C8\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00\u3002\u5176\u4ED6\u6587\u4EF6\u4ECD\u53EF\u67E5\u770B\u3002" }) });
+    return this.props.children;
+  }
+};
+function SourceCompare(props) {
+  const identity7 = JSON.stringify([props.source?.path, props.fileName, props.planId, props.taskIndex]);
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SourceCompareBoundary, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SourceCompareContent, { ...props }) }, identity7);
+}
+function SourceCompareContent({ projectRoot, projectName, slotLabel, source, fileName, files, planId, taskIndex, incarOverrides, rewritten, note: note2, compact, writtenLabel, hint, compareWith, variant = "both" }) {
   const [compared, setCompared] = import_react130.default.useState();
   import_react130.default.useEffect(() => {
     let cancelled = false;
     setCompared(void 0);
-    let hostStale = false;
-    const splitLines = (text) => {
-      const lines = text.replace(/\r\n?/g, "\n").split("\n");
-      if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
-      return lines;
-    };
-    const load = async () => {
-      const baked = files?.[fileName];
-      if (baked && typeof baked.source === "string" && typeof baked.written === "string") {
-        if (!cancelled) setCompared({ source: splitLines(baked.source), written: splitLines(baked.written) });
-        return;
-      }
-      if (variant !== "source" && planId && taskIndex !== void 0) {
-        try {
-          const url2 = `/plugins/dsh-vaspflow/build-inputs/file?planId=${encodeURIComponent(planId)}&taskIndex=${taskIndex}&name=${encodeURIComponent(fileName)}`;
-          const response = await fetch(url2);
-          if (response.status === 404) hostStale = true;
-          if (response.ok) {
-            const payload = await response.json();
-            if (typeof payload.source === "string" && typeof payload.written === "string") {
-              if (!cancelled) setCompared({ source: splitLines(payload.source), written: splitLines(payload.written) });
-              return;
-            }
-          }
-        } catch {
-        }
-      }
-      const state = await readProjectFile(projectRoot, source.path);
-      if (cancelled) return;
-      if (state.error) {
-        setCompared({ source: [], written: [], error: state.error });
-        return;
-      }
-      const written = Object.keys(incarOverrides ?? {}).length ? splitLines(applyIncarOverrides(state.text, incarOverrides)) : state.lines;
-      const notice = hostStale ? "\u5BBF\u4E3B\u7248\u672C\u8FC7\u65E7\uFF0C\u672A\u63D0\u4F9B\u5199\u5165\u5185\u5BB9\uFF08\u91CD\u542F DSH \u540E\u751F\u6548\uFF09" : rewritten ? "\u672A\u53D6\u5F97\u5BBF\u4E3B\u5199\u5165\u5185\u5BB9\uFF0C\u6B64\u5904\u4EC5\u4E3A\u6765\u6E90" : void 0;
-      setCompared({ source: state.lines, written, notice });
-    };
-    void load();
+    void loadSourceComparison({
+      projectRoot,
+      sourcePath: source.path,
+      fileName,
+      files,
+      planId,
+      taskIndex,
+      incarOverrides,
+      rewritten,
+      variant
+    }).then((value) => {
+      if (!cancelled) setCompared(value);
+    }).catch((error2) => {
+      if (!cancelled) setCompared({ source: [], error: error2 instanceof Error ? error2.message : String(error2) });
+    });
     return () => {
       cancelled = true;
     };
@@ -59895,7 +59986,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
   const overrideCount = Object.keys(incarOverrides ?? {}).length;
   const error = compared?.error;
   const marks = import_react130.default.useMemo(
-    () => compared && !error ? markDifferences(compared.source.slice(0, PREVIEW_LINES), compared.written.slice(0, PREVIEW_LINES)) : void 0,
+    () => compared?.written && !error && !compared.partial ? markDifferences(compared.source, compared.written) : void 0,
     [compared, error]
   );
   const same = marks ? marks.left.every((flag) => !flag) && marks.right.every((flag) => !flag) : false;
@@ -59904,8 +59995,8 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
     if (variant !== "source" || !compareWith?.length || !compared?.source?.length) return void 0;
     const flags = new Array(compared.source.length).fill(false);
     for (const text of compareWith) {
-      const written = toLines(text).slice(0, PREVIEW_LINES);
-      const result = markDifferences(compared.source.slice(0, PREVIEW_LINES), written);
+      const written = toLines(text);
+      const result = markDifferences(compared.source, written);
       result.left.forEach((flag, index2) => {
         if (flag) flags[index2] = true;
       });
@@ -59928,7 +60019,7 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
           " \u9879"
         ] }) : null
       ] }),
-      variant !== "source" && (error ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-same", "data-tone": "muted", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-same", children: compact ? "\u76F8\u540C" : "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-diff", children: [
+      compared?.partial ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-same", "data-tone": "muted", title: compared.notice, children: "\u90E8\u5206\u5185\u5BB9" }) : variant !== "source" && (error ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-same", "data-tone": "muted", children: "\u6765\u6E90\u4E0D\u53EF\u8BFB" }) : compared?.writeError ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-same", "data-tone": "muted", title: compared.writeError, children: "\u5199\u5165\u5185\u5BB9\u4E0D\u53EF\u7528" }) : marks && (same ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "vfp-cmp-same", children: compact ? "\u76F8\u540C" : "\u4E0E\u6765\u6E90\u76F8\u540C" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "vfp-cmp-diff", children: [
         compact ? "\u4E0D\u540C" : "\u4E0E\u6765\u6E90\u4E0D\u540C",
         delta && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("em", { className: "vfp-cmp-delta", children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("b", { children: [
@@ -59962,7 +60053,8 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
           path: source.path,
           dirLabel: writtenLabel ?? shortPath(projectRoot, source.path),
           lines: compared?.written,
-          changed: marks?.right
+          changed: marks?.right,
+          error: compared?.writeError || error
         }
       )
     ] }),
@@ -59985,12 +60077,6 @@ function SourceCompare({ projectRoot, projectName, slotLabel, source, fileName, 
 // src/client/batch-compare.tsx
 var import_react131 = __toESM(require("react"), 1);
 var import_jsx_runtime3 = require("react/jsx-runtime");
-var FILE_NAME_BY_SLOT = {
-  POSCAR: "POSCAR",
-  INCAR: "INCAR",
-  KPOINTS: "KPOINTS",
-  POTCAR: "POTCAR"
-};
 function taskLabel(dir) {
   const parts = toPosix(dir || "").split("/").filter(Boolean);
   return parts[parts.length - 1] || dir || "\u4EFB\u52A1";
@@ -60055,7 +60141,7 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
             const sourceParts = toPosix(source.path).split("/").filter(Boolean);
             const sourceDirs = new Set(group.sources.map((entry) => toPosix(entry.path).split("/").slice(0, -1).join("/").toLowerCase()));
             const sourceName = group.sources.length > 1 && sourceDirs.size === 1 ? (sourceParts[sourceParts.length - 1] || "\u6A21\u677F").replace(/\.[^.]+$/, "") : sourceParts[sourceParts.length - 2] || "\u6A21\u677F";
-            const slotFileName = group.key === "submit" ? toPosix(tasks[source.tasks[0]]?.submitSrc || "").split("/").pop() || "submit.sh" : FILE_NAME_BY_SLOT[group.key] ?? group.key;
+            const slotFileName = group.fileNames[source.tasks[0]];
             const compareWith = source.tasks.map((index2) => results[index2]?.files?.[slotFileName]?.written).filter((text) => typeof text === "string");
             return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(CompareGroupProvider, { id: source.path, children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "vfp-batch-row", children: [
               /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "vfp-batch-row-source", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -60069,13 +60155,14 @@ function BatchCompare({ batch, projectRoot, projectName, planId, maxWidth }) {
                   hint: projectRelative(projectRoot, source.path),
                   compareWith,
                   source: { path: source.path },
-                  fileName: ""
+                  fileName: slotFileName,
+                  files: results[source.tasks[0]]?.files
                 }
               ) }),
               /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("ul", { className: "vfp-batch-children", children: shown.map((index2) => {
                 const task = tasks[index2];
                 const result = results[index2];
-                const fileName = group.key === "submit" ? toPosix(task?.submitSrc || "").split("/").pop() || "submit.sh" : FILE_NAME_BY_SLOT[group.key] ?? group.key;
+                const fileName = group.fileNames[index2];
                 return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("li", { className: "vfp-batch-leaf", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                   SourceCompare,
                   {
@@ -101440,10 +101527,6 @@ function BuildPreviewDetail({ detail }) {
   const templateFullRel = task.template ? projectRelative(projectRoot, absoluteTaskPath(projectRoot, task.template)) : "";
   const templateRel = templateFullRel ? shortenPath(templateFullRel) : "";
   const templateShared = templateFullRel ? summary?.templates.find((entry) => entry.rel === templateFullRel)?.count ?? 0 : 0;
-  const extras = (task.extraFiles ?? []).map((item, index2) => ({
-    name: item.dest || item.fromTemplate || basenameOf(item.src) || `\u989D\u5916\u6587\u4EF6 ${index2 + 1}`,
-    path: (result?.sources ?? {})[item.dest || item.fromTemplate || basenameOf(item.src) || ""]
-  }));
   const [hoverSlot, setHoverSlot] = (0, import_react171.useState)(null);
   const [pinnedSlot, setPinnedSlot] = (0, import_react171.useState)(null);
   const [alignOffset, setAlignOffset] = (0, import_react171.useState)(0);
@@ -101580,7 +101663,7 @@ function BuildPreviewDetail({ detail }) {
           slot.key
         );
         if (!slot.path) return row;
-        const destination = slot.key === "submit" ? basenameOf(task.submitSrc) : slot.key;
+        const destination = slot.fileName;
         const open = hoverSlot === slot.key || pinnedSlot === slot.key;
         return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
           popover_default,
@@ -101646,10 +101729,6 @@ function BuildPreviewDetail({ detail }) {
           slot.key
         );
       }) }),
-      extras.length ? /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-inherit-extras", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "vfp-inherit-name", children: "\u989D\u5916\u6587\u4EF6" }),
-        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: extras.map((extra) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("code", { title: extra.path || "", children: extra.name }, extra.name)) })
-      ] }) : null,
       !result && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "vfp-inherit-empty", children: "\u5C1A\u672A\u751F\u6210\u9884\u89C8\uFF0C\u6765\u6E90\u4E3A\u4EFB\u52A1\u58F0\u660E\u503C\uFF0C\u672A\u7ECF\u89E3\u6790\u6821\u9A8C\u3002" })
     ] }),
     /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "vfp-build-detail-section", children: [
@@ -104814,9 +104893,10 @@ function BuildInputsToolRow({ block }) {
                 if (flags.length && flags.every(Boolean)) writtenIndices2.push(entry.index);
               }
               if (writtenIndices2.length > 0) {
-                const inferred = `\u5DF2\u5199\u5165 ${writtenIndices2.length} \u4E2A\u4EFB\u52A1\uFF08\u6309\u76EE\u6807\u6587\u4EF6\u5B58\u5728\u63A8\u65AD\uFF09`;
-                saveBuildOutcome(originalPreview.planId, { phase: "done", selectedIndices: writtenIndices2, writeRows: {}, message: inferred, requestError: false });
-                setPhase("done");
+                const inferred = `${writtenIndices2.length} \u4E2A\u4EFB\u52A1\u7684\u76EE\u6807\u6587\u4EF6\u5DF2\u5B58\u5728\uFF0C\u4F46\u7F3A\u5C11\u786E\u8BA4\u8BB0\u5F55\uFF1B\u5199\u5165\u72B6\u6001\u5F85\u6838\u67E5`;
+                saveBuildOutcome(originalPreview.planId, { phase: "unavailable", selectedIndices: writtenIndices2, writeRows: {}, message: inferred, requestError: true });
+                setPhase("unavailable");
+                setRequestError(true);
                 setMessage(inferred);
                 return;
               }
@@ -104861,7 +104941,7 @@ function BuildInputsToolRow({ block }) {
       const sourceName = item.kind === "file" ? item.file : item.relPath;
       setMessage(`\u4EFB\u52A1 ${tasks[index2].dir} \u5DF2\u6539\u7528 ${sourceName}\uFF1B\u9884\u89C8\u5DF2\u66F4\u65B0\uFF0C\u5C1A\u672A\u5199\u5165\u78C1\u76D8`);
       recordAction(`${tasks[index2].dir}\uFF1A${item.kind === "file" ? "POSCAR" : "INCAR/KPOINTS/POTCAR"} \u6765\u6E90\u6539\u4E3A ${sourceName}\uFF0C\u9884\u89C8\u5DF2\u66F4\u65B0`);
-      if (focused === index2) panelStore.setSelectedBuildTask({ task: result.tasks[index2], result: result.results?.[index2], projectRoot: result.projectRoot || args.projectRoot || "", linkPotcar: !!args.linkPotcar, phase: "preview", batch: { tasks: result.tasks ?? [], results: result.results ?? [] } });
+      if (focused === index2) panelStore.setSelectedBuildTask({ task: result.tasks[index2], result: result.results?.[index2], projectRoot: result.projectRoot || args.projectRoot || "", linkPotcar: !!args.linkPotcar, phase: "preview", batch: { tasks: result.tasks ?? [], results: result.results ?? [] }, planId: result.planId, taskIndex: index2 });
     } catch (caught) {
       setRequestError(true);
       setMessage(caught instanceof Error ? caught.message : String(caught));

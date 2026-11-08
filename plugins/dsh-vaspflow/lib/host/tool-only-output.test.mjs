@@ -77,6 +77,23 @@ test('a rejected text candidate gets one tool-only retry without publishing the 
   assert.deepEqual(seen, repaired);
 });
 
+test('internal compaction and title calls bypass the gate while ordinary agent calls stay gated', async () => {
+  let listener;
+  let retries = 0;
+  apply({ on(_name, handler) { listener = handler; }, get() { return { stream() { retries++; return stream([call('vasp_scan'), finish]); } }; } });
+  const prose = [{ type: 'block-end', index: 0, block: { type: 'text', text: 'Internal summary' } }, { type: 'finish', reason: { kind: 'stop' } }];
+  for (const purpose of ['compaction', 'title']) {
+    const seen = [];
+    for await (const chunk of listener({ ...options, purpose }, () => stream(prose))) seen.push(chunk);
+    assert.deepEqual(seen, prose);
+  }
+  assert.equal(retries, 0);
+  const agent = [];
+  for await (const chunk of listener(options, () => stream(prose))) agent.push(chunk);
+  assert.deepEqual(agent, [call('vasp_scan'), finish]);
+  assert.equal(retries, 1);
+});
+
 test('an invalid retry still fails closed, and an incomplete response is not retried', async () => {
   const invalid = [{ type: 'block-end', index: 0, block: { type: 'text', text: '正文' } }, { type: 'finish', reason: { kind: 'stop' } }];
   let attempts = 0;

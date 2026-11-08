@@ -33,7 +33,11 @@ export function CompareGroupProvider({ id, children }: { id: string; children: R
   const [version, setVersion] = React.useState(0);
 
   const reportChanged = React.useCallback((paneId: string, flags?: boolean[]) => {
-    const next = flags ?? [];
+    if (!flags) {
+      if (panes.delete(paneId)) setVersion((current) => current + 1);
+      return;
+    }
+    const next = flags;
     if (sameFlags(panes.get(paneId) ?? [], next)) return;
     panes.set(paneId, next);
     setVersion((current) => current + 1);
