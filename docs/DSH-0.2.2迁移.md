@@ -2,19 +2,11 @@
 
 本分支的 VASPFlow 为 0.4.0，精确支持 DSH 0.2.2-rc.1，Node >=24.9.0。截至 2026-11-09，这也是 npm 的 latest / next，仍为预发布版。升级前的修复已推送到 `codex/publish-non-video`，提交 `7ae93c7`；不包含本地视频和录制演示素材。
 
-## 启动当前目录
+## 安装和启动
 
-Windows 双击根目录 `启动-新版Web测试.bat`，或运行：
+使用 Node >=24.9.0、pnpm 和 DSH 0.2.2-rc.1，按 [README 的安装步骤](../README.md#快速开始)构建并安装插件，再运行 `dsh web`。如果要保留旧版环境，先将 `DSH_HOME` 指向一个新的目录，再初始化 Web profile 并安装插件。
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dsh-profile.ps1 -ProfileName web-dev
-```
-
-需要 pnpm 在 PATH 中；首次运行需要联网下载。启动器使用官方 SHA256 校验 Node 24 压缩包，安装固定的 `@deepseek-ai/dsh@0.2.2-rc.1`，构建插件并用官方 `dsh plugin` 命令安装。运行时位于 `output/dsh-upgrade-runtime/host`，配置和会话位于 `output/dsh-upgrade-runtime/user-home`。独立 Node 不替换系统 Node，不读取旧版 DSH_HOME 的账号配置；首次使用请在新界面设置模型。
-
-默认端口 3090；浏览器自动打开带本次认证信息的地址。开发模式会在后台监视客户端代码并重新构建，前端变更后刷新页面，host 代码变更需重启。端口已占用时启动器会提示，不会终止任何已有进程。日志位于 `output/dsh-upgrade-runtime/logs`；可用 `-Port 3091` 指定另一端口，或 `-NoOpen -NoWatch` 仅启动服务。
-
-原有两个 Desktop 启动入口仍用于 Desktop，默认目录改为 `D:\Apps\DeepSeekHarness-0.2.2-rc.1`。需要先另外安装同版本官方 Desktop、初始化新 profile 并安装本插件；也可向 `scripts/start-desktop.ps1` 传 `-DesktopHome` 和 `-DesktopExe`。本次实际启动验证覆盖 Web 运行时，没有验证新版 Electron 外壳。旧版 Desktop 的开发 junction 指向本目录时会看到新版插件，勿再用旧版运行时加载本目录；旧环境可指向升级前的副本或上述旧分支。
+官方 Desktop 使用独立的 `desktop` profile。请安装同版本 Desktop，再从插件页安装 VASPFlow。旧版 Desktop 的开发链接如果仍指向本目录，请将它改到升级前的副本。
 
 ## 接口改动
 
@@ -50,7 +42,7 @@ $env:DSH_RUNTIME_ROOT = Join-Path $runtime 'host'
 & $nodeExe plugins/dsh-vaspflow/scripts/verify-dsh-runtime.mjs
 ```
 
-已通过官方插件安装、预设激活、10 个 VASP 工具作用域隔离、原生执行器、切换工作目录后的默认路径、额外文本文件预览、HTTP 确认写入及确认结果注入后续提示词。新启动入口已实际启动并通过 ping 检查。本次未进行收费模型对话或 Electron UI 人工验收。
+已通过官方插件安装、预设激活、10 个 VASP 工具作用域隔离、原生执行器、切换工作目录后的默认路径、额外文本文件预览、HTTP 确认写入及确认结果注入后续提示词。浏览器回归已验证 VASP 面板右侧停靠、拖动宽度、关闭重开和窗口缩放。本次未进行收费模型对话或 Electron UI 人工验收。
 
 ## 回退
 

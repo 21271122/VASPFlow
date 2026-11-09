@@ -42,10 +42,6 @@
 
 ## 快速开始
 
-> Windows 本地测试：双击 `启动-新版Web测试.bat`。首次准备独立 Node 24 / DSH 0.2.2-rc.1，安装并构建插件，再打开 Web 界面；需要已安装 pnpm。配置与会话放在 `output/dsh-upgrade-runtime/user-home`，不会迁移旧环境的账号或会话。详见 [升级说明](docs/DSH-0.2.2迁移.md)。
-
-以下步骤面向手动安装用户。
-
 ### 1. 前置条件
 
 - **Node.js** —— 版本 >=24.9.0；
@@ -57,6 +53,10 @@
 ```bash
 git clone https://github.com/21271122/VASPFlow.git
 cd VASPFlow
+cd plugins/dsh-vaspflow
+pnpm install --frozen-lockfile
+pnpm run build
+cd ../..
 
 # 安装包含 VASP 预设的插件 bundle。web 是 Web GUI 的 profile 名。
 node ./plugins/dsh-vaspflow/scripts/install-dsh.mjs install --profile web --package ./plugins/dsh-vaspflow

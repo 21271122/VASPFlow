@@ -18,8 +18,8 @@ param(
   [Parameter(Mandatory = $true)]
   [ValidateSet('dev', 'release')]
   [string]$Mode,
-  [string]$DesktopHome = 'D:\Apps\DeepSeekHarness-0.2.2-rc.1\desktop-home',
-  [string]$DesktopExe = 'D:\Apps\DeepSeekHarness-0.2.2-rc.1\Desktop\DeepSeek Harness.exe',
+  [string]$DesktopHome = 'D:\Apps\DeepSeekHarness-0.2.0-rc.2\desktop-home',
+  [string]$DesktopExe = 'D:\Apps\DeepSeekHarness-0.2.0-rc.2\Desktop\DeepSeek Harness.exe',
   [switch]$NoLaunch,
   [switch]$NoWatch,
   # Only for dry runs: with -NoLaunch on a scratch profile, skip the running-app guard.
@@ -49,8 +49,8 @@ try { & node scripts/build-client.mjs } finally { Pop-Location }
 
 function Remove-Link {
   param([string]$Path)
-  # Delete the junction itself without recursing into its target.
-  [System.IO.Directory]::Delete($Path)
+  # rmdir removes a junction itself and never touches its target.
+  & cmd /c rmdir "$Path" | Out-Null
 }
 
 function Set-DevLink {
@@ -62,7 +62,8 @@ function Set-DevLink {
     # A previous run left an empty directory behind; drop it.
     Remove-Item $pluginPath -Force
   } elseif ($item) {
-    $backup = "$pluginPath.release-backup-$(Get-Date -Format yyyyMMddHHmmssfff)"
+    $backup = "$pluginPath.release-backup"
+    if (Test-Path $backup) { Remove-Item $backup -Recurse -Force }
     Move-Item $pluginPath $backup
     Write-Host "[2/4] Previous install kept at $backup"
   }
@@ -135,6 +136,6 @@ if ($NoLaunch) {
 if ($Mode -eq 'dev' -and -not $NoWatch) {
   # Rebuild lib/client.js on every save; refresh the page to see the change.
   $watchCommand = "`$host.UI.RawUI.WindowTitle='VASPFlow client watch'; Set-Location '$source'; node scripts/build-client.mjs --watch"
-  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-NoProfile', '-Command', $watchCommand) -WindowStyle Hidden
-  Write-Host 'Background watcher started (lib/client.js rebuilds on save).'
+  Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoExit', '-NoProfile', '-Command', $watchCommand)
+  Write-Host 'Watcher window opened (lib/client.js rebuilds on save).'
 }
