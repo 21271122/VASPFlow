@@ -51,3 +51,12 @@ preset-construction/build/sample-vasp/
 /output/
 /test/
 plugins/dsh-vaspflow/.vaspflow-development
+
+# ---- local DSH launch scripts ----
+/启动-开发测试版.bat
+/启动-正式用户版.bat
+/启动-新版Web测试.bat
+/scripts/setup-dsh-runtime.ps1
+/scripts/start-desktop.ps1
+/scripts/start-dsh-profile.ps1
+/scripts/sync-desktop-plugin.ps1
