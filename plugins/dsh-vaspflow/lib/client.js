@@ -103018,11 +103018,12 @@ function mountPanelLayout(opts) {
     if (!isOpen()) return false;
     const w = `${Math.round(width)}px`;
     const hasOurs = tracks.length === baseTracks.length + 1 && baseTracks.length > 0;
+    const columnIndex = insertionIndex(tracks, hasOurs);
+    if (col !== null) col.style.gridArea = `1 / ${columnIndex + 1} / 2 / ${columnIndex + 2}`;
     if (hasOurs) {
-      const at2 = insertionIndex(tracks, true);
-      if (tracks[at2] === w) return false;
+      if (tracks[columnIndex] === w) return false;
       const next3 = [...tracks];
-      next3[at2] = w;
+      next3[columnIndex] = w;
       lastWritten = next3.join(" ");
       frame.style.gridTemplateColumns = lastWritten;
       if (window.__VASPFLOW_DEBUG__) {
@@ -103031,9 +103032,8 @@ function mountPanelLayout(opts) {
       return true;
     }
     baseTracks = tracks;
-    const at = insertionIndex(tracks);
     const next2 = [...tracks];
-    next2.splice(at, 0, w);
+    next2.splice(columnIndex, 0, w);
     lastWritten = next2.join(" ");
     frame.style.gridTemplateColumns = lastWritten;
     if (window.__VASPFLOW_DEBUG__) {
@@ -103045,7 +103045,7 @@ function mountPanelLayout(opts) {
     frame = frameEl;
     col = document.createElement("div");
     col.dataset.dshVaspflowPanel = "";
-    col.style.cssText = "display:flex;flex-direction:column;min-width:0;overflow:hidden;border-left:1px solid var(--dsw-alias-border-l2,#e5e6eb);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);font-family:var(--dsw-font-family,sans-serif);font-size:13px;position:relative";
+    col.style.cssText = "display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;border-left:1px solid var(--dsw-alias-border-l2,#e5e6eb);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);font-family:var(--dsw-font-family,sans-serif);font-size:13px;position:relative";
     const aionuiCol = frame.querySelector("[data-aionui-preview-col], [data-aionui-explorer-col]");
     if (aionuiCol !== null) frame.insertBefore(col, aionuiCol);
     else frame.appendChild(col);

@@ -64,7 +64,8 @@
     "prepublishOnly": "npm run verify",
     "test": "node --test lib/host/*.test.mjs src/client/*.test.mjs",
     "verify": "node scripts/verify.mjs",
-    "test:runtime": "node scripts/verify-dsh-runtime.mjs"
+    "test:runtime": "node scripts/verify-dsh-runtime.mjs",
+    "test:layout": "node scripts/verify-layout.mjs"
   },
   "engines": {
     "node": ">=24.9.0",
@@ -75,6 +76,7 @@
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "esbuild": "^0.28.2",
+    "playwright-core": "^1.65.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-test-renderer": "18.3.1",

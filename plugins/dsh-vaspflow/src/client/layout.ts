@@ -146,12 +146,16 @@ export function mountPanelLayout(opts: PanelLayoutOptions): PanelLayoutApi {
     if (!isOpen()) return false; // closed: hands off entirely
     const w = `${Math.round(width)}px`;
     const hasOurs = tracks.length === baseTracks.length + 1 && baseTracks.length > 0;
+    // DSH 0.2.2 places shell.bottom across the entire grid. Auto-placement
+    // would put an appended panel on the next row, below the sidebar.
+    // Keep our panel in row 1 and in the exact track we own.
+    const columnIndex = insertionIndex(tracks, hasOurs);
+    if (col !== null) col.style.gridArea = `1 / ${columnIndex + 1} / 2 / ${columnIndex + 2}`;
     if (hasOurs) {
       // Our track exists; refresh its width if it changed (drag).
-      const at = insertionIndex(tracks, true);
-      if (tracks[at] === w) return false;
+      if (tracks[columnIndex] === w) return false;
       const next = [...tracks];
-      next[at] = w;
+      next[columnIndex] = w;
       lastWritten = next.join(' ');
       frame.style.gridTemplateColumns = lastWritten;
       if ((window as any).__VASPFLOW_DEBUG__) {
@@ -162,9 +166,8 @@ export function mountPanelLayout(opts: PanelLayoutOptions): PanelLayoutApi {
     // aionui (or the shell) rewrote the grid without our track: adopt as base
     // and insert ours.
     baseTracks = tracks;
-    const at = insertionIndex(tracks);
     const next = [...tracks];
-    next.splice(at, 0, w);
+    next.splice(columnIndex, 0, w);
     lastWritten = next.join(' ');
     frame.style.gridTemplateColumns = lastWritten;
     if ((window as any).__VASPFLOW_DEBUG__) {
@@ -178,7 +181,7 @@ export function mountPanelLayout(opts: PanelLayoutOptions): PanelLayoutApi {
 
     col = document.createElement('div');
     col.dataset.dshVaspflowPanel = '';
-    col.style.cssText = 'display:flex;flex-direction:column;min-width:0;overflow:hidden;border-left:1px solid var(--dsw-alias-border-l2,#e5e6eb);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);font-family:var(--dsw-font-family,sans-serif);font-size:13px;position:relative';
+    col.style.cssText = 'display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;border-left:1px solid var(--dsw-alias-border-l2,#e5e6eb);background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#1f2329);font-family:var(--dsw-font-family,sans-serif);font-size:13px;position:relative';
     // Insert BEFORE aionui's columns so they stay rightmost (aionui positions
     // its drag handles right-to-left assuming explorer is the last column).
     const aionuiCol = frame.querySelector('[data-aionui-preview-col], [data-aionui-explorer-col]');
